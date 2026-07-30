@@ -1,0 +1,48 @@
+{
+  "name": "mayar",
+  "version": "1.1.0",
+  "description": "Zero-dependency Node.js CLI for the Mayar API (production endpoint).",
+  "bin": {
+    "mayar": "bin/mayar.js"
+  },
+  "main": "src/cli.js",
+  "scripts": {
+    "start": "node bin/mayar.js",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@mayaross/auth": "^1.0.0"
+  },
+  "bundleDependencies": [
+    "@mayaross/auth"
+  ],
+  "keywords": [
+    "mayar",
+    "mayar-api",
+    "payments",
+    "invoice",
+    "cli",
+    "indonesia",
+    "qris"
+  ],
+  "author": "Frianto Moerdowo <frianto@duck.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/mayarid/mayar-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mayarid/mayar-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mayarid/mayar-cli/issues"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}

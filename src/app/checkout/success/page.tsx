@@ -192,62 +192,78 @@ export default function CheckoutSuccessPage() {
                 Lihat Invoice
               </Link>
             </div>
+            
+            {order.payment_method?.includes('Mayar') && (
+              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+                <div style={{ padding: '16px', width: '100%', borderRadius: 'var(--r-md)', background: 'rgba(34, 197, 94, 0.1)', color: 'var(--c-teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                  <CheckCircle2 size={24} />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>Sistem memverifikasi otomatis.</span>
+                </div>
+                {order.payment_link && (
+                  <Link href={order.payment_link} className="btn btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', padding: '14px', fontSize: '1rem', fontWeight: 600 }}>
+                    Lanjutkan Pembayaran
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Payment Instructions */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-            {/* Transfer Bank */}
-            <div style={{ background: 'var(--c-surface-1)', padding: '32px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--c-ink)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--c-surface-2)', borderRadius: '50%', fontSize: '0.9rem' }}>1</span>
-                Transfer Bank
-              </h3>
-              {bankMethods.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {bankMethods.map((method) => (
-                    <div key={method.id} style={{ padding: '16px', border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)', background: 'var(--bg-color)' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--c-ink)', fontSize: '1.1rem', marginBottom: '8px' }}>{method.bank_name}</div>
-                      <div style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem', marginBottom: '4px' }}>No. Rekening:</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--c-surface-2)', padding: '12px', borderRadius: 'var(--r-sm)', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '1.2rem', fontFamily: 'monospace', color: 'var(--c-ink)', fontWeight: 600 }}>{method.account_number}</span>
-                      </div>
-                      <div style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem' }}>a.n. <strong style={{ color: 'var(--c-ink)' }}>{method.account_name}</strong></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem' }}>Metode transfer bank belum tersedia.</p>
-              )}
-            </div>
-
-            {/* QRIS */}
-            <div style={{ background: 'var(--c-surface-1)', padding: '32px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--c-ink)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--c-surface-2)', borderRadius: '50%', fontSize: '0.9rem' }}>Atau</span>
-                Scan QRIS
-              </h3>
-              {qrisMethods.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  {qrisMethods.map((method) => (
-                    <div key={method.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px', border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)', background: 'var(--bg-color)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--c-ink)', marginBottom: '16px' }}>{method.bank_name}</div>
-                      {method.qr_image_url && (
-                        <div style={{ background: '#fff', padding: '16px', borderRadius: 'var(--r-md)', border: '1px solid #eee' }}>
-                          <img src={method.qr_image_url} alt={`QRIS ${method.bank_name}`} style={{ width: '200px', height: '200px', objectFit: 'contain' }} />
+          {/* Payment Instructions - Hide for Mayar */}
+          {!order.payment_method?.includes('Mayar') && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                {/* Transfer Bank */}
+                <div style={{ background: 'var(--c-surface-1)', padding: '32px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--c-ink)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--c-surface-2)', borderRadius: '50%', fontSize: '0.9rem' }}>1</span>
+                    Transfer Bank
+                  </h3>
+                  {bankMethods.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {bankMethods.map((method) => (
+                        <div key={method.id} style={{ padding: '16px', border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)', background: 'var(--bg-color)' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--c-ink)', fontSize: '1.1rem', marginBottom: '8px' }}>{method.bank_name}</div>
+                          <div style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem', marginBottom: '4px' }}>No. Rekening:</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--c-surface-2)', padding: '12px', borderRadius: 'var(--r-sm)', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '1.2rem', fontFamily: 'monospace', color: 'var(--c-ink)', fontWeight: 600 }}>{method.account_number}</span>
+                          </div>
+                          <div style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem' }}>a.n. <strong style={{ color: 'var(--c-ink)' }}>{method.account_name}</strong></div>
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <p style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem' }}>Metode transfer bank belum tersedia.</p>
+                  )}
                 </div>
-              ) : (
-                <p style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem' }}>Metode QRIS belum tersedia.</p>
-              )}
-            </div>
-          </div>
 
-          {/* Upload Action */}
-          <div id="upload-section" style={{ background: 'var(--c-surface-1)', padding: '40px 32px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)', textAlign: 'center', marginTop: '16px' }}>
-            {uploaded ? (
+                {/* QRIS */}
+                <div style={{ background: 'var(--c-surface-1)', padding: '32px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--c-ink)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--c-surface-2)', borderRadius: '50%', fontSize: '0.9rem' }}>Atau</span>
+                    Scan QRIS
+                  </h3>
+                  {qrisMethods.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      {qrisMethods.map((method) => (
+                        <div key={method.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px', border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)', background: 'var(--bg-color)' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--c-ink)', marginBottom: '16px' }}>{method.bank_name}</div>
+                          {method.qr_image_url && (
+                            <div style={{ background: '#fff', padding: '16px', borderRadius: 'var(--r-md)', border: '1px solid #eee' }}>
+                              <img src={method.qr_image_url} alt={`QRIS ${method.bank_name}`} style={{ width: '200px', height: '200px', objectFit: 'contain' }} />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem' }}>Metode QRIS belum tersedia.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Action */}
+              <div id="upload-section" style={{ background: 'var(--c-surface-1)', padding: '40px 32px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)', textAlign: 'center', marginTop: '16px' }}>
+                {uploaded ? (
                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(34, 197, 94, 0.1)', color: 'var(--c-teal)', display: 'grid', placeItems: 'center', marginBottom: 20 }}>
                    <CheckCircle2 size={32} />
@@ -331,6 +347,8 @@ export default function CheckoutSuccessPage() {
                 </>
             )}
           </div>
+          </>
+          )}
         </div>
       </main>
     </div>

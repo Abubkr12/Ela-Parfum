@@ -1,12 +1,13 @@
-import { createServerSupabase } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRupiah } from "@/lib/types";
 import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import PrintButton from "./PrintButton";
 
-export default async function InvoiceRegularPage({ params }: { params: { id: string } }) {
-  const supabase = await createServerSupabase();
-  const { id } = params;
+export default async function InvoiceRegularPage({ params }: { params: Promise<{ id: string }> }) {
+  const supabase = createAdminClient();
+  const { id } = await params;
 
   // We fetch using a public call or user authenticated call.
   // Since this is for customer, we verify if they are logged in or just use the order ID.
@@ -40,26 +41,29 @@ export default async function InvoiceRegularPage({ params }: { params: { id: str
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, color: "#666", textDecoration: "none", fontWeight: 500 }}>
             <ArrowLeft size={16} /> Kembali
           </Link>
-          <button 
-            onClick={() => window.print()}
-            style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--c-gold)", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
-          >
-            <Printer size={16} /> Cetak Invoice
-          </button>
+          <PrintButton />
         </div>
 
         {/* Invoice Paper */}
         <div style={{ background: "#fff", padding: "40px 50px", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", color: "#222" }}>
           
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #eee", paddingBottom: 24, marginBottom: 32 }}>
+          {/* Top Header Section */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 40, borderBottom: "2px solid #eee", paddingBottom: 24 }}>
+            {/* Left: Logo & Company Info */}
             <div>
-              <h1 style={{ margin: 0, fontSize: "2rem", color: "#111", letterSpacing: "-0.5px" }}>INVOICE</h1>
-              <p style={{ color: "#666", margin: "4px 0 0 0" }}>#{order.order_code}</p>
+              <img src="/assets/invoice/elaparfum_logo.png" alt="Ela Parfum" style={{ height: 60, marginBottom: 12, objectFit: "contain" }} />
+              <p style={{ margin: 0, fontSize: "0.9rem", color: "#666", lineHeight: "1.5" }}>
+                <strong style={{ color: "#333" }}>Ela Parfum Pusat</strong><br />
+                Jl. Condet Raya, Kramat Jati<br />
+                Jakarta Timur, DKI Jakarta 13520<br />
+                Email: admin@elaparfum.com
+              </p>
             </div>
+
+            {/* Right: Invoice Text */}
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "1.5rem", fontWeight: "bold", fontFamily: "var(--font-display)", color: "var(--c-gold)" }}>Ela Parfum</div>
-              <p style={{ color: "#666", margin: "4px 0 0 0", fontSize: "0.9rem" }}>Jl. Contoh Alamat No. 123<br/>Jakarta Selatan, Indonesia</p>
+              <h1 style={{ margin: 0, fontSize: "2.5rem", color: "#111", letterSpacing: "-1px" }}>INVOICE</h1>
+              <p style={{ color: "#666", margin: "4px 0 0 0" }}>#{order.order_code}</p>
             </div>
           </div>
 
@@ -100,8 +104,8 @@ export default async function InvoiceRegularPage({ params }: { params: { id: str
                     <div style={{ fontSize: "0.85rem", color: "#666" }}>Ukuran: {item.size_label}</div>
                   </td>
                   <td style={{ padding: "16px", textAlign: "center", color: "#444" }}>{item.quantity}</td>
-                  <td style={{ padding: "16px", textAlign: "right", color: "#444" }}>{formatRupiah(item.price_at_time)}</td>
-                  <td style={{ padding: "16px", textAlign: "right", fontWeight: 600, color: "#111" }}>{formatRupiah(item.price_at_time * item.quantity)}</td>
+                  <td style={{ padding: "16px", textAlign: "right", color: "#444" }}>{formatRupiah(item.price)}</td>
+                  <td style={{ padding: "16px", textAlign: "right", fontWeight: 600, color: "#111" }}>{formatRupiah(item.price * item.quantity)}</td>
                 </tr>
               ))}
             </tbody>
@@ -118,22 +122,22 @@ export default async function InvoiceRegularPage({ params }: { params: { id: str
                 <span>Ongkos Kirim</span>
                 <span>{formatRupiah(order.shipping_cost)}</span>
               </div>
-              {order.discount_amount > 0 && (
+              {order.discount > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", color: "#10b981" }}>
                   <span>Diskon</span>
-                  <span>-{formatRupiah(order.discount_amount)}</span>
+                  <span>-{formatRupiah(order.discount)}</span>
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", padding: "16px 0", borderTop: "2px solid #ddd", marginTop: 8, fontWeight: "bold", fontSize: "1.2rem", color: "#111" }}>
                 <span>TOTAL</span>
-                <span style={{ color: "var(--c-gold)" }}>{formatRupiah(order.total_amount)}</span>
+                <span style={{ color: "var(--c-gold)" }}>{formatRupiah(order.total)}</span>
               </div>
             </div>
           </div>
 
           <div style={{ marginTop: 60, borderTop: "1px dashed #ddd", paddingTop: 24, textAlign: "center", color: "#666", fontSize: "0.9rem" }}>
-            <p>Terima kasih telah berbelanja di Ela Parfum!</p>
-            <p>Jika ada pertanyaan, silakan hubungi kami melalui WhatsApp.</p>
+            <p style={{ margin: 0 }}>Terima kasih telah berbelanja di Ela Parfum!</p>
+            <p style={{ margin: "4px 0 0 0" }}>Jika ada pertanyaan, silakan hubungi kami melalui WhatsApp.</p>
           </div>
           
         </div>

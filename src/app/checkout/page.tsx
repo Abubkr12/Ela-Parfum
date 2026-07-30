@@ -29,8 +29,7 @@ export default function CheckoutPage() {
   const [loadingRates, setLoadingRates] = useState(false);
   const [selectedCourier, setSelectedCourier] = useState<any>(null);
   const [shippingCost, setShippingCost] = useState(0);
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"QRIS" | "TUNAI">("QRIS");
 
   const [voucherCode, setVoucherCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -90,17 +89,6 @@ export default function CheckoutPage() {
         fetchRates(defaultAddr.region_code);
       }
 
-      const { data: methods } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('is_active', true)
-        .order('type', { ascending: true })
-        .order('created_at', { ascending: false });
-
-      if (methods && methods.length > 0) {
-        setPaymentMethods(methods);
-        setSelectedPaymentMethod(methods[0]);
-      }
       setLoading(false);
     }
     
@@ -108,10 +96,10 @@ export default function CheckoutPage() {
   }, [router, supabase]);
 
   useEffect(() => {
-    if (!loading && cart.items.length === 0) {
+    if (!loading && !submitting && cart.items.length === 0) {
       router.push("/keranjang");
     }
-  }, [loading, cart, router]);
+  }, [loading, submitting, cart, router]);
 
   const handleSelectAddress = (addr: any) => {
     setSelectedAddress(addr);
@@ -146,7 +134,7 @@ export default function CheckoutPage() {
       setError("Silakan pilih opsi pengiriman terlebih dahulu.");
       return;
     }
-    if (!selectedPaymentMethod) {
+    if (!paymentMethod) {
       setError("Silakan pilih metode pembayaran terlebih dahulu.");
       return;
     }
@@ -160,7 +148,10 @@ export default function CheckoutPage() {
       data.append('address', selectedAddress.full_address);
       data.append('shippingCost', shippingCost.toString());
       data.append('courierInfo', `${selectedCourier.courier_name} - ${selectedCourier.courier_service_name}`);
-      data.append('paymentMethodId', selectedPaymentMethod.id.toString());
+      data.append('paymentMethod', paymentMethod);
+      data.append('originAreaId', selectedCourier.origin_area_id || "");
+      data.append('originName', selectedCourier.origin_name || "");
+      data.append('destinationAreaId', selectedAddress.region_code || "");
       if (discountAmount > 0) {
         data.append('voucherCode', voucherCode.trim());
       }
@@ -303,6 +294,9 @@ export default function CheckoutPage() {
                           setDiscountAmount(0); // reset discount on shipping change
                           setVoucherCode("");
                           setVoucherSuccess("");
+                          if (rate.courier_service_code !== "pickup") {
+                            setPaymentMethod("QRIS");
+                          }
                         }}
                         style={{ accentColor: 'var(--c-gold)' }}
                       />
@@ -326,47 +320,75 @@ export default function CheckoutPage() {
                 <CreditCard size={18} style={{ color: "var(--c-gold)" }} />
                 Metode Pembayaran
               </h2>
-              {paymentMethods.length > 0 ? (
+              {selectedCourier?.courier_service_code === 'pickup' ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {paymentMethods.map((method) => (
-                    <label key={method.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, border: selectedPaymentMethod?.id === method.id ? "1px solid var(--c-gold)" : "1px solid var(--c-border)", borderRadius: "var(--r-md)", background: selectedPaymentMethod?.id === method.id ? "var(--glass-bg)" : "transparent", cursor: "pointer" }}>
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value={method.id}
-                        checked={selectedPaymentMethod?.id === method.id}
-                        onChange={() => setSelectedPaymentMethod(method)}
-                        style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
-                      />
-                      <div style={{ width: 34, height: 34, borderRadius: "var(--r-sm)", background: "var(--c-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--c-gold)", flexShrink: 0 }}>
-                        {method.type === "qris" ? <QrCode size={18} /> : <Landmark size={18} />}
+                  {/* QRIS Option */}
+                  <label style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, border: paymentMethod === "QRIS" ? "1px solid var(--c-gold)" : "1px solid var(--c-border)", borderRadius: "var(--r-md)", background: paymentMethod === "QRIS" ? "var(--glass-bg)" : "transparent", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value="QRIS"
+                      checked={paymentMethod === "QRIS"}
+                      onChange={() => setPaymentMethod("QRIS")}
+                      style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
+                    />
+                    <div style={{ width: 34, height: 34, borderRadius: "var(--r-sm)", background: "var(--c-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--c-gold)", flexShrink: 0 }}>
+                      <QrCode size={18} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>QRIS (Otomatis)</div>
+                      <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>
+                        Bayar praktis menggunakan QRIS, proses otomatis via Mayar.
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>{method.bank_name}</div>
-                        {method.type === "bank_transfer" ? (
-                          <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>
-                            {method.account_number} a.n. {method.account_name}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>
-                            QR akan tampil setelah pesanan dibuat.
-                          </div>
-                        )}
+                    </div>
+                  </label>
+                  {/* Tunai Option */}
+                  <label style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, border: paymentMethod === "TUNAI" ? "1px solid var(--c-gold)" : "1px solid var(--c-border)", borderRadius: "var(--r-md)", background: paymentMethod === "TUNAI" ? "var(--glass-bg)" : "transparent", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value="TUNAI"
+                      checked={paymentMethod === "TUNAI"}
+                      onChange={() => setPaymentMethod("TUNAI")}
+                      style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
+                    />
+                    <div style={{ width: 34, height: 34, borderRadius: "var(--r-sm)", background: "var(--c-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--c-gold)", flexShrink: 0 }}>
+                      <Landmark size={18} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>Bayar Tunai di Toko</div>
+                      <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>
+                        Bayar langsung ke kasir saat mengambil pesanan.
                       </div>
-                    </label>
-                  ))}
-                  <p style={{ fontSize: "0.78rem", lineHeight: 1.5, color: "var(--c-ink-dim)", margin: 0 }}>
-                    Pembayaran diverifikasi manual oleh admin. Setelah transfer atau scan QRIS, customer akan diarahkan ke WhatsApp untuk mengirim bukti pembayaran.
-                  </p>
+                    </div>
+                  </label>
                 </div>
               ) : (
-                <p style={{ fontSize: "0.85rem", color: "var(--c-rose)" }}>
-                  Metode pembayaran belum aktif. Admin perlu menambahkan transfer bank atau QRIS terlebih dahulu.
-                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <label style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, border: "1px solid var(--c-gold)", borderRadius: "var(--r-md)", background: "var(--glass-bg)", cursor: "default" }}>
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value="QRIS"
+                      checked={true}
+                      readOnly
+                      style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
+                    />
+                    <div style={{ width: 34, height: 34, borderRadius: "var(--r-sm)", background: "var(--c-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--c-gold)", flexShrink: 0 }}>
+                      <QrCode size={18} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>QRIS (Mayar)</div>
+                      <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>
+                        Pembayaran otomatis menggunakan QRIS (Dikenakan biaya layanan 1%).
+                      </div>
+                    </div>
+                  </label>
+                </div>
               )}
             </div>
             
-            <button type="submit" disabled={submitting || !selectedCourier || !selectedAddress || !selectedPaymentMethod} className="btn btn-primary" style={{ padding: "16px", justifyContent: "center", fontSize: "1rem", opacity: (!selectedCourier || !selectedAddress || !selectedPaymentMethod || submitting) ? 0.6 : 1 }}>
+            <button type="submit" disabled={submitting || !selectedCourier || !selectedAddress || !paymentMethod} className="btn btn-primary" style={{ padding: "16px", justifyContent: "center", fontSize: "1rem", opacity: (!selectedCourier || !selectedAddress || !paymentMethod || submitting) ? 0.6 : 1 }}>
               {submitting ? (
                 <><Loader2 className="animate-spin" size={18} /> Memproses...</>
               ) : (
@@ -398,7 +420,7 @@ export default function CheckoutPage() {
                 <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 8 }}>Punya Kode Voucher?</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input
-                    className="form-input"
+                    className="input-field"
                     value={voucherCode}
                     onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
                     placeholder="Masukkan kode"
@@ -436,6 +458,12 @@ export default function CheckoutPage() {
                     <span style={{ fontWeight: 600 }}>-{formatRupiah(discountAmount)}</span>
                   </div>
                 )}
+                {selectedCourier?.courier_service_code !== 'pickup' && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+                    <span style={{ color: "var(--c-ink-muted)" }}>Biaya Layanan (1%)</span>
+                    <span style={{ color: "var(--c-ink)" }}>{formatRupiah(Math.floor((subtotal + shippingCost - discountAmount) * 0.01))}</span>
+                  </div>
+                )}
               </div>
 
               <div style={{ height: 1, background: "var(--c-border)", marginBottom: 16 }} />
@@ -443,7 +471,10 @@ export default function CheckoutPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>Total Pembayaran</span>
                 <span style={{ fontWeight: 700, fontSize: "1.3rem", color: "var(--c-gold)" }}>
-                  {formatRupiah(Math.max(0, subtotal + shippingCost - discountAmount))}
+                  {formatRupiah(
+                    Math.max(0, subtotal + shippingCost - discountAmount) + 
+                    (selectedCourier?.courier_service_code !== 'pickup' ? Math.floor((subtotal + shippingCost - discountAmount) * 0.01) : 0)
+                  )}
                 </span>
               </div>
             </div>

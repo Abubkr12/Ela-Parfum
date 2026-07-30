@@ -70,6 +70,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: "Personalisasi AI", href: "/admin/pengaturan/ai" },
         { name: "Integrasi API", href: "/admin/pengaturan/api" },
         { name: "Metode Pembayaran", href: "/admin/pengaturan/pembayaran" },
+        { name: "Mayar Debug", href: "/admin/pengaturan/mayar-debug" },
         { name: "Akun Saya", href: "/admin/pengaturan/akun" },
       ]
     },

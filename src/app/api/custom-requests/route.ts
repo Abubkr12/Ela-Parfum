@@ -11,13 +11,23 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { customer_name, customer_whatsapp, base_note, description, volume_ml, ai_recipe } = body;
+    const {
+      customer_name,
+      customer_whatsapp,
+      base_note,
+      description,
+      volume_ml,
+      price_perfume,
+      price_bottle,
+      price_service,
+      total_price,
+      ai_recipe
+    } = body;
 
     if (!customer_name || !customer_whatsapp || !base_note || !description || !volume_ml || !ai_recipe) {
       return NextResponse.json({ error: "Semua data harus diisi" }, { status: 400 });
     }
 
-    // Gunakan user.id untuk validasi jika ingin dikaitkan (tambahkan kolom user_id jika ada, atau cukup biarkan gini)
     const { data, error } = await supabase
       .from("custom_requests")
       .insert([
@@ -27,6 +37,10 @@ export async function POST(req: Request) {
           base_note,
           description,
           volume_ml,
+          price_perfume: price_perfume || 0,
+          price_bottle: price_bottle || 0,
+          price_service: price_service || 0,
+          total_price: total_price || 0,
           ai_recipe
         }
       ])

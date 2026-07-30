@@ -1,104 +1,180 @@
 "use client";
 
 import { PageHeader } from "@/components/page-header";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { MessageSquare, FileImage, Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, Camera, FlaskConical, ArrowRight, Beaker } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
+const methods = [
+  {
+    id: "ai",
+    title: "Refill via AI",
+    description: "Jelaskan parfum impian Anda, AI kami akan merekomendasikan bibit yang tepat dari koleksi kami.",
+    icon: Sparkles,
+    color: "var(--c-gold)",
+    bgColor: "rgba(59, 130, 246, 0.08)",
+    hoverShadow: "rgba(59, 130, 246, 0.18)",
+  },
+  {
+    id: "gambar",
+    title: "Refill via Gambar",
+    description: "Upload foto botol parfum referensi Anda. AI akan mengidentifikasi merek dan mencarikan bibit yang sesuai.",
+    icon: Camera,
+    color: "#0ea5e9",
+    bgColor: "rgba(14, 165, 233, 0.08)",
+    hoverShadow: "rgba(14, 165, 233, 0.18)",
+  },
+  {
+    id: "custom",
+    title: "Multiple Custom",
+    description: "Campur 2 atau lebih bibit parfum untuk menciptakan aroma unik Anda sendiri. AI akan menganalisis hasilnya.",
+    icon: FlaskConical,
+    color: "#a855f7",
+    bgColor: "rgba(168, 85, 247, 0.08)",
+    hoverShadow: "rgba(168, 85, 247, 0.18)",
+  },
+];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.12 },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 24, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { type: "spring" as const, stiffness: 260, damping: 22 },
+  },
+};
+
 export default function RefillLandingPage() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants: any = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
-  };
-
   return (
     <div className="customer-page" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <PageHeader />
 
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px" }}>
-        <motion.div 
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 24px 80px" }}>
+        <motion.div
           initial="hidden"
           animate="visible"
           variants={containerVariants}
-          style={{ maxWidth: 900, width: "100%", textAlign: "center" }}
+          style={{ maxWidth: 1000, width: "100%", textAlign: "center" }}
         >
-          <motion.div variants={itemVariants} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 100, background: "rgba(201, 168, 76, 0.1)", color: "var(--c-gold)", marginBottom: 24, fontSize: "0.9rem", fontWeight: 500 }}>
-            <Sparkles size={16} />
+          <motion.div
+            variants={itemVariants}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "8px 18px", borderRadius: 100,
+              background: "var(--c-gold-dim)", color: "var(--c-gold)",
+              marginBottom: 24, fontSize: "0.88rem", fontWeight: 500,
+            }}
+          >
+            <Beaker size={16} />
             Layanan Refill Parfum
           </motion.div>
-          
-          <motion.h1 variants={itemVariants} style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--c-ink)", marginBottom: 24, lineHeight: 1.1, letterSpacing: "-1px" }}>
+
+          <motion.h1
+            variants={itemVariants}
+            style={{
+              fontSize: "clamp(2rem, 5vw, 3.2rem)",
+              fontFamily: "var(--font-display)", fontWeight: 700,
+              color: "var(--c-ink)", marginBottom: 20,
+              lineHeight: 1.1, letterSpacing: "-0.5px",
+            }}
+          >
             Pilih Cara Refill Parfum Anda
           </motion.h1>
-          
-          <motion.p variants={itemVariants} style={{ fontSize: "1.1rem", color: "var(--c-ink-dim)", maxWidth: 600, margin: "0 auto 48px auto", lineHeight: 1.6 }}>
-            Kami menyediakan dua cara mudah untuk meracik dan memesan refill parfum sesuai selera Anda. Pilih metode yang paling nyaman bagi Anda.
+
+          <motion.p
+            variants={itemVariants}
+            style={{
+              fontSize: "1.05rem", color: "var(--c-ink-dim)",
+              maxWidth: 620, margin: "0 auto 48px auto", lineHeight: 1.65,
+            }}
+          >
+            Tiga metode cerdas untuk meracik parfum custom sesuai selera Anda.
+            Mulai dari deskripsi, foto referensi, atau campurkan bibit sendiri.
           </motion.p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, textAlign: "left" }}>
-            
-            {/* Opsi 1: Form / AI Advisor */}
-            <motion.div variants={itemVariants}>
-              <Link href="/kustom-refill" style={{ display: "flex", flexDirection: "column", height: "100%", padding: 32, borderRadius: "var(--r-lg)", background: "var(--c-surface-1)", border: "1px solid var(--c-border)", textDecoration: "none", transition: "all 0.3s ease", position: "relative", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}
-                className="hover-card"
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 64, height: 64, borderRadius: "50%", background: "rgba(201, 168, 76, 0.1)", color: "var(--c-gold)", marginBottom: 24 }}>
-                  <FileImage size={32} />
-                </div>
-                <h3 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--c-ink)", marginBottom: 12 }}>Refill via AI & Gambar</h3>
-                <p style={{ color: "var(--c-ink-dim)", marginBottom: 32, lineHeight: 1.6, flex: 1 }}>
-                  Unggah gambar botol parfum referensi Anda atau deskripsikan wangi yang diinginkan. AI kami akan meracik komposisi terbaik untuk Anda.
-                </p>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--c-gold)", fontWeight: 600, marginTop: "auto" }}>
-                  Mulai Meracik <ArrowRight size={18} />
-                </div>
-              </Link>
-            </motion.div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 20, textAlign: "left",
+          }}>
+            {methods.map((method) => {
+              const Icon = method.icon;
+              return (
+                <motion.div key={method.id} variants={itemVariants}>
+                  <Link
+                    href={`/refill/wizard?mode=${method.id}`}
+                    className="refill-method-card"
+                    style={{
+                      display: "flex", flexDirection: "column", height: "100%",
+                      padding: 28, borderRadius: "var(--r-lg)",
+                      background: "var(--c-surface-1)",
+                      border: "1px solid var(--c-border)",
+                      textDecoration: "none",
+                      transition: "all 0.3s var(--ease-out)",
+                      position: "relative", overflow: "hidden",
+                      boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
+                    }}
+                  >
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: 56, height: 56, borderRadius: 14,
+                      background: method.bgColor, color: method.color,
+                      marginBottom: 20, transition: "transform 0.3s var(--ease-spring)",
+                    }}>
+                      <Icon size={28} />
+                    </div>
 
-            {/* Opsi 2: Chat */}
-            <motion.div variants={itemVariants}>
-              <button 
-                onClick={() => {
-                  document.getElementById('chatbot-toggle')?.click();
-                }}
-                style={{ width: "100%", display: "flex", flexDirection: "column", height: "100%", padding: 32, borderRadius: "var(--r-lg)", background: "var(--c-surface-1)", border: "1px solid var(--c-border)", textDecoration: "none", transition: "all 0.3s ease", position: "relative", overflow: "hidden", textAlign: "left", cursor: "pointer", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}
-                className="hover-card"
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 64, height: 64, borderRadius: "50%", background: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", marginBottom: 24 }}>
-                  <MessageSquare size={32} />
-                </div>
-                <h3 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--c-ink)", marginBottom: 12 }}>Refill via Live Chat</h3>
-                <p style={{ color: "var(--c-ink-dim)", marginBottom: 32, lineHeight: 1.6, flex: 1 }}>
-                  Konsultasikan langsung wangi yang Anda cari dengan asisten ahli kami melalui chat. Proses cepat, mudah, dan interaktif.
-                </p>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3b82f6", fontWeight: 600, marginTop: "auto" }}>
-                  Mulai Chat <ArrowRight size={18} />
-                </div>
-              </button>
-            </motion.div>
+                    <h3 style={{
+                      fontSize: "1.3rem", fontWeight: 700,
+                      fontFamily: "var(--font-display)",
+                      color: "var(--c-ink)", marginBottom: 10,
+                    }}>
+                      {method.title}
+                    </h3>
 
+                    <p style={{
+                      color: "var(--c-ink-dim)", marginBottom: 28,
+                      lineHeight: 1.6, flex: 1, fontSize: "0.92rem",
+                    }}>
+                      {method.description}
+                    </p>
+
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      color: method.color, fontWeight: 600, fontSize: "0.92rem",
+                      marginTop: "auto", transition: "gap 0.3s var(--ease-out)",
+                    }}>
+                      Mulai Meracik <ArrowRight size={18} />
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
       </main>
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        .hover-card:hover {
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .refill-method-card:hover {
           transform: translateY(-4px);
-          border-color: var(--c-gold);
-          box-shadow: 0 12px 30px rgba(201, 168, 76, 0.15) !important;
+          border-color: var(--c-border-mid) !important;
+          box-shadow: 0 12px 32px rgba(0,0,0,0.08) !important;
         }
-        button.hover-card:hover {
-          border-color: #3b82f6;
-          box-shadow: 0 12px 30px rgba(59, 130, 246, 0.15) !important;
+        .refill-method-card:hover div:first-child {
+          transform: scale(1.08);
+        }
+        @media (max-width: 520px) {
+          .refill-method-card {
+            padding: 22px !important;
+          }
         }
       `}} />
     </div>

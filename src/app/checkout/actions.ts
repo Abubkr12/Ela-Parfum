@@ -69,8 +69,10 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     const shippingCostStr = formData.get('shippingCost') as string;
     const courierInfo = formData.get('courierInfo') as string;
     const voucherCode = formData.get('voucherCode') as string;
-    const paymentMethodIdStr = formData.get('paymentMethodId') as string;
-    const paymentMethodId = paymentMethodIdStr ? parseInt(paymentMethodIdStr, 10) : null;
+    const paymentMethod = formData.get('paymentMethod') as string;
+    const originAreaId = formData.get('originAreaId') as string;
+    const originName = formData.get('originName') as string;
+    const destinationAreaId = formData.get('destinationAreaId') as string;
     
     const shippingCost = parseInt(shippingCostStr || "0", 10);
     let discount = 0;
@@ -86,27 +88,13 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
       }
     }
 
-    let paymentMethodLabel = 'Transfer/QRIS manual';
-    if (paymentMethodId) {
-      const { data: paymentMethod } = await supabaseAdmin
-        .from('payment_methods')
-        .select('id,type,bank_name,account_number,account_name,is_active')
-        .eq('id', paymentMethodId)
-        .eq('is_active', true)
-        .single();
-
-      if (!paymentMethod) {
-        return { error: 'Metode pembayaran tidak tersedia. Silakan pilih metode lain.' };
-      }
-
-      paymentMethodLabel = paymentMethod.type === 'qris'
-        ? paymentMethod.bank_name
-        : `${paymentMethod.bank_name} - ${paymentMethod.account_number} a.n. ${paymentMethod.account_name}`;
+    // Hitung total dan 1% fee jika QRIS
+    let total = subtotal + shippingCost - discount;
+    if (paymentMethod === "QRIS") {
+      const fee = Math.floor(total * 0.01);
+      total += fee;
     }
 
-    // Generate Unique Code 1 - 999
-    const uniqueCode = Math.floor(Math.random() * 999) + 1;
-    const total = subtotal + shippingCost - discount + uniqueCode;
     const orderCode = generateOrderCode();
 
     const { data: orderData, error: orderError } = await supabaseAdmin
@@ -122,11 +110,11 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         shipping_cost: shippingCost,
         courier_name: courierInfo,
         total: total,
-        status: 'pending',
-        payment_method: paymentMethodLabel,
-        notes: `Kurir: ${courierInfo} | Pembayaran: ${paymentMethodLabel} | Kode Unik: ${uniqueCode}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
+        status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
+        payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
+        notes: `Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
       })
-      .select('id')
+      .select('id, order_code')
       .single();
 
     if (orderError) return { error: 'Gagal membuat pesanan: ' + orderError.message };
@@ -153,9 +141,199 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
       }
     }
 
-    return { url: `/checkout/success?id=${orderData.id}`, success: true };
+    // Jika TUNAI, langsung success
+    if (paymentMethod === 'TUNAI') {
+      return { url: `/checkout/success?id=${orderData.id}`, success: true };
+    }
+
+    // Jika QRIS, create Mayar Invoice
+    try {
+      const isSandbox = process.env.MAYAR_IS_SANDBOX === 'true';
+      const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
+      const mayarUrl = isSandbox ? 'https://api.mayar.club/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
+      
+      const invoiceData = {
+        name: fullName,
+        email: user.email || 'customer@elaparfum.com',
+        amount: total,
+        mobile: phone,
+        description: `Pesanan ${orderCode}`,
+        referenceId: orderData.order_code,
+        redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
+        successUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
+        items: [
+            { name: `Total Pesanan ${orderCode}`, description: `Checkout Ela Parfum: ${orderCode}`, quantity: 1, rate: total }
+        ]
+      };
+
+      const res = await fetch(mayarUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mayarKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(invoiceData)
+      });
+
+      const resData = await res.json();
+      if (resData.statusCode === 200 && resData.data && resData.data.link) {
+        // Return Mayar Link
+        return { url: resData.data.link, success: true };
+      } else {
+        console.error("Mayar API Error:", resData);
+        // Fallback if Mayar fails
+        return { error: 'Gagal membuat link pembayaran: ' + (resData.message || resData.messages || 'Unknown Error') };
+      }
+    } catch (e) {
+      console.error("Error creating Mayar invoice:", e);
+      return { error: 'Terjadi kesalahan saat memproses pembayaran.' };
+    }
+
   } catch (err: any) {
     console.error("Checkout Error:", err);
+    return { error: 'Terjadi kesalahan sistem internal: ' + err.message };
+  }
+}
+
+export async function processCustomCheckout(formData: FormData, customRequestId: string, subtotal: number) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Harap login terlebih dahulu untuk checkout.' };
+
+    // Fetch custom request
+    const { data: request, error: reqErr } = await supabaseAdmin
+      .from('custom_requests')
+      .select('*')
+      .eq('id', customRequestId)
+      .single();
+
+    if (reqErr || !request) return { error: 'Data pesanan custom tidak ditemukan.' };
+
+    const fullName = formData.get('fullName') as string;
+    const phone = formData.get('phone') as string;
+    const address = formData.get('address') as string;
+    const shippingCostStr = formData.get('shippingCost') as string;
+    const courierInfo = formData.get('courierInfo') as string;
+    const voucherCode = formData.get('voucherCode') as string;
+    const paymentMethod = formData.get('paymentMethod') as string;
+    const originName = formData.get('originName') as string;
+    const destinationAreaId = formData.get('destinationAreaId') as string;
+
+    const shippingCost = parseInt(shippingCostStr || "0", 10);
+    let discount = 0;
+    let appliedVoucherId = null;
+
+    if (voucherCode) {
+      const vRes = await validateVoucher(voucherCode, subtotal, shippingCost);
+      if (vRes.success && vRes.discountAmount) {
+        discount = vRes.discountAmount;
+        appliedVoucherId = vRes.voucher.id;
+      } else {
+        return { error: 'Voucher tidak valid: ' + vRes.error };
+      }
+    }
+
+    // Hitung total dan 1% fee jika QRIS
+    let total = subtotal + shippingCost - discount;
+    if (paymentMethod === "QRIS") {
+      const fee = Math.floor(total * 0.01);
+      total += fee;
+    }
+
+    const orderCode = generateOrderCode();
+
+    // 1. Create order record in orders table
+    const { data: orderData, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .insert({
+        order_code: orderCode,
+        customer_id: user.id,
+        customer_name: fullName,
+        customer_phone: phone,
+        customer_address: address,
+        subtotal: subtotal,
+        discount: discount,
+        shipping_cost: shippingCost,
+        courier_name: courierInfo,
+        total: total,
+        status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
+        payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
+        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
+      })
+      .select('id, order_code')
+      .single();
+
+    if (orderError) return { error: 'Gagal membuat pesanan: ' + orderError.message };
+
+    // 2. Update custom_requests status
+    await supabaseAdmin
+      .from('custom_requests')
+      .update({
+        status: paymentMethod === 'TUNAI' ? 'paid' : 'quoted',
+        total_price: total,
+        customer_name: fullName,
+        customer_whatsapp: phone
+      })
+      .eq('id', customRequestId);
+
+    // 3. Increment voucher used_count
+    if (appliedVoucherId) {
+      const { data: v } = await supabaseAdmin.from('vouchers').select('used_count').eq('id', appliedVoucherId).single();
+      if (v) {
+        await supabaseAdmin.from('vouchers').update({ used_count: v.used_count + 1 }).eq('id', appliedVoucherId);
+      }
+    }
+
+    // 4. Jika TUNAI, langsung success
+    if (paymentMethod === 'TUNAI') {
+      return { url: `/checkout/success?id=${orderData.id}`, success: true };
+    }
+
+    // 5. Jika QRIS, create Mayar Invoice
+    try {
+      const isSandbox = process.env.MAYAR_IS_SANDBOX === 'true';
+      const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
+      const mayarUrl = isSandbox ? 'https://api.mayar.club/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
+
+      const invoiceData = {
+        name: fullName,
+        email: user.email || 'customer@elaparfum.com',
+        amount: total,
+        mobile: phone,
+        description: `Pesanan Custom Refill ${orderCode}`,
+        referenceId: orderData.order_code,
+        redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
+        successUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
+        items: [
+          { name: `Pesanan Custom Refill (${orderCode})`, description: request.base_note, quantity: 1, rate: total }
+        ]
+      };
+
+      const res = await fetch(mayarUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mayarKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(invoiceData)
+      });
+
+      const resData = await res.json();
+      if (resData.statusCode === 200 && resData.data && resData.data.link) {
+        return { url: resData.data.link, success: true };
+      } else {
+        console.error("Mayar API Error:", resData);
+        return { error: 'Gagal membuat link pembayaran: ' + (resData.message || resData.messages || 'Unknown Error') };
+      }
+    } catch (e) {
+      console.error("Error creating Mayar invoice:", e);
+      return { error: 'Terjadi kesalahan saat memproses pembayaran.' };
+    }
+
+  } catch (err: any) {
+    console.error("Custom Checkout Error:", err);
     return { error: 'Terjadi kesalahan sistem internal: ' + err.message };
   }
 }

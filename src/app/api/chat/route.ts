@@ -1,13 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAiConfig, recordAiUsage, isRateLimitError } from "@/lib/ai-fallback";
 
 const SYSTEM_PROMPT = `Kamu adalah asisten AI untuk "Ela Parfum", toko spesialis parfum isi ulang (refill) premium. Namamu adalah "Scent Advisor".
 
 ATURAN MUTLAK & KETAT:
 1. JAWAB SINGKAT, PADAT, DAN JELAS. Maksimal 2 kalimat per jawaban. Ini untuk menghemat kuota!
 2. JANGAN PERNAH melayani obrolan di luar topik parfum, wewangian, refill, atau layanan Ela Parfum.
-3. Jika ditanya soal matematika (MTK), curhat, koding, cuaca, atau topik acak lainnya, JAWAB DENGAN TEGAS: "Maaf, saya hanya Scent Advisor Ela Parfum dan hanya bisa membantu urusan parfum."
+3. JIKA PENGGUNA BERTANYA HAL DI LUAR KONTEKS (misal: coding, matematika, politik, cuaca, tips kesehatan, resep masakan, hal acak lainnya), TOLAK DENGAN TEGAS: "Maaf, saya Scent Advisor Ela Parfum dan hanya diizinkan untuk melayani seputar parfum dan layanan toko kami." JANGAN berikan jawaban atas pertanyaan mereka meskipun kamu tahu.
 4. Jangan bertele-tele. Jangan gunakan kalimat pengantar panjang seperti "Tentu, saya bisa bantu...". Langsung ke intinya.
 5. Gunakan bahasa Indonesia santai tapi profesional.
 6. Arahkan pengguna ke halaman "Racik Refill Custom" jika mereka ingin meracik parfum sendiri dari referensi.
@@ -85,9 +86,6 @@ function generateFallbackResponse(lastMessage: string): string {
 }
 
 async function getGeminiSettings() {
-  const envApiKey = process.env.GEMINI_API_KEY;
-  const envModel = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-
   try {
     const supabase = createAdminClient();
     
@@ -95,7 +93,7 @@ async function getGeminiSettings() {
     const { data: settingsData } = await supabase
       .from("store_settings")
       .select("key,value")
-      .in("key", ["GEMINI_API_KEY", "GEMINI_SYSTEM_PROMPT", "GEMINI_MODEL"]);
+      .in("key", ["GEMINI_SYSTEM_PROMPT"]);
 
     const settings = new Map((settingsData || []).map((row) => [row.key, row.value]));
     let basePrompt = settings.get("GEMINI_SYSTEM_PROMPT") || SYSTEM_PROMPT;
@@ -114,14 +112,10 @@ async function getGeminiSettings() {
     }
 
     return {
-      apiKey: settings.get("GEMINI_API_KEY") || envApiKey,
-      model: settings.get("GEMINI_MODEL") || envModel,
       systemPrompt: basePrompt + dynamicCatalog,
     };
   } catch {
     return {
-      apiKey: envApiKey,
-      model: envModel,
       systemPrompt: SYSTEM_PROMPT,
     };
   }
@@ -141,67 +135,60 @@ export async function POST(request: Request) {
     const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === "user");
     const lastText = lastUserMsg?.text ?? "";
 
-    // Try real Gemini API first
-    const { apiKey, model, systemPrompt } = await getGeminiSettings();
-    if (apiKey) {
-      let responseText: string | null = null;
-      try {
-        const ai = new GoogleGenAI({ apiKey });
-        const contents = messages.map(
-          (msg: { role: string; text: string }) => ({
-            role: msg.role === "assistant" ? "model" : "user",
-            parts: [{ text: msg.text }],
-          })
-        );
+    const { systemPrompt } = await getGeminiSettings();
+    const { apiKeys, availableModels } = await getAiConfig('chat');
+    
+    let responseText: string | null = null;
+    let success = false;
+    
+    // Format messages for GoogleGenAI
+    const contents = messages.map(
+      (msg: { role: string; text: string }) => ({
+        role: msg.role === "assistant" ? "model" : "user",
+        parts: [{ text: msg.text }],
+      })
+    );
 
-        const tryModel = async (modelName: string) => {
+    for (const keyObj of apiKeys) {
+      for (const modelObj of availableModels) {
+        try {
+          if (keyObj.daily_usage_count > 10000) continue; 
+          
+          const ai = new GoogleGenAI({ apiKey: keyObj.api_key });
+          
           const response = await ai.models.generateContent({
-            model: modelName,
+            model: modelObj.model_name,
             contents,
             config: {
               systemInstruction: systemPrompt,
-              maxOutputTokens: 500,
+              maxOutputTokens: 300, // Reduced to save tokens
               temperature: 0.7,
+              // thinking is OFF for chat to save extreme amounts of tokens
             },
           });
-          return response.text || null;
-        };
-
-        try {
-          responseText = await tryModel(model);
-        } catch (primaryError) {
-          console.warn(`Primary model ${model} failed, fetching dynamic fallbacks...`);
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-          const data = await res.json();
           
-          if (data.models) {
-            const availableModels = data.models
-              .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-              .map((m: any) => m.name.replace("models/", ""))
-              .filter((name: string) => name.includes("flash") || name.includes("pro"))
-              .filter((name: string) => !name.includes("tts") && !name.includes("vision") && !name.includes("image") && !name.includes("embedding") && !name.includes("live"));
-              
-            for (const fallbackModel of availableModels) {
-              if (fallbackModel === model) continue;
-              try {
-                responseText = await tryModel(fallbackModel);
-                if (responseText) break;
-              } catch (fallbackError) {
-                // Continue to next model
-              }
-            }
+          responseText = response.text || null;
+          if (responseText) {
+            success = true;
+            await recordAiUsage(keyObj.id);
+            break;
+          }
+        } catch (e: any) {
+          if (isRateLimitError(e)) {
+            continue;
+          } else {
+            continue;
           }
         }
-
-        if (responseText) {
-          return NextResponse.json({ text: responseText });
-        }
-      } catch (aiError) {
-        console.error("Gemini API Error (falling back to local):", aiError);
       }
+      if (success) break;
     }
 
-    // Fallback to local smart response
+    if (success && responseText) {
+      return NextResponse.json({ text: responseText });
+    }
+
+    // Fallback to local smart response if API exhausted
     const text = generateFallbackResponse(lastText);
     return NextResponse.json({ text });
   } catch (error: unknown) {

@@ -73,3 +73,26 @@ export async function rejectPayment(payload: string | FormData) {
   revalidatePath(`/admin/pesanan/${orderId}`);
   revalidatePath('/pesanan');
 }
+
+export async function retryWebhook(orderCode: string) {
+  try {
+    const url = process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000';
+    const res = await fetch(`${url}/api/webhooks/mayar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'payment.received',
+        data: { referenceId: orderCode, status: 'SUCCESS' }
+      })
+    });
+    
+    if (!res.ok) {
+      return { error: 'Gagal memicu webhook sinkronisasi (Status: ' + res.status + ')' };
+    }
+    
+    revalidatePath('/admin/pesanan');
+    return { success: true };
+  } catch (error: any) {
+    return { error: 'Terjadi kesalahan sistem: ' + error.message };
+  }
+}

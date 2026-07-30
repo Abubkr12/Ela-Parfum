@@ -2,8 +2,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRupiah } from "@/lib/types";
 import Link from "next/link";
 import { ChevronLeft, Truck, Package, User, MapPin, CheckCircle, XCircle, FileImage } from "lucide-react";
-import { markAsPaid, updateResiStatus, rejectPayment } from "../actions";
+import { markAsPaid, updateResiStatus, rejectPayment, retryWebhook } from "../actions";
 import { PaymentProofModal } from "../PaymentProofModal";
+import { SyncWebhookButton } from "./SyncWebhookButton";
 
 export default async function AdminOrderDetail({ params }: { params: Promise<{ id: string }> }) {
   const supabase = createAdminClient();
@@ -156,6 +157,10 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                   {order.payment_status === "paid" ? "Lunas" : (order.payment_status === "waiting_confirmation" ? "Dibayar (Menunggu Verifikasi)" : "Belum Dibayar")}
                 </div>
               </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <SyncWebhookButton orderCode={order.order_code} />
             </div>
 
             <form action={updateResiStatus} style={{ display: "flex", flexDirection: "column", gap: 16 }}>

@@ -166,7 +166,7 @@ export default function AccountSettingsPage() {
                 type="text"
                 value={user?.email || ""}
                 disabled
-                className="form-input"
+                className="input-field"
                 style={{ paddingLeft: 40, background: "var(--glass-bg)", color: "var(--c-ink-dim)", opacity: 0.7 }}
               />
             </div>
@@ -183,7 +183,7 @@ export default function AccountSettingsPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Misal: Budi Santoso"
-                className="form-input"
+                className="input-field"
                 style={{ paddingLeft: 40 }}
               />
             </div>
@@ -200,7 +200,7 @@ export default function AccountSettingsPage() {
                 value={user?.user_metadata?.phone || ""}
                 onChange={(e) => setUser({...user, user_metadata: {...user.user_metadata, phone: e.target.value}})}
                 placeholder="Misal: 81234567890"
-                className="form-input"
+                className="input-field"
                 style={{ paddingLeft: 45 }}
               />
             </div>

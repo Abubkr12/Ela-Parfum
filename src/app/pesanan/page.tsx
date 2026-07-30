@@ -108,7 +108,7 @@ export default async function PesananPage() {
                               </div>
                               
                               {order.status === 'pending' && (!order.payment_proof || !order.payment_proof.startsWith('http')) && (
-                                <Link href={`/checkout/success?id=${order.id}`} className="btn btn-primary" style={{ padding: '0 16px', height: '36px', fontSize: '0.9rem' }}>
+                                <Link href={order.payment_link || `/checkout/success?id=${order.id}`} className="btn btn-primary" style={{ padding: '0 16px', height: '36px', fontSize: '0.9rem' }}>
                                   Bayar Sekarang
                                 </Link>
                               )}
