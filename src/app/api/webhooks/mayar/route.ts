@@ -137,13 +137,32 @@ export async function POST(req: Request) {
             .select('*')
             .eq('order_id', order.id);
             
-          const mappedItems = (items || []).map((i: any) => ({
-            name: i.perfume_name,
-            description: i.size_label,
-            value: i.price,
-            quantity: i.quantity,
-            weight: 200 // default weight
-          }));
+          const mappedItems = (items || []).map((i: any) => {
+            // Parse bottle size (e.g. "50ml", "100ml", "Botol: LE LABO 30ML")
+            const sizeStr = (i.size_label || order.notes || "").toLowerCase();
+            let bottleSize = 50; // default 50ml/g
+            const match = sizeStr.match(/(\d+)\s*ml/);
+            if (match && match[1]) {
+              bottleSize = parseInt(match[1], 10);
+            }
+            
+            // Weight logic: 500g base. Extra items = + (bottleSize + 5)g each.
+            let itemWeight = 500;
+            if (i.quantity > 1) {
+              itemWeight = 500 + ((i.quantity - 1) * (bottleSize + 5));
+            }
+            
+            return {
+              name: i.perfume_name,
+              description: i.size_label,
+              value: i.price,
+              quantity: i.quantity,
+              weight: itemWeight,
+              length: 25,
+              width: 25,
+              height: 20
+            };
+          });
           
           // Parse courier details
           // courierInfo pattern: "JNE - REG"
