@@ -231,6 +231,7 @@ export async function POST(req: Request) {
             await supabaseAdmin
               .from('orders')
               .update({
+                status: 'processing',
                 waybill_number: bsData.courier?.waybill_id || null,
                 resi_number: bsData.courier?.waybill_id || null,
                 notes: order.notes + ` | Biteship Order ID: ${bsData.id}`
