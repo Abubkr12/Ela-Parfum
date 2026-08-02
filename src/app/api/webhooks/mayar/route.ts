@@ -216,24 +216,8 @@ export async function POST(req: Request) {
           }
 
           if (process.env.BITESHIP_IS_SANDBOX === 'true') {
-            const dummyOrderCode = 'BS-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-            
-            console.log("[Biteship Debug] Mocking Biteship for sandbox. Dummy resi:", dummyOrderCode);
-            // Mock success response
-            await supabaseAdmin
-                .from('orders')
-                .update({ 
-                  status: 'processing',
-                  resi_number: dummyOrderCode,
-                  waybill_number: dummyOrderCode
-                })
-                .eq('id', order.id);
-                
-            return NextResponse.json({ 
-              success: true, 
-              message: 'Biteship order created (mock sandbox)',
-              biteship_id: dummyOrderCode
-            });
+            biteshipPayload.delivery_type = "later"; // Sandbox 'biteship' courier prefers 'later' instead of 'now'
+            console.log("[Biteship Debug] Hitting Biteship Sandbox API with courier: biteship, type: test, delivery: later");
           }
 
           const isSandbox = process.env.BITESHIP_IS_SANDBOX === 'true';

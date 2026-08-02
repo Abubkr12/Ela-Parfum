@@ -16,7 +16,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    return NextResponse.json({ data });
+    // Try to find the associated order based on notes containing the CustomRequestID
+    const { data: orderData } = await supabase
+      .from("orders")
+      .select("*")
+      .ilike('notes', `%CustomRequestID: ${id}%`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    return NextResponse.json({ data, order: orderData || null });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

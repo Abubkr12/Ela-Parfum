@@ -13,6 +13,7 @@ export default function PesananKustomDetailPage() {
   const id = params.id as string;
 
   const [request, setRequest] = useState<any>(null);
+  const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   // Pricing state
@@ -47,6 +48,7 @@ export default function PesananKustomDetailPage() {
       if (!res.ok) throw new Error(data.error);
       const reqData = data.data;
       setRequest(reqData);
+      setOrder(data.order || null);
 
       let initialPerfume = reqData.price_perfume || 0;
 
@@ -199,7 +201,7 @@ export default function PesananKustomDetailPage() {
           
           <div className="card" style={{ padding: "32px", background: "var(--glass-bg)", backdropFilter: "blur(20px)", border: "1px solid var(--c-border)", boxShadow: "var(--shadow-float)" }}>
             <h3 style={{ fontSize: "1.2rem", marginBottom: 24, color: "var(--c-ink)", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px dashed var(--c-border)", paddingBottom: 16 }}>
-              <span style={{ fontWeight: 700 }}>Kalkulasi Harga</span>
+              <span style={{ fontWeight: 700 }}>Status Pesanan</span>
               <span style={{ fontSize: "0.8rem", padding: "6px 14px", borderRadius: "var(--r-pill)", background: request.status === 'pending' ? "rgba(234, 179, 8, 0.15)" : "rgba(59, 130, 246, 0.15)", color: request.status === 'pending' ? "#eab308" : "#3b82f6", fontWeight: 700, letterSpacing: "1px", border: `1px solid ${request.status === 'pending' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(59, 130, 246, 0.3)'}` }}>
                 {request.status.toUpperCase()}
               </span>
@@ -208,113 +210,59 @@ export default function PesananKustomDetailPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               <div style={{ padding: 16, background: "var(--glass-bg)", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <span style={{ fontSize: "0.85rem", color: "var(--c-ink)", fontWeight: 600 }}>Biaya Bibit & Pelarut</span>
+                  <span style={{ fontSize: "0.85rem", color: "var(--c-ink)", fontWeight: 600 }}>Total Harga Racikan</span>
                   <span style={{ color: "var(--c-gold)", fontSize: "0.85rem", fontWeight: 600 }}>Ukuran: {request.volume_ml || 30}ml</span>
                 </div>
+                
+                <div style={{ marginTop: 12, padding: "16px", background: "var(--c-surface-1)", borderRadius: "var(--r-md)", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--c-gold-dim)" }}>
+                  <span style={{ color: "var(--c-ink-dim)", textTransform: "uppercase", fontSize: "0.85rem", letterSpacing: "1px", fontWeight: 600 }}>Total (Inc. Pelarut & Botol)</span>
+                  <span style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--c-gold)", fontFamily: "var(--font-display)" }}>
+                    Rp {(request.total_price || 0).toLocaleString('id-ID')}
+                  </span>
+                </div>
+                
+                {request.status === 'pending' && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--c-ink-muted)', marginTop: 8, textAlign: 'center' }}>
+                    Harga dihitung otomatis oleh sistem AI di halaman Checkout.
+                  </p>
+                )}
+              </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 4 }}>Rasio Racikan</label>
-                    <select
-                      value={rasio}
-                      onChange={(e) => setRasio(e.target.value)}
-                      disabled={request.status !== 'pending' && request.status !== 'quoted'}
-                      className="input-field"
-                      style={{ background: "var(--c-surface-1)" }}
-                    >
-                      <option value="50/50">50/50% (Racikan 1:1)</option>
-                      <option value="70/30">70/30% (Racikan 2:1)</option>
-                    </select>
+              {order && (
+                <div style={{ padding: 16, background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "var(--r-md)" }}>
+                  <h4 style={{ fontSize: "0.95rem", color: "var(--c-ink)", marginBottom: 12, fontWeight: 600 }}>Info Pengiriman</h4>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--c-ink-dim)' }}>Order Code:</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--c-ink)' }}>{order.order_code}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--c-ink-dim)' }}>Kurir:</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--c-ink)' }}>{order.courier_name}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--c-ink-dim)' }}>Resi / AWB:</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--c-gold)' }}>{order.resi_number || '-'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--c-ink-dim)' }}>Total Transaksi:</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--c-ink)' }}>Rp {(order.total || 0).toLocaleString('id-ID')}</span>
+                    </div>
                   </div>
                   
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 4 }}>Harga Bibit / ML</label>
-                      <div style={{ position: "relative" }}>
-                        <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-muted)", fontSize: "0.85rem" }}>Rp</span>
-                        <input 
-                          type="number" 
-                          value={hargaBibitMl}
-                          onChange={(e) => setHargaBibitMl(Number(e.target.value))}
-                          disabled={request.status !== 'pending' && request.status !== 'quoted'}
-                          className="input-field"
-                          style={{ paddingLeft: 35, background: "var(--c-surface-1)" }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 4 }}>Harga Pelarut / ML</label>
-                      <div style={{ position: "relative" }}>
-                        <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-muted)", fontSize: "0.85rem" }}>Rp</span>
-                        <input 
-                          type="number" 
-                          value={hargaPelarutMl}
-                          onChange={(e) => setHargaPelarutMl(Number(e.target.value))}
-                          disabled={request.status !== 'pending' && request.status !== 'quoted'}
-                          className="input-field"
-                          style={{ paddingLeft: 35, background: "var(--c-surface-1)" }}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <Link 
+                    href={`/admin/pesanan/${order.id}`}
+                    className="btn btn-outline"
+                    style={{ width: "100%", justifyContent: "center", marginTop: 16, padding: "10px", fontSize: '0.85rem' }}
+                  >
+                    Lihat & Lacak Order Utama
+                  </Link>
                 </div>
-
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--c-border)", textAlign: "right" }}>
-                  <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)", fontWeight: 500 }}>Total Bahan: </span>
-                  <span style={{ color: "var(--c-ink)", fontWeight: 700, fontSize: "1.05rem" }}>Rp {pricePerfume.toLocaleString('id-ID')}</span>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--c-ink)", marginBottom: 8, fontWeight: 500 }}>Harga Botol (Rp)</label>
-                <div style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-muted)", fontWeight: 500 }}>Rp</span>
-                  <input 
-                    type="number" 
-                    value={priceBottle} 
-                    onChange={(e) => setPriceBottle(Number(e.target.value))}
-                    className="input-field" 
-                    style={{ paddingLeft: 45, background: "var(--c-surface-1)" }}
-                    disabled={request.status !== 'pending' && request.status !== 'quoted'}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--c-ink)", marginBottom: 8, fontWeight: 500 }}>Biaya Jasa / Ekstra (Rp)</label>
-                <div style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-muted)", fontWeight: 500 }}>Rp</span>
-                  <input 
-                    type="number" 
-                    value={priceService} 
-                    onChange={(e) => setPriceService(Number(e.target.value))}
-                    className="input-field" 
-                    style={{ paddingLeft: 45, background: "var(--c-surface-1)" }}
-                    disabled={request.status !== 'pending' && request.status !== 'quoted'}
-                  />
-                </div>
-              </div>
-              
-              <div style={{ marginTop: 16, padding: "24px", background: "var(--c-surface-1)", borderRadius: "var(--r-md)", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--c-gold-dim)" }}>
-                <span style={{ color: "var(--c-ink-dim)", textTransform: "uppercase", fontSize: "0.85rem", letterSpacing: "1px", fontWeight: 600 }}>Total Tagihan</span>
-                <span style={{ fontSize: "1.8rem", fontWeight: 700, color: "var(--c-gold)", fontFamily: "var(--font-display)" }}>
-                  Rp {(Number(pricePerfume) + Number(priceBottle) + Number(priceService)).toLocaleString('id-ID')}
-                </span>
-              </div>
+              )}
             </div>
 
-            {(request.status === 'pending' || request.status === 'quoted') && (
-              <button 
-                onClick={handleSaveAndConfirm}
-                disabled={saving}
-                className="btn btn-primary"
-                style={{ width: "100%", justifyContent: "center", marginTop: 24, padding: "14px" }}
-              >
-                <Save size={18} /> {saving ? "Menyimpan..." : "Simpan & Konfirmasi"}
-              </button>
-            )}
-
-            {request.status !== 'pending' && (
+            {request.status !== 'pending' && !order && (
               <button 
                 onClick={copyPaymentLink}
                 className="btn btn-outline"
@@ -323,54 +271,6 @@ export default function PesananKustomDetailPage() {
                 {copied ? <Check size={18} /> : <Copy size={18} />} 
                 {copied ? "Disalin!" : "Salin Pesan WA & Link Bayar"}
               </button>
-            )}
-            
-            {(request.status === 'quoted' || request.status === 'paid' || request.status === 'completed') && (
-              <div style={{ marginTop: 24, padding: "20px", background: "var(--c-surface-1)", borderRadius: "var(--r-md)", border: "1px solid var(--c-border)" }}>
-                <h4 style={{ fontSize: "0.95rem", color: "var(--c-ink)", marginBottom: 12, fontWeight: 600 }}>Bukti Pembayaran</h4>
-                {request.payment_proof ? (
-                  <a href={request.payment_proof} target="_blank" rel="noopener noreferrer">
-                    <img 
-                      src={request.payment_proof} 
-                      alt="Bukti Pembayaran" 
-                      style={{ width: "100%", maxHeight: 250, objectFit: "contain", borderRadius: "var(--r-sm)", border: "1px solid var(--c-border)", background: "var(--bg-color)", display: "block", cursor: "zoom-in" }} 
-                    />
-                  </a>
-                ) : (
-                  <div style={{ padding: "20px", textAlign: "center", background: "var(--glass-bg)", borderRadius: "var(--r-sm)", color: "var(--c-ink-muted)", fontSize: "0.85rem", border: "1px dashed var(--c-border)" }}>
-                    {request.status === 'quoted' 
-                      ? "Menunggu customer mengunggah bukti pembayaran."
-                      : "Tidak ada bukti pembayaran."}
-                  </div>
-                )}
-                
-                {request.status === 'quoted' && request.payment_proof && (
-                  <button
-                    onClick={async () => {
-                      setSaving(true);
-                      try {
-                        const res = await fetch(`/api/custom-requests/${id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ status: "paid" })
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error);
-                        setRequest(data.data);
-                        toast.success("Pembayaran terverifikasi!");
-                      } catch (err: any) {
-                        toast.error(err.message);
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                    disabled={saving}
-                    style={{ width: "100%", padding: "10px", background: "#ca8a04", color: "#fff", border: "none", borderRadius: "var(--r-md)", fontWeight: 600, cursor: "pointer", marginTop: 16 }}
-                  >
-                    Verifikasi Pembayaran
-                  </button>
-                )}
-              </div>
             )}
             
           </div>
