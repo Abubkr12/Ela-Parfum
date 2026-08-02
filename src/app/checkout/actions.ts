@@ -133,6 +133,26 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     const { error: itemsError } = await supabaseAdmin.from('order_items').insert(orderItemsData);
     if (itemsError) return { error: 'Gagal menyimpan detail pesanan: ' + itemsError.message };
 
+    // --- Deduct Stock ---
+    // Asumsikan pesanan online dikurangi dari store utama (store_id = 1, Condet)
+    for (const item of cart.items) {
+      const { data: stockData } = await supabaseAdmin
+        .from('product_stocks')
+        .select('stock_qty')
+        .eq('perfume_size_id', item.sizeId)
+        .eq('store_id', 1)
+        .single();
+        
+      if (stockData) {
+        await supabaseAdmin
+          .from('product_stocks')
+          .update({ stock_qty: Math.max(0, stockData.stock_qty - item.quantity) })
+          .eq('perfume_size_id', item.sizeId)
+          .eq('store_id', 1);
+      }
+    }
+    // --------------------
+
     // Increment voucher used_count
     if (appliedVoucherId) {
       const { data: v } = await supabaseAdmin.from('vouchers').select('used_count').eq('id', appliedVoucherId).single();
@@ -260,7 +280,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
+        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''} | CustomRequestID: ${customRequestId}`
       })
       .select('id, order_code')
       .single();

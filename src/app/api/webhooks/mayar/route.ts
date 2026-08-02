@@ -90,6 +90,21 @@ export async function POST(req: Request) {
           console.error("Failed to update order status:", updateError);
       }
 
+      // Check if order is linked to a Custom Request
+      const customReqMatch = order.notes?.match(/CustomRequestID:\s*([a-f0-9-]+)/i);
+      if (customReqMatch && customReqMatch[1]) {
+        const customReqId = customReqMatch[1];
+        await supabaseAdmin
+          .from('custom_requests')
+          .update({ 
+            status: 'paid',
+            payment_status: 'paid',
+            paid_at: new Date().toISOString()
+          })
+          .eq('id', customReqId);
+        console.log(`[Webhook Debug] Updated custom_request ${customReqId} to paid`);
+      }
+
       // 3. Trigger Biteship Order if it's not Pickup
       const isPickup = order.courier_name.toLowerCase().includes('ambil di tempat') || order.courier_name.toLowerCase().includes('pickup');
       
