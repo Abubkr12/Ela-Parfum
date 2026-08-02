@@ -10,10 +10,8 @@ export async function GET(request: Request) {
     }
 
     try {
-        // Extract courier code from "J&T - EZ" -> "jnt" or something. 
-        // Actually courier should be the exact courier code like "jnt", "jne", etc.
-        // We might need to map it if we stored "JNE - REG". Let's assume courier string starts with the courier name.
-        let courierCode = courier.split('-')[0].trim().toLowerCase();
+        let courierName = courier.split('-')[0].trim();
+        let courierCode = courierName.toLowerCase();
         if (courierCode === 'j&t') courierCode = 'jnt';
 
         const response = await fetch(`https://api.biteship.com/v1/trackings/${waybill}/couriers/${courierCode}`, {
@@ -33,7 +31,7 @@ export async function GET(request: Request) {
                 status: 'allocated',
                 history: [
                     { note: 'Paket telah dialokasikan ke kurir', updated_at: new Date().toISOString() },
-                    { note: 'Paket diserahkan ke J&T', updated_at: new Date(Date.now() - 3600000).toISOString() }
+                    { note: `Paket diserahkan ke ${courierName}`, updated_at: new Date(Date.now() - 3600000).toISOString() }
                 ]
             });
         }
