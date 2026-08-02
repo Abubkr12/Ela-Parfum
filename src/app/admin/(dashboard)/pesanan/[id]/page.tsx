@@ -163,30 +163,63 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
               <SyncWebhookButton orderCode={order.order_code} />
             </div>
 
-            <form action={updateResiStatus} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <input type="hidden" name="orderId" value={order.id} />
-              <div>
-                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 8 }}>Nomor Resi (AWB)</label>
-                <input 
-                  type="text" 
-                  name="waybillNumber" 
-                  defaultValue={order.waybill_number || ''}
-                  className="input-field" 
-                  style={{ width: "100%", padding: "10px 16px", background: "var(--bg-color)", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", color: "var(--c-ink)" }} 
-                  placeholder="Misal: JP71829038" 
-                />
-              </div>
-              
-              <button 
-                type="submit" 
-                className="btn btn-primary" 
-                style={{ width: "100%", justifyContent: "center", padding: "12px" }}
-              >
-                Tandai Sudah Dikirim
-              </button>
+            {(() => {
+              const bsMatch = order.notes?.match(/Biteship Order ID:\s*([a-zA-Z0-9_-]+)/i);
+              const biteshipOrderId = bsMatch ? bsMatch[1] : null;
 
+              if (biteshipOrderId) {
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ padding: 16, background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "var(--r-md)" }}>
+                      <h4 style={{ fontSize: "0.95rem", color: "var(--c-ink)", marginBottom: 12, fontWeight: 600 }}>Pengiriman via Biteship</h4>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                        <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Nomor Resi / AWB:</span>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)" }}>{order.waybill_number || "Menunggu Pickup"}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                        <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Status Pengiriman:</span>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)" }}>
+                          {order.status === 'completed' ? 'Selesai' : (order.waybill_number ? 'Dalam Pengiriman' : 'Diproses')}
+                        </span>
+                      </div>
+                    </div>
+                    <a 
+                      href={`/api/shipping/waybill?id=${biteshipOrderId}`} 
+                      target="_blank" 
+                      className="btn btn-primary" 
+                      style={{ width: "100%", justifyContent: "center", padding: "12px", textAlign: "center", textDecoration: "none" }}
+                    >
+                      Cetak Label Pengiriman (Resi)
+                    </a>
+                  </div>
+                );
+              }
 
-            </form>
+              return (
+                <form action={updateResiStatus} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 8 }}>Nomor Resi Manual (AWB)</label>
+                    <input 
+                      type="text" 
+                      name="waybillNumber" 
+                      defaultValue={order.waybill_number || ''}
+                      className="input-field" 
+                      style={{ width: "100%", padding: "10px 16px", background: "var(--bg-color)", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", color: "var(--c-ink)" }} 
+                      placeholder="Misal: JP71829038" 
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    style={{ width: "100%", justifyContent: "center", padding: "12px" }}
+                  >
+                    Tandai Sudah Dikirim
+                  </button>
+                </form>
+              );
+            })()}
           </div>
 
         </div>

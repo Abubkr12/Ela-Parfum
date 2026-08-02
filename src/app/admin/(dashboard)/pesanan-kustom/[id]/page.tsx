@@ -210,20 +210,51 @@ export default function PesananKustomDetailPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               <div style={{ padding: 16, background: "var(--glass-bg)", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <span style={{ fontSize: "0.85rem", color: "var(--c-ink)", fontWeight: 600 }}>Total Harga Racikan</span>
+                  <span style={{ fontSize: "0.85rem", color: "var(--c-ink)", fontWeight: 600 }}>Rincian Biaya</span>
                   <span style={{ color: "var(--c-gold)", fontSize: "0.85rem", fontWeight: 600 }}>Ukuran: {request.volume_ml || 30}ml</span>
                 </div>
                 
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 12, borderBottom: "1px dashed var(--c-border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Biaya Bibit & Pelarut:</span>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--c-ink)" }}>
+                      Rp {((request.ai_recipe?.price_breakdown?.perfume) || request.price_perfume || 0).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Biaya Botol:</span>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--c-ink)" }}>
+                      Rp {((request.ai_recipe?.price_breakdown?.bottle) || request.price_bottle || request.ai_recipe?.bottle?.price || 0).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  {order && order.shipping_cost > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Ongkos Kirim:</span>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--c-ink)" }}>
+                        Rp {(order.shipping_cost || 0).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  )}
+                  {order && (order.total - order.subtotal - order.shipping_cost > 0) && (
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Biaya Layanan:</span>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--c-ink)" }}>
+                        Rp {(order.total - order.subtotal - order.shipping_cost).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ marginTop: 12, padding: "16px", background: "var(--c-surface-1)", borderRadius: "var(--r-md)", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--c-gold-dim)" }}>
-                  <span style={{ color: "var(--c-ink-dim)", textTransform: "uppercase", fontSize: "0.85rem", letterSpacing: "1px", fontWeight: 600 }}>Total (Inc. Pelarut & Botol)</span>
+                  <span style={{ color: "var(--c-ink-dim)", textTransform: "uppercase", fontSize: "0.85rem", letterSpacing: "1px", fontWeight: 600 }}>Total Pembayaran</span>
                   <span style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--c-gold)", fontFamily: "var(--font-display)" }}>
-                    Rp {(request.total_price || 0).toLocaleString('id-ID')}
+                    Rp {(order ? order.total : (request.total_price || 0)).toLocaleString('id-ID')}
                   </span>
                 </div>
                 
                 {request.status === 'pending' && (
                   <p style={{ fontSize: '0.75rem', color: 'var(--c-ink-muted)', marginTop: 8, textAlign: 'center' }}>
-                    Harga dihitung otomatis oleh sistem AI di halaman Checkout.
+                    Harga akhir dihitung otomatis oleh sistem AI di halaman Checkout.
                   </p>
                 )}
               </div>
@@ -244,10 +275,6 @@ export default function PesananKustomDetailPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: '0.85rem', color: 'var(--c-ink-dim)' }}>Resi / AWB:</span>
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--c-gold)' }}>{order.resi_number || '-'}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--c-ink-dim)' }}>Total Transaksi:</span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--c-ink)' }}>Rp {(order.total || 0).toLocaleString('id-ID')}</span>
                     </div>
                   </div>
                   

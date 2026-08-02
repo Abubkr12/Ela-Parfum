@@ -186,6 +186,7 @@ export default function CustomCheckoutPage() {
       data.append("paymentMethod", paymentMethod);
       data.append("originAreaId", selectedCourier.origin_area_id || "");
       data.append("originName", selectedCourier.origin_name || "");
+      data.append("destinationAreaId", selectedAddress.region_code || "");
       if (discountAmount > 0) {
         data.append("voucherCode", voucherCode.trim());
       }
