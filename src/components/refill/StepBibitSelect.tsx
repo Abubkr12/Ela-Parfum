@@ -47,7 +47,7 @@ export function StepBibitSelect({ bibits, selectedBibits, onToggle, onSubmit, lo
           Pilih Bibit Parfum
         </h2>
         <p style={{ color: "var(--c-ink-dim)" }}>
-          Campurkan 2 atau lebih bibit untuk menciptakan aroma signature Anda.
+          Pilih 1 atau lebih bibit parfum untuk menciptakan aroma signature Anda.
         </p>
       </div>
 
@@ -188,22 +188,22 @@ export function StepBibitSelect({ bibits, selectedBibits, onToggle, onSubmit, lo
       {/* Footer / Submit */}
       <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
         <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", textAlign: "center" }}>
-          <strong style={{ color: "var(--c-ink)" }}>{selectedBibits.length}</strong> bibit dipilih (min. 2)
+          <strong style={{ color: "var(--c-ink)" }}>{selectedBibits.length}</strong> bibit dipilih (min. 1)
         </div>
         
         <button
           onClick={onSubmit}
-          disabled={loading || selectedBibits.length < 2}
+          disabled={loading || selectedBibits.length < 1}
           style={{
             width: "100%",
             padding: "16px",
             borderRadius: "var(--r-md)",
-            background: loading || selectedBibits.length < 2 ? "var(--c-surface-2)" : "var(--c-gold)",
-            color: loading || selectedBibits.length < 2 ? "var(--c-ink-dim)" : "#ffffff",
+            background: loading || selectedBibits.length < 1 ? "var(--c-surface-2)" : "var(--c-gold)",
+            color: loading || selectedBibits.length < 1 ? "var(--c-ink-dim)" : "#ffffff",
             border: "none",
             fontSize: "1rem",
             fontWeight: 600,
-            cursor: loading || selectedBibits.length < 2 ? "not-allowed" : "pointer",
+            cursor: loading || selectedBibits.length < 1 ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

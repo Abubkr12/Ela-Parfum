@@ -26,8 +26,8 @@ const methods = [
   },
   {
     id: "custom",
-    title: "Multiple Custom",
-    description: "Campur 2 atau lebih bibit parfum untuk menciptakan aroma unik Anda sendiri. AI akan menganalisis hasilnya.",
+    title: "Refill Custom",
+    description: "Pilih 1 atau lebih bibit parfum untuk menciptakan aroma unik Anda sendiri. AI akan menganalisis hasilnya.",
     icon: FlaskConical,
     color: "#a855f7",
     bgColor: "rgba(168, 85, 247, 0.08)",

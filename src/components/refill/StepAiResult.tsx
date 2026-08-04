@@ -48,7 +48,9 @@ export function StepAiResult({ mode, recommendedBibit, selectedBibits, analysis,
       {/* Bibit Selection Display */}
       <div style={{ marginBottom: "32px" }}>
         <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: "16px" }}>
-          {isCustom ? "Kombinasi Pilihan Anda:" : "Rekomendasi Bibit Terbaik:"}
+          {isCustom 
+            ? (selectedBibits.length === 1 ? "Bibit Pilihan Anda:" : (analysis.custom_name || "Kombinasi Pilihan Anda:")) 
+            : "Rekomendasi Bibit Terbaik:"}
         </h3>
         
         <div style={{ display: "grid", gridTemplateColumns: isCustom ? "repeat(auto-fit, minmax(200px, 1fr))" : "1fr", gap: "16px" }}>

@@ -40,8 +40,8 @@ export function StepMethodSelect({ onSelect }: StepMethodSelectProps) {
     },
     {
       id: "custom",
-      title: "Refill Multiple Custom",
-      desc: "Campur 2 atau lebih bibit parfum untuk menciptakan aroma unik Anda sendiri.",
+      title: "Refill Custom",
+      desc: "Pilih 1 atau lebih bibit parfum untuk menciptakan aroma unik Anda sendiri.",
       icon: FlaskConical
     }
   ];

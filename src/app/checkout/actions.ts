@@ -287,6 +287,98 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
 
     if (orderError) return { error: 'Gagal membuat pesanan: ' + orderError.message };
 
+    // 1.5 Create order items for the custom refill
+    let parsedRecipe: any = {};
+    try {
+      parsedRecipe = typeof request.ai_recipe === "string" ? JSON.parse(request.ai_recipe) : (request.ai_recipe || {});
+    } catch (e) {}
+
+    const bibitsList = parsedRecipe.bibits || [];
+    const bottleObj = parsedRecipe.bottle || null;
+    const ratioStr = parsedRecipe.ratio || "50/50";
+    const isOwnBottle = parsedRecipe.own_bottle === true;
+    
+    const itemsToInsert = [];
+    
+    // Add Bibit items
+    for (const b of bibitsList) {
+      const ratioPercent = ratioStr === "100/0" ? 1.0 : ratioStr === "70/30" ? 0.7 : ratioStr === "50/50" ? 0.5 : 0.3;
+      const vol = (bottleObj?.capacity_ml || 0) * ratioPercent / (bibitsList.length || 1);
+      const cost = vol * (b.price_per_ml || 0);
+      itemsToInsert.push({
+        order_id: orderData.id,
+        perfume_id: null,
+        size_id: null,
+        perfume_name: `Bibit: ${b.name}`,
+        size_label: `${vol.toFixed(1)}ml`,
+        quantity: 1,
+        price: cost,
+        subtotal: cost
+      });
+    }
+    
+    // Add Pelarut
+    if (bottleObj?.capacity_ml && ratioStr !== "100/0") {
+      const solventPercent = ratioStr === "30/70" ? 0.7 : ratioStr === "50/50" ? 0.5 : 0.3;
+      const solventVol = bottleObj.capacity_ml * solventPercent;
+      itemsToInsert.push({
+        order_id: orderData.id,
+        perfume_id: null,
+        size_id: null,
+        perfume_name: `Pelarut: Absolute`,
+        size_label: `${solventVol.toFixed(1)}ml`,
+        quantity: 1,
+        price: 0,
+        subtotal: 0
+      });
+    }
+    
+    // Add Botol
+    itemsToInsert.push({
+      order_id: orderData.id,
+      perfume_id: null,
+      size_id: null,
+      perfume_name: isOwnBottle ? `Botol Sendiri` : `Botol: ${bottleObj?.name || request.bottle_type || 'Botol'}`,
+      size_label: `${bottleObj?.capacity_ml || request.volume || 0}ml`,
+      quantity: 1,
+      price: isOwnBottle ? 0 : (bottleObj?.price || request.price_bottle || 0),
+      subtotal: isOwnBottle ? 0 : (bottleObj?.price || request.price_bottle || 0)
+    });
+    
+    // Add Biaya Layanan if there is a discrepancy in total
+    const itemTotal = itemsToInsert.reduce((sum, it) => sum + it.price, 0);
+    const diff = subtotal - itemTotal;
+    if (diff > 0) {
+      itemsToInsert.push({
+        order_id: orderData.id,
+        perfume_id: null,
+        size_id: null,
+        perfume_name: `Biaya Layanan (Racikan)`,
+        size_label: `-`,
+        quantity: 1,
+        price: diff,
+        subtotal: diff
+      });
+    } else if (itemsToInsert.length === 1 && itemsToInsert[0].price === 0) {
+      // Fallback if recipe parsing completely failed
+      itemsToInsert[0] = {
+        order_id: orderData.id,
+        perfume_id: null,
+        size_id: null,
+        perfume_name: `Custom Refill: ${request.base_note || 'Pesanan Custom'}`,
+        size_label: `${request.volume || 0}ml (${request.bottle_type || 'Botol'})`,
+        quantity: 1,
+        price: subtotal,
+        subtotal: subtotal
+      };
+    }
+
+    const { error: itemsError } = await supabaseAdmin.from('order_items').insert(itemsToInsert);
+
+    if (itemsError) {
+      console.error("Gagal menyimpan detail custom pesanan:", itemsError.message);
+    }
+
     // 2. Update custom_requests status
     await supabaseAdmin
       .from('custom_requests')

@@ -10,8 +10,48 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function saveBotol(payload: any, id?: string) {
+export async function saveBotol(formData: FormData) {
   try {
+    const id = formData.get('id') as string;
+    const name = formData.get('name') as string;
+    const capacity_ml = Number(formData.get('capacity_ml'));
+    const price = Number(formData.get('price'));
+    
+    // Image Upload
+    const imageFile = formData.get('image') as File;
+    let image_url = formData.get('existing_image_url') as string;
+
+    if (imageFile && imageFile.size > 0) {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+        .from('products')
+        .upload(`bottles/${fileName}`, imageFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error('Gagal upload gambar: ' + uploadError.message);
+      }
+
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from('products')
+        .getPublicUrl(`bottles/${fileName}`);
+        
+      image_url = publicUrlData.publicUrl;
+    }
+
+    const payload: any = {
+      name,
+      capacity_ml,
+      price,
+    };
+    if (image_url) {
+      payload.image_url = image_url;
+    }
+
     if (id) {
       // Edit
       const { error } = await supabaseAdmin

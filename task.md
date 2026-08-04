@@ -3,6 +3,8 @@
 ## Aktif
 - [/] Tunggu hingga script `fix-perfumes-ollama.js` selesai memproses sisa 723 data di database secara lokal.
 - [ ] Verifikasi data di Supabase setelah selesai.
+- [/] Integrasi ulang API Mayar dan Biteship (Sandbox & Production).
+- [x] Buat script testing untuk aktivasi API Biteship (Order terkirim & dibatalkan).
 
 ## Arsip
 - [x] Instalasi Ollama untuk Windows.

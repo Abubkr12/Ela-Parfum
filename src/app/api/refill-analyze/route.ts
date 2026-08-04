@@ -53,6 +53,8 @@ Struktur JSON yang diharapkan:
     "selectedBibits": [ /* array objek bibit yang dipilih */ ],
     // Selalu ada:
     "analysis": {
+      "custom_name": "string", // Hanya jika mode 'custom', nama blend / nama asli jika 1 bibit
+      "technical_recipe": "string", // Hanya jika mode 'custom', rasio (misal: 60% A, 40% B). Jika 1 bibit, 100%. Ini rahasia untuk seller.
       "predicted_notes": { "top": ["string"], "middle": ["string"], "base": ["string"] },
       "predicted_intensity": "string", // 'Soft' | 'Medium' | 'Strong' | 'Extreme'
       "description": "string", // Deskripsi aroma hasil analisismu
@@ -90,8 +92,8 @@ ${catalogueText}
       }
     }
     else if (mode === 'custom') {
-      if (!bibitIds || !Array.isArray(bibitIds) || bibitIds.length < 2) {
-        return NextResponse.json({ error: "bibitIds array with at least 2 IDs is required for custom mode." }, { status: 400 });
+      if (!bibitIds || !Array.isArray(bibitIds) || bibitIds.length < 1) {
+        return NextResponse.json({ error: "bibitIds array with at least 1 ID is required for custom mode." }, { status: 400 });
       }
       
       customSelectedBibits = bibitList.filter(b => bibitIds.includes(b.id));
@@ -99,8 +101,22 @@ ${catalogueText}
         return NextResponse.json({ error: "Satu atau lebih bibit ID tidak valid atau tidak aktif." }, { status: 400 });
       }
       
-      systemPrompt += `\nINTRUKSI: Analisis campuran dari bibit-bibit berikut: ${JSON.stringify(customSelectedBibits)}. Prediksi notes baru (top, middle, base), intensitas hasil campuran, dan deskripsikan wangi hasil campurannya.`;
-      userContentParts.push({ text: "Tolong analisis campuran bibit-bibit parfum ini." });
+      if (customSelectedBibits.length === 1) {
+        systemPrompt += `\nINTRUKSI: Pelanggan memilih 1 bibit parfum secara manual: ${JSON.stringify(customSelectedBibits[0])}. 
+Tugasmu: Berikan deskripsi dan analisa dasar terhadap bibit ini. 
+Untuk "custom_name", gunakan nama variasi atau nama asli bibit tersebut. 
+Untuk "technical_recipe", tulis "100% ${customSelectedBibits[0].name}". 
+Gunakan data notes dan intensitas asli dari database. JANGAN buat aroma baru yang jauh menyimpang, analisalah karakteristik bawaannya.`;
+        userContentParts.push({ text: "Tolong analisis 1 bibit pilihan saya ini." });
+      } else {
+        systemPrompt += `\nINTRUKSI: Pelanggan meracik beberapa bibit parfum secara manual: ${JSON.stringify(customSelectedBibits)}. 
+Tugasmu: Analisis campuran dari bibit-bibit tersebut.
+1. "custom_name": BUATKAN nama baru yang unik, kreatif, dan elegan untuk racikan ini.
+2. "technical_recipe": BUATKAN racikan persentase spesifik (contoh: ${customSelectedBibits[0].name} 60%, bibit lainnya 40%) sesuai harmoni notes.
+3. Prediksi notes baru (top, middle, base), intensitas hasil campuran, dan deskripsikan sensasi wangi barunya.
+Jawab dengan penuh percaya diri dan elegan, layaknya racikan perfumer ahli.`;
+        userContentParts.push({ text: "Tolong analisis campuran bibit-bibit parfum ini dan jadikan racikan baru." });
+      }
     }
 
     const { apiKeys, availableModels } = await getAiConfig('refill');
@@ -121,21 +137,45 @@ ${catalogueText}
           
           let aiConfig: any = {
             temperature: 0.4,
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            // Lowered thinking budget from 2048 to save tokens (512 for standard, 1024 for custom combos)
-            thinkingConfig: { thinkingBudget: mode === 'custom' ? 1024 : 512 }
+            systemInstruction: { parts: [{ text: systemPrompt }] }
           };
-
-          // Search grounding only if needed
-          if (mode === 'gambar' || mode === 'custom') {
-            aiConfig.tools = [{ googleSearch: {} }];
+          
+          if (modelObj.model_name.includes('thinking')) {
+            aiConfig.thinkingConfig = { thinkingBudget: mode === 'custom' ? 1024 : 512 };
           }
 
-          const response = await ai.models.generateContent({
-            model: modelObj.model_name,
-            contents: [{ role: "user", parts: userContentParts }],
-            config: aiConfig
-          });
+          let response;
+          try {
+            const supportsSearchGrounding = modelObj.model_name.startsWith('gemini-2.0') || 
+                                            modelObj.model_name.startsWith('gemini-2.5') || 
+                                            modelObj.model_name.startsWith('gemma') || 
+                                            modelObj.model_name.startsWith('deep-research') || 
+                                            modelObj.model_name.startsWith('gemini-robotics') ||
+                                            modelObj.model_name.startsWith('antigravity');
+
+            // Search grounding only if needed and model supports it
+            if ((mode === 'gambar' || mode === 'custom') && supportsSearchGrounding) {
+              aiConfig.tools = [{ googleSearch: {} }];
+            }
+
+            response = await ai.models.generateContent({
+              model: modelObj.model_name,
+              contents: [{ role: "user", parts: userContentParts }],
+              config: aiConfig
+            });
+          } catch (eWithTools: any) {
+            if (aiConfig.tools) {
+               // Retrying without googleSearch
+               delete aiConfig.tools;
+               response = await ai.models.generateContent({
+                 model: modelObj.model_name,
+                 contents: [{ role: "user", parts: userContentParts }],
+                 config: aiConfig
+               });
+            } else {
+               throw eWithTools;
+            }
+          }
           
           resultText = response.text || '';
           success = true;

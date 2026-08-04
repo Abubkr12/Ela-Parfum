@@ -188,7 +188,7 @@ export default function CheckoutSuccessPage() {
               <span>Penting: Transfer <strong>tepat hingga 3 digit terakhir</strong> (Kode Unik) untuk mempercepat verifikasi.</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-              <Link href={`/pesanan/invoice/${orderId}`} target="_blank" className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 100, border: '1px solid var(--c-gold)', color: 'var(--c-gold)' }}>
+              <Link href={`/riwayat-pesanan/invoice/${orderId}`} target="_blank" className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 100, border: '1px solid var(--c-gold)', color: 'var(--c-gold)' }}>
                 Lihat Invoice
               </Link>
             </div>
@@ -273,10 +273,10 @@ export default function CheckoutSuccessPage() {
                    Terima kasih, pembayaran Anda sedang diproses. Status pesanan diubah menjadi Menunggu Konfirmasi.
                  </p>
                  <div style={{ display: 'flex', gap: 16 }}>
-                    <Link href="/pesanan" className="btn btn-primary" style={{ padding: '0 32px', height: '48px', borderRadius: 100, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Link href="/riwayat-pesanan" className="btn btn-primary" style={{ padding: '0 32px', height: '48px', borderRadius: 100, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                       Lihat Pesanan Saya
                     </Link>
-                    <Link href={`/pesanan/invoice/${orderId}`} target="_blank" className="btn" style={{ padding: '0 24px', height: '48px', borderRadius: 100, border: '1px solid var(--c-gold)', color: 'var(--c-gold)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Link href={`/riwayat-pesanan/invoice/${orderId}`} target="_blank" className="btn" style={{ padding: '0 24px', height: '48px', borderRadius: 100, border: '1px solid var(--c-gold)', color: 'var(--c-gold)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                       Lihat Invoice
                     </Link>
                     <button onClick={() => {

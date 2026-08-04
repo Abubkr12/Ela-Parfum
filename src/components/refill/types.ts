@@ -1,13 +1,14 @@
 export type RefillMode = 'ai' | 'gambar' | 'custom';
 
 export type WizardStep = 
-  | 'method'    // Step 0: Choose method
-  | 'input'     // Step 1: Provide input (prompt/image/bibit selection)
-  | 'analyzing' // Step 1.5: Loading state while AI analyzes
-  | 'result'    // Step 2: AI analysis result
-  | 'ratio'     // Step 3: Choose ratio
-  | 'bottle'    // Step 4: Choose bottle
-  | 'summary';  // Step 5: Price calculation & confirm
+  | 'method'        // Step 0: Choose method
+  | 'input'         // Step 1: Provide input (prompt/image/bibit selection)
+  | 'analyzing'     // Step 1.5: Loading state while AI analyzes
+  | 'result'        // Step 2: AI analysis result
+  | 'ratio'         // Step 3: Choose ratio
+  | 'bottle_choice' // Step 4: Choose bottle type (ours vs own)
+  | 'bottle'        // Step 5: Choose bottle (if using ours)
+  | 'summary';      // Step 6: Price calculation & confirm
 
 export interface BibitData {
   id: number;
@@ -32,6 +33,8 @@ export interface BottleData {
 }
 
 export interface AiAnalysis {
+  custom_name?: string;
+  technical_recipe?: string;
   predicted_notes: { top: string[]; middle: string[]; base: string[] };
   predicted_intensity: string;
   description: string;
@@ -50,7 +53,9 @@ export interface WizardState {
   recommendedBibit: BibitData | null;
   analysis: AiAnalysis | null;
   // Selections
-  ratio: '50/50' | '70/30' | null;
+  ratio: '30/70' | '50/50' | '70/30' | '100/0' | null;
+  useOwnBottle: boolean;
+  ownBottleVolumeMl: number;
   selectedBottle: BottleData | null;
   // Loading/error
   loading: boolean;

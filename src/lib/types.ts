@@ -58,6 +58,7 @@ export interface PerfumeSize {
   price: number;
   stock: number;
   is_active: boolean;
+  product_stocks?: { stock_qty: number }[];
 }
 
 export interface CustomerProfile {
@@ -251,7 +252,12 @@ export function getMinPrice(sizes: PerfumeSize[] | undefined): number {
 
 export function getTotalStock(sizes: PerfumeSize[] | undefined): number {
   if (!sizes || sizes.length === 0) return 0;
-  return sizes.reduce((sum, s) => sum + s.stock, 0);
+  return sizes.reduce((sum, s) => {
+    if (s.product_stocks && s.product_stocks.length > 0) {
+      return sum + s.product_stocks.reduce((acc, ps) => acc + ps.stock_qty, 0);
+    }
+    return sum + s.stock;
+  }, 0);
 }
 
 export function slugify(text: string): string {

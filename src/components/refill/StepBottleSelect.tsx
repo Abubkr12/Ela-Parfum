@@ -101,7 +101,7 @@ export function StepBottleSelect({ bottles, selected, onSelect }: StepBottleSele
               
               <div style={{ 
                 width: "100%", 
-                aspectRatio: "1/1", 
+                aspectRatio: "4/5", 
                 background: bottle.image_url ? "#fff" : "linear-gradient(135deg, var(--c-surface-1) 0%, var(--c-surface-2) 100%)",
                 display: "flex",
                 alignItems: "center",

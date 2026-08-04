@@ -33,9 +33,6 @@ export default async function VoucherPage() {
               <Link href="/profil" className="topbar__nav-link">
                 <User size={18} /> Profil Saya
               </Link>
-              <Link href="/pesanan" className="topbar__nav-link">
-                <Package size={18} /> Riwayat Pesanan
-              </Link>
               <Link href="/voucher" className="topbar__nav-link" style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--c-gold)' }}>
                 <Tag size={18} /> Voucher & Promo
               </Link>

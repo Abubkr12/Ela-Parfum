@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Lock, MapPin, CreditCard, Loader2, Truck, Landmark, QrCode, Sparkles, Beaker, CheckCircle2 } from "lucide-react";
+import { ChevronRight, Lock, MapPin, CreditCard, Loader2, Truck, Landmark, QrCode, Sparkles, Beaker, CheckCircle2, Wine, Store } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Footer } from "@/components/footer";
 import { formatRupiah } from "@/lib/types";
@@ -161,13 +161,15 @@ export default function CustomCheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAddress) {
-      setError("Silakan tambahkan alamat pengiriman terlebih dahulu.");
-      return;
-    }
-    if (!selectedCourier) {
-      setError("Silakan pilih opsi pengiriman terlebih dahulu.");
-      return;
+    if (!isOwnBottle) {
+      if (!selectedAddress) {
+        setError("Silakan tambahkan alamat pengiriman terlebih dahulu.");
+        return;
+      }
+      if (!selectedCourier) {
+        setError("Silakan pilih opsi pengiriman terlebih dahulu.");
+        return;
+      }
     }
     if (!paymentMethod) {
       setError("Silakan pilih metode pembayaran terlebih dahulu.");
@@ -178,15 +180,27 @@ export default function CustomCheckoutPage() {
 
     try {
       const data = new FormData();
-      data.append("fullName", selectedAddress.recipient_name);
-      data.append("phone", selectedAddress.phone);
-      data.append("address", selectedAddress.full_address);
-      data.append("shippingCost", shippingCost.toString());
-      data.append("courierInfo", `${selectedCourier.courier_name} - ${selectedCourier.courier_service_name}`);
-      data.append("paymentMethod", paymentMethod);
-      data.append("originAreaId", selectedCourier.origin_area_id || "");
-      data.append("originName", selectedCourier.origin_name || "");
-      data.append("destinationAreaId", selectedAddress.region_code || "");
+      if (isOwnBottle) {
+        data.append("fullName", request.customer_name || "Pelanggan Ela");
+        data.append("phone", request.customer_whatsapp || "");
+        data.append("address", "Ambil di Toko Ela Parfum");
+        data.append("shippingCost", "0");
+        data.append("courierInfo", "Ambil di Tempat (Bawa Botol Sendiri)");
+        data.append("paymentMethod", paymentMethod);
+        data.append("originAreaId", "");
+        data.append("originName", "");
+        data.append("destinationAreaId", "");
+      } else {
+        data.append("fullName", selectedAddress.recipient_name);
+        data.append("phone", selectedAddress.phone);
+        data.append("address", selectedAddress.full_address);
+        data.append("shippingCost", shippingCost.toString());
+        data.append("courierInfo", `${selectedCourier.courier_name} - ${selectedCourier.courier_service_name}`);
+        data.append("paymentMethod", paymentMethod);
+        data.append("originAreaId", selectedCourier.origin_area_id || "");
+        data.append("originName", selectedCourier.origin_name || "");
+        data.append("destinationAreaId", selectedAddress.region_code || "");
+      }
       if (discountAmount > 0) {
         data.append("voucherCode", voucherCode.trim());
       }
@@ -236,6 +250,7 @@ export default function CustomCheckoutPage() {
   const bottleObj = recipe?.bottle || null;
   const ratioStr = recipe?.ratio || "50/50";
   const modeStr = recipe?.mode || "ai";
+  const isOwnBottle = recipe?.own_bottle === true;
 
   return (
     <div className="customer-page" style={{ background: "var(--c-bg)", minHeight: "100vh" }}>
@@ -266,119 +281,152 @@ export default function CustomCheckoutPage() {
           {/* LEFT: FORM */}
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             
-            {/* ALAMAT PENGIRIMAN */}
-            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", margin: 0 }}>
-                  <MapPin size={18} style={{ color: "var(--c-gold)" }} />
-                  Alamat Pengiriman
+            {/* ALAMAT & PENGIRIMAN (hanya jika BUKAN bawa botol sendiri) */}
+            {isOwnBottle ? (
+              /* OWN BOTTLE: PICKUP ONLY */
+              <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+                <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", margin: 0, marginBottom: 20 }}>
+                  <Store size={18} style={{ color: "#a855f7" }} />
+                  Ambil di Toko
                 </h2>
-                {addresses.length > 1 && !showAddressSelector && (
-                  <button type="button" onClick={() => setShowAddressSelector(true)} style={{ background: "transparent", border: "none", color: "var(--c-gold)", fontSize: "0.85rem", cursor: "pointer", fontWeight: 600 }}>
-                    Pilih Alamat Lain
-                  </button>
-                )}
-              </div>
-
-              {showAddressSelector ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {addresses.map((addr) => (
-                    <div
-                      key={addr.id}
-                      onClick={() => handleSelectAddress(addr)}
-                      style={{
-                        padding: "16px",
-                        border: selectedAddress?.id === addr.id ? "1px solid var(--c-gold)" : "1px solid var(--c-border)",
-                        borderRadius: "var(--r-md)",
-                        cursor: "pointer",
-                        background: selectedAddress?.id === addr.id ? "var(--c-gold-dim)" : "transparent",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{addr.label}</span>
-                        {addr.is_default && <span style={{ fontSize: "0.7rem", padding: "2px 6px", background: "var(--c-gold)", color: "#fff", borderRadius: "4px" }}>Utama</span>}
-                      </div>
-                      <div style={{ fontSize: "0.9rem", color: "var(--c-ink)" }}>{addr.recipient_name} | {addr.phone}</div>
-                      <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)", marginTop: 4 }}>{addr.full_address}</div>
+                <div style={{ padding: 20, background: "rgba(168, 85, 247, 0.06)", borderRadius: "var(--r-md)", border: "1px solid rgba(168, 85, 247, 0.15)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(168, 85, 247, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#a855f7", flexShrink: 0 }}>
+                      <Wine size={22} />
                     </div>
-                  ))}
-                  <button type="button" onClick={() => setShowAddressSelector(false)} style={{ background: "var(--c-border)", border: "none", padding: "12px", borderRadius: "var(--r-md)", color: "var(--c-ink)", cursor: "pointer", marginTop: 8 }}>
-                    Batal Pilih
-                  </button>
-                </div>
-              ) : selectedAddress ? (
-                <div style={{ padding: "16px", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", position: "relative" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{selectedAddress.label}</span>
-                    {selectedAddress.is_default && <span style={{ fontSize: "0.7rem", padding: "2px 6px", background: "var(--c-gold)", color: "#fff", borderRadius: "4px" }}>Utama</span>}
+                    <div>
+                      <div style={{ fontWeight: 700, color: "var(--c-ink)", fontSize: "1rem" }}>Bawa Botol Sendiri</div>
+                      <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Botol {bottleObj?.capacity_ml || 0}ml</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: "0.95rem", color: "var(--c-ink)", marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600 }}>{selectedAddress.recipient_name}</span> <span style={{ color: "var(--c-ink-dim)" }}>| {selectedAddress.phone}</span>
+                  <div style={{ height: 1, background: "var(--c-border)", margin: "12px 0" }} />
+                  <div style={{ fontSize: "0.88rem", color: "var(--c-ink)", lineHeight: 1.6 }}>
+                    <strong>Toko Ela Parfum</strong><br />
+                    Silakan bawa botol parfum Anda langsung ke toko untuk diisi ulang. Pengiriman tidak tersedia untuk opsi ini.
                   </div>
-                  <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", lineHeight: 1.5 }}>
-                    {selectedAddress.full_address}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, padding: "10px 14px", background: "var(--c-surface-1)", borderRadius: "var(--r-sm)" }}>
+                    <span style={{ fontSize: "0.88rem", color: "var(--c-ink)" }}>Ongkos Kirim</span>
+                    <span style={{ fontWeight: 600, color: "var(--c-green)" }}>Gratis</span>
                   </div>
                 </div>
-              ) : (
-                <div style={{ padding: "24px", textAlign: "center", background: "var(--glass-bg)", border: "1px dashed var(--c-border)", borderRadius: "var(--r-md)" }}>
-                  <p style={{ color: "var(--c-ink-dim)", fontSize: "0.9rem", marginBottom: 16 }}>Belum ada alamat pengiriman tersimpan.</p>
-                  <Link href="/profil/alamat/tambah" className="btn btn-primary" style={{ padding: "8px 16px", fontSize: "0.85rem", display: "inline-block" }}>
-                    + Tambah Alamat Baru
-                  </Link>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <>
+                {/* ALAMAT PENGIRIMAN */}
+                <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                    <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", margin: 0 }}>
+                      <MapPin size={18} style={{ color: "var(--c-gold)" }} />
+                      Alamat Pengiriman
+                    </h2>
+                    {addresses.length > 1 && !showAddressSelector && (
+                      <button type="button" onClick={() => setShowAddressSelector(true)} style={{ background: "transparent", border: "none", color: "var(--c-gold)", fontSize: "0.85rem", cursor: "pointer", fontWeight: 600 }}>
+                        Pilih Alamat Lain
+                      </button>
+                    )}
+                  </div>
 
-            {/* OPSI PENGIRIMAN */}
-            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
-              <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 20, margin: 0 }}>
-                <Truck size={18} style={{ color: "var(--c-gold)" }} />
-                Opsi Pengiriman
-              </h2>
-              {loadingRates ? (
-                <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", display: "flex", alignItems: "center", gap: "8px", marginTop: 16 }}>
-                  <Loader2 className="animate-spin" size={16} /> Memuat ongkos kirim...
-                </div>
-              ) : !selectedAddress ? (
-                <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", marginTop: 16 }}>
-                  Silakan pilih alamat pengiriman terlebih dahulu.
-                </div>
-              ) : rates.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: 16 }}>
-                  {rates.map((rate, idx) => (
-                    <label key={`${rate.courier_service_code}-${rate.price}-${idx}`} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", cursor: "pointer", background: selectedCourier?.courier_service_code === rate.courier_service_code && selectedCourier?.price === rate.price ? "var(--glass-bg)" : "transparent" }}>
-                      <input
-                        type="radio"
-                        name="courier"
-                        value={rate.courier_service_code}
-                        checked={selectedCourier?.courier_service_code === rate.courier_service_code && selectedCourier?.price === rate.price}
-                        onChange={() => {
-                          setSelectedCourier(rate);
-                          setShippingCost(rate.price);
-                          setDiscountAmount(0);
-                          setVoucherCode("");
-                          setVoucherSuccess("");
-                          if (rate.courier_service_code !== "pickup") {
-                            setPaymentMethod("QRIS");
-                          }
-                        }}
-                        style={{ accentColor: "var(--c-gold)" }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: "var(--c-ink)" }}>{rate.courier_name} - {rate.courier_service_name}</div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)" }}>Estimasi: {rate.duration}</div>
+                  {showAddressSelector ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {addresses.map((addr) => (
+                        <div
+                          key={addr.id}
+                          onClick={() => handleSelectAddress(addr)}
+                          style={{
+                            padding: "16px",
+                            border: selectedAddress?.id === addr.id ? "1px solid var(--c-gold)" : "1px solid var(--c-border)",
+                            borderRadius: "var(--r-md)",
+                            cursor: "pointer",
+                            background: selectedAddress?.id === addr.id ? "var(--c-gold-dim)" : "transparent",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                            <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{addr.label}</span>
+                            {addr.is_default && <span style={{ fontSize: "0.7rem", padding: "2px 6px", background: "var(--c-gold)", color: "#fff", borderRadius: "4px" }}>Utama</span>}
+                          </div>
+                          <div style={{ fontSize: "0.9rem", color: "var(--c-ink)" }}>{addr.recipient_name} | {addr.phone}</div>
+                          <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)", marginTop: 4 }}>{addr.full_address}</div>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setShowAddressSelector(false)} style={{ background: "var(--c-border)", border: "none", padding: "12px", borderRadius: "var(--r-md)", color: "var(--c-ink)", cursor: "pointer", marginTop: 8 }}>
+                        Batal Pilih
+                      </button>
+                    </div>
+                  ) : selectedAddress ? (
+                    <div style={{ padding: "16px", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", position: "relative" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{selectedAddress.label}</span>
+                        {selectedAddress.is_default && <span style={{ fontSize: "0.7rem", padding: "2px 6px", background: "var(--c-gold)", color: "#fff", borderRadius: "4px" }}>Utama</span>}
                       </div>
-                      <div style={{ fontWeight: 600, color: "var(--c-gold)" }}>{formatRupiah(rate.price)}</div>
-                    </label>
-                  ))}
+                      <div style={{ fontSize: "0.95rem", color: "var(--c-ink)", marginBottom: 4 }}>
+                        <span style={{ fontWeight: 600 }}>{selectedAddress.recipient_name}</span> <span style={{ color: "var(--c-ink-dim)" }}>| {selectedAddress.phone}</span>
+                      </div>
+                      <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", lineHeight: 1.5 }}>
+                        {selectedAddress.full_address}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: "24px", textAlign: "center", background: "var(--glass-bg)", border: "1px dashed var(--c-border)", borderRadius: "var(--r-md)" }}>
+                      <p style={{ color: "var(--c-ink-dim)", fontSize: "0.9rem", marginBottom: 16 }}>Belum ada alamat pengiriman tersimpan.</p>
+                      <Link href="/profil/alamat/tambah" className="btn btn-primary" style={{ padding: "8px 16px", fontSize: "0.85rem", display: "inline-block" }}>
+                        + Tambah Alamat Baru
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", marginTop: 16 }}>
-                  Kurir tidak tersedia untuk alamat ini. Pastikan titik lokasi akurat.
+
+                {/* OPSI PENGIRIMAN */}
+                <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+                  <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 20, margin: 0 }}>
+                    <Truck size={18} style={{ color: "var(--c-gold)" }} />
+                    Opsi Pengiriman
+                  </h2>
+                  {loadingRates ? (
+                    <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", display: "flex", alignItems: "center", gap: "8px", marginTop: 16 }}>
+                      <Loader2 className="animate-spin" size={16} /> Memuat ongkos kirim...
+                    </div>
+                  ) : !selectedAddress ? (
+                    <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", marginTop: 16 }}>
+                      Silakan pilih alamat pengiriman terlebih dahulu.
+                    </div>
+                  ) : rates.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: 16 }}>
+                      {rates.map((rate, idx) => (
+                        <label key={`${rate.courier_service_code}-${rate.price}-${idx}`} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", cursor: "pointer", background: selectedCourier?.courier_service_code === rate.courier_service_code && selectedCourier?.price === rate.price ? "var(--glass-bg)" : "transparent" }}>
+                          <input
+                            type="radio"
+                            name="courier"
+                            value={rate.courier_service_code}
+                            checked={selectedCourier?.courier_service_code === rate.courier_service_code && selectedCourier?.price === rate.price}
+                            onChange={() => {
+                              setSelectedCourier(rate);
+                              setShippingCost(rate.price);
+                              setDiscountAmount(0);
+                              setVoucherCode("");
+                              setVoucherSuccess("");
+                              if (rate.courier_service_code !== "pickup") {
+                                setPaymentMethod("QRIS");
+                              }
+                            }}
+                            style={{ accentColor: "var(--c-gold)" }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, color: "var(--c-ink)" }}>{rate.courier_name} - {rate.courier_service_name}</div>
+                            <div style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)" }}>Estimasi: {rate.duration}</div>
+                          </div>
+                          <div style={{ fontWeight: 600, color: "var(--c-gold)" }}>{formatRupiah(rate.price)}</div>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "0.9rem", color: "var(--c-ink-dim)", marginTop: 16 }}>
+                      Kurir tidak tersedia untuk alamat ini. Pastikan titik lokasi akurat.
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
 
             {/* METODE PEMBAYARAN */}
             <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
@@ -388,7 +436,7 @@ export default function CustomCheckoutPage() {
               </h2>
 
               <div style={{ marginTop: 16 }}>
-                {selectedCourier?.courier_service_code === "pickup" ? (
+                {(isOwnBottle || selectedCourier?.courier_service_code === "pickup") ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     <label style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, border: paymentMethod === "QRIS" ? "1px solid var(--c-gold)" : "1px solid var(--c-border)", borderRadius: "var(--r-md)", background: paymentMethod === "QRIS" ? "var(--glass-bg)" : "transparent", cursor: "pointer" }}>
                       <input
@@ -459,13 +507,13 @@ export default function CustomCheckoutPage() {
             {/* SUBMIT BUTTON */}
             <button
               type="submit"
-              disabled={submitting || !selectedCourier || !selectedAddress || !paymentMethod}
+              disabled={submitting || (!isOwnBottle && (!selectedCourier || !selectedAddress)) || !paymentMethod}
               className="btn btn-primary"
               style={{
                 padding: "16px",
                 justifyContent: "center",
                 fontSize: "1rem",
-                opacity: (!selectedCourier || !selectedAddress || !paymentMethod || submitting) ? 0.6 : 1,
+                opacity: ((!isOwnBottle && (!selectedCourier || !selectedAddress)) || !paymentMethod || submitting) ? 0.6 : 1,
               }}
             >
               {submitting ? (
@@ -485,7 +533,8 @@ export default function CustomCheckoutPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
                 {bibitsList.map((b: any, i: number) => {
-                  const vol = (bottleObj?.capacity_ml || 0) * (ratioStr === "50/50" ? 0.5 : 0.7) / (bibitsList.length || 1);
+                  const ratioPercent = ratioStr === "100/0" ? 1.0 : ratioStr === "70/30" ? 0.7 : ratioStr === "50/50" ? 0.5 : 0.3;
+                  const vol = (bottleObj?.capacity_ml || 0) * ratioPercent / (bibitsList.length || 1);
                   const cost = vol * (b.price_per_ml || 0);
                   return (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
@@ -499,16 +548,25 @@ export default function CustomCheckoutPage() {
                 
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
                   <div style={{ color: "var(--c-ink)", maxWidth: "70%" }}>
-                    Pelarut: Absolute <span style={{ color: "var(--c-ink-dim)" }}>{bottleObj?.capacity_ml ? `(${((bottleObj.capacity_ml) * (ratioStr === "50/50" ? 0.5 : 0.3)).toFixed(1)}ml)` : ''}</span>
+                    {ratioStr === "100/0" ? (
+                      <>Pelarut: <span style={{ color: "var(--c-ink-dim)" }}>Tidak Menggunakan Pelarut</span></>
+                    ) : (
+                      <>Pelarut: Absolute <span style={{ color: "var(--c-ink-dim)" }}>{bottleObj?.capacity_ml ? `(${((bottleObj.capacity_ml) * (ratioStr === "30/70" ? 0.7 : ratioStr === "50/50" ? 0.5 : 0.3)).toFixed(1)}ml)` : ''}</span></>
+                    )}
                   </div>
                   <span style={{ color: "var(--c-green)", fontWeight: 500, fontSize: "0.8rem" }}>Gratis</span>
                 </div>
                 
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
                   <div style={{ color: "var(--c-ink)", maxWidth: "70%" }}>
-                    Botol: {bottleObj?.name || 'Botol'} <span style={{ color: "var(--c-ink-dim)" }}>{bottleObj?.capacity_ml ? `(${bottleObj.capacity_ml}ml)` : ''}</span>
+                    {isOwnBottle 
+                      ? <>Botol Sendiri <span style={{ color: "var(--c-ink-dim)" }}>({bottleObj?.capacity_ml || 0}ml)</span></>
+                      : <>Botol: {bottleObj?.name || 'Botol'} <span style={{ color: "var(--c-ink-dim)" }}>{bottleObj?.capacity_ml ? `(${bottleObj.capacity_ml}ml)` : ''}</span></>
+                    }
                   </div>
-                  <span style={{ color: "var(--c-ink)", fontWeight: 500 }}>{formatRupiah(bottleObj?.price || 0)}</span>
+                  <span style={{ color: isOwnBottle ? "var(--c-green)" : "var(--c-ink)", fontWeight: 500, fontSize: isOwnBottle ? "0.8rem" : "0.85rem" }}>
+                    {isOwnBottle ? "Gratis" : formatRupiah(bottleObj?.price || 0)}
+                  </span>
                 </div>
               </div>
 

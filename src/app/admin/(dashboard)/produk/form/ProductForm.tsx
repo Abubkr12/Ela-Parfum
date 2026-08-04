@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 export default function ProductForm({ initialData, families }: { initialData: any, families: any[] }) {
   const [loading, setLoading] = useState(false);
-  const [sizes, setSizes] = useState<any[]>(initialData?.sizes?.length > 0 ? initialData.sizes : [{ size_ml: 50, size_label: "50ml", price: 100000, stock: 10, is_active: true }]);
+  const [sizes, setSizes] = useState<any[]>(initialData?.sizes?.length > 0 ? initialData.sizes : [{ size_ml: 50, size_label: "50ml", price: 100000, is_active: true }]);
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null);
   const [moods, setMoods] = useState<string[]>(initialData?.mood ? initialData.mood.split(',').map((m:string)=>m.trim()).filter(Boolean) : []);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +32,7 @@ export default function ProductForm({ initialData, families }: { initialData: an
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   const handleAddSize = () => {
-    setSizes([...sizes, { size_ml: 50, size_label: "50ml", price: 100000, stock: 10, is_active: true }]);
+    setSizes([...sizes, { size_ml: 50, size_label: "50ml", price: 100000, is_active: true }]);
   };
 
   const handleRemoveSize = (index: number) => {
@@ -241,7 +241,7 @@ export default function ProductForm({ initialData, families }: { initialData: an
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {sizes.map((size, index) => (
-                <div key={index} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 12, alignItems: "end", padding: 16, background: "var(--bg-color)", borderRadius: "var(--r-md)", border: "1px solid var(--c-border)" }}>
+                <div key={index} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end", padding: 16, background: "var(--bg-color)", borderRadius: "var(--r-md)", border: "1px solid var(--c-border)" }}>
                   <div>
                     <label style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)" }}>Ukuran (ml)</label>
                     <input type="number" value={size.size_ml || ''} onChange={e => handleSizeChange(index, 'size_ml', e.target.value ? parseInt(e.target.value) : '')} style={{ width: "100%", padding: "8px 12px", background: "var(--c-surface-1)", border: "1px solid var(--c-border)", borderRadius: "var(--r-sm)", color: "var(--c-ink)", marginTop: 4 }} />
@@ -253,10 +253,6 @@ export default function ProductForm({ initialData, families }: { initialData: an
                   <div>
                     <label style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)" }}>Harga (Rp)</label>
                     <input type="number" value={size.price || ''} onChange={e => handleSizeChange(index, 'price', e.target.value ? parseInt(e.target.value) : '')} style={{ width: "100%", padding: "8px 12px", background: "var(--c-surface-1)", border: "1px solid var(--c-border)", borderRadius: "var(--r-sm)", color: "var(--c-ink)", marginTop: 4 }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)" }}>Stok</label>
-                    <input type="number" value={size.stock || ''} onChange={e => handleSizeChange(index, 'stock', e.target.value ? parseInt(e.target.value) : '')} style={{ width: "100%", padding: "8px 12px", background: "var(--c-surface-1)", border: "1px solid var(--c-border)", borderRadius: "var(--r-sm)", color: "var(--c-ink)", marginTop: 4 }} />
                   </div>
                   <button type="button" onClick={() => handleRemoveSize(index)} style={{ padding: "8px", background: "rgba(225, 29, 72, 0.1)", color: "#e11d48", border: "none", borderRadius: "var(--r-sm)", cursor: "pointer", height: 38 }}>
                     <Trash2 size={16} />

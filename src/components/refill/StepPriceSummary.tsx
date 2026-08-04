@@ -10,8 +10,10 @@ interface StepPriceSummaryProps {
   recommendedBibit: BibitData | null;
   selectedBibits: BibitData[];
   analysis: AiAnalysis | null;
-  ratio: "50/50" | "70/30";
-  bottle: BottleData;
+  ratio: "30/70" | "50/50" | "70/30" | "100/0";
+  bottle: BottleData | null;
+  useOwnBottle: boolean;
+  ownBottleVolumeMl: number;
   onCheckout: () => void;
   onRetry: () => void;
   loading: boolean;
@@ -21,13 +23,14 @@ const formatRupiah = (price: number) => {
   return `Rp${price.toLocaleString("id-ID")}`;
 };
 
-export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analysis, ratio, bottle, onCheckout, onRetry, loading }: StepPriceSummaryProps) {
+export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analysis, ratio, bottle, useOwnBottle, ownBottleVolumeMl, onCheckout, onRetry, loading }: StepPriceSummaryProps) {
   
   const isCustom = mode === "custom";
   const activeBibits = isCustom ? selectedBibits : (recommendedBibit ? [recommendedBibit] : []);
   
-  const ratioPercent = ratio === "50/50" ? 0.5 : 0.7;
-  const totalBibitVolume = bottle.capacity_ml * ratioPercent;
+  const ratioPercent = ratio === "100/0" ? 1.0 : ratio === "70/30" ? 0.7 : ratio === "50/50" ? 0.5 : 0.3;
+  const capacityMl = useOwnBottle ? ownBottleVolumeMl : (bottle?.capacity_ml || 0);
+  const totalBibitVolume = capacityMl * ratioPercent;
   const volumePerBibit = totalBibitVolume / (activeBibits.length || 1);
 
   const bibitCosts = useMemo(() => {
@@ -39,7 +42,8 @@ export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analy
   }, [activeBibits, volumePerBibit]);
 
   const totalBibitCost = bibitCosts.reduce((sum, item) => sum + item.cost, 0);
-  const totalCost = bottle.price + totalBibitCost;
+  const bottlePrice = useOwnBottle ? 0 : (bottle?.price || 0);
+  const totalCost = bottlePrice + totalBibitCost;
 
   return (
     <motion.div
@@ -88,7 +92,7 @@ export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analy
               Rasio
             </h4>
             <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink)" }}>
-              {ratio === "50/50" ? "Eau De Parfum (1:1)" : "Extrait De Parfum (1:3)"}
+              {ratio === "100/0" ? "Elixir (Murni)" : ratio === "70/30" ? "Extrait De Parfum (1:3)" : ratio === "50/50" ? "Eau De Parfum (1:1)" : "Eau De Toilette (3:7)"}
             </div>
           </div>
           <div>
@@ -96,8 +100,15 @@ export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analy
               Botol
             </h4>
             <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink)" }}>
-              {bottle.name} ({bottle.capacity_ml}ml)
+              {useOwnBottle 
+                ? `Botol Sendiri (${ownBottleVolumeMl}ml)` 
+                : `${bottle?.name} (${bottle?.capacity_ml}ml)`}
             </div>
+            {useOwnBottle && (
+              <div style={{ fontSize: "0.8rem", color: "#a855f7", fontWeight: 500, marginTop: 4 }}>
+                Ambil di toko
+              </div>
+            )}
           </div>
         </div>
 
@@ -119,16 +130,24 @@ export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analy
             
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.95rem" }}>
               <div style={{ color: "var(--c-ink)", maxWidth: "70%" }}>
-                Pelarut: Absolute <span style={{ color: "var(--c-ink-dim)" }}>{(bottle.capacity_ml - totalBibitVolume).toFixed(1)}ml</span>
+                {ratio === "100/0" ? (
+                  <>Pelarut: <span style={{ color: "var(--c-ink-dim)" }}>Tidak Menggunakan Pelarut</span></>
+                ) : (
+                  <>Pelarut: Absolute <span style={{ color: "var(--c-ink-dim)" }}>{(capacityMl - totalBibitVolume).toFixed(1)}ml</span></>
+                )}
               </div>
               <span style={{ fontWeight: 500, color: "var(--c-green)", fontSize: "0.85rem" }}>Gratis</span>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.95rem" }}>
               <div style={{ color: "var(--c-ink)", maxWidth: "70%" }}>
-                Botol: {bottle.name} <span style={{ color: "var(--c-ink-dim)" }}>({bottle.capacity_ml}ml)</span>
+                {useOwnBottle 
+                  ? <>Botol Sendiri <span style={{ color: "var(--c-ink-dim)" }}>({ownBottleVolumeMl}ml)</span></>
+                  : <>Botol: {bottle?.name} <span style={{ color: "var(--c-ink-dim)" }}>({bottle?.capacity_ml}ml)</span></>}
               </div>
-              <span style={{ fontWeight: 500, color: "var(--c-ink)" }}>{formatRupiah(bottle.price)}</span>
+              <span style={{ fontWeight: 500, color: useOwnBottle ? "var(--c-green)" : "var(--c-ink)", fontSize: useOwnBottle ? "0.85rem" : "0.95rem" }}>
+                {useOwnBottle ? "Gratis" : formatRupiah(bottlePrice)}
+              </span>
             </div>
           </div>
 

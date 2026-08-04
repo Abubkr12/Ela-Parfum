@@ -67,3 +67,20 @@ Minyak Wangi/
    - Pelarut: **GRATIS**.
 6. **Checkout**:
    - Membuat rekaman pesanan di `custom_requests` dan mengarahkan ke `/checkout/custom/[id]`.
+
+## Arsitektur Stok Multi-Cabang (Baru)
+1. **Entitas Terpisah**:
+   - Stok dipisah dari tabel master (`bibit`, `bottles`, `perfume_sizes`).
+   - Tabel master hanya untuk mengatur metadata (nama, deskripsi, notes, harga, dsb) di halaman **Katalog**.
+2. **Manajemen Cabang**:
+   - Menggunakan tabel `stores` (Toko Condet, Rawabelong, Tangerang).
+3. **Jenis Stok**:
+   - **Stok Bibit** (`bibit_stocks`): Mengelola botol utuh (`sealed_bottles_qty`) dan sisa mili di botol buka (`opened_bottle_ml`).
+   - **Stok Botol** (`bottle_stocks`): Botol kosong untuk packaging.
+   - **Stok Produk** (`product_stocks`): Parfum racikan/produk jadi per ukuran.
+4. **Logika Transaksi (Checkout)**:
+   - Pemotongan otomatis dilakukan pada stok cabang terkait saat order checkout.
+   - Untuk pesanan refill, pemotongan dilakukan pada sisa mili botol buka (`opened_bottle_ml`). Jika habis/kurang, ambil dari botol segel dan pecah ke mili.
+5. **Akses Admin**:
+   - Halaman **Stok** adalah sumber kebenaran (Source of Truth) untuk mutasi barang.
+   - Halaman **Katalog** bersifat *read-only* untuk jumlah stok (sum agregasi).

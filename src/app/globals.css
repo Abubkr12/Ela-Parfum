@@ -1664,7 +1664,7 @@ button { cursor: pointer; border: none; background: none; }
   width: min(1160px, calc(100% - 32px));
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.6fr repeat(4, 1fr);
+  grid-template-columns: 1.6fr repeat(3, 1fr);
   gap: 36px;
 }
 

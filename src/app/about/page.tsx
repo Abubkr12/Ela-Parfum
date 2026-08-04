@@ -374,17 +374,15 @@ export default function AboutPage() {
             <div>
               <span className="eyebrow">Keunggulan</span>
               <div className="gold-line" />
-              <h2
-                style={{
+              <h2 className="about-benefits-title" style={{
                   fontFamily: "var(--font-display)",
                   fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
                   fontWeight: 400,
                   color: "var(--c-ink)",
                   marginTop: "12px",
                   marginBottom: "24px",
-                }}
-              >
-                Mengapa Memilih Ela Parfum?
+                }}>
+                Mengapa Memilih Toko Kami?
               </h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                 {[

@@ -14,13 +14,15 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
     { key: "input", label: "Input" },
     { key: "analyzing", label: "Analisis" },
     { key: "ratio", label: "Rasio" },
-    { key: "bottle", label: "Botol" },
+    { key: "bottle_choice", label: "Botol" },
     { key: "summary", label: "Ringkasan" },
   ];
 
   // We consider "result" as part of the "analyzing" step group for progress purposes
+  // We consider "bottle" as part of the "bottle_choice" step group
   const getStepIndex = (step: WizardStep) => {
     if (step === "result") return 2;
+    if (step === "bottle") return 4;
     return steps.findIndex((s) => s.key === step);
   };
 

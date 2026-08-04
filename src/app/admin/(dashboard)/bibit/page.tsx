@@ -28,7 +28,6 @@ export default function KatalogBibit() {
     middle_notes: '',
     base_notes: '',
     intensity: 'Medium',
-    stock_ml: 1000,
     price_per_ml: 1500
   });
 
@@ -96,7 +95,6 @@ export default function KatalogBibit() {
       middle_notes: '',
       base_notes: '',
       intensity: 'Medium',
-      stock_ml: 1000,
       price_per_ml: 1500
     });
     setIsModalOpen(true);
@@ -112,7 +110,6 @@ export default function KatalogBibit() {
       middle_notes: Array.isArray(item.middle_notes) ? item.middle_notes.map((n:any) => `${n.name} (${n.intensity || 'Medium'})`).join(', ') : '',
       base_notes: Array.isArray(item.base_notes) ? item.base_notes.map((n:any) => `${n.name} (${n.intensity || 'Medium'})`).join(', ') : '',
       intensity: item.intensity || 'Medium',
-      stock_ml: item.stock_ml || 1000,
       price_per_ml: item.price_per_ml || 1500
     });
     setIsModalOpen(true);
@@ -155,7 +152,6 @@ export default function KatalogBibit() {
       middle_notes: parseNotes(formData.middle_notes),
       base_notes: parseNotes(formData.base_notes),
       intensity: formData.intensity,
-      stock_ml: formData.stock_ml,
       price_per_ml: formData.price_per_ml
     };
 
@@ -429,10 +425,7 @@ export default function KatalogBibit() {
                 <label style={{ display: 'block', marginBottom: 8, color: 'var(--c-ink-dim)', fontSize: '0.85rem' }}>Base Notes</label>
                 <input value={formData.base_notes} onChange={e => setFormData({...formData, base_notes: e.target.value})} style={{ width: '100%', padding: '10px', background: 'var(--c-surface-1)', border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)', color: 'var(--c-ink)' }} />
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: 8, color: 'var(--c-ink-dim)', fontSize: '0.85rem' }}>Stok (ml)</label>
-                <input type="number" required value={formData.stock_ml} onChange={e => setFormData({...formData, stock_ml: parseInt(e.target.value)})} style={{ width: '100%', padding: '10px', background: 'var(--c-surface-1)', border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)', color: 'var(--c-ink)' }} />
-              </div>
+
               <div>
                 <label style={{ display: 'block', marginBottom: 8, fontSize: '0.9rem', fontWeight: 500, color: 'var(--c-ink-dim)' }}>Harga per ML</label>
                 <div style={{ position: 'relative' }}>

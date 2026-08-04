@@ -15,6 +15,7 @@ import { StepImageUpload } from "./StepImageUpload";
 import { StepBibitSelect } from "./StepBibitSelect";
 import { StepAiResult } from "./StepAiResult";
 import { StepRatioSelect } from "./StepRatioSelect";
+import { StepBottleChoice } from "./StepBottleChoice";
 import { StepBottleSelect } from "./StepBottleSelect";
 import { StepPriceSummary } from "./StepPriceSummary";
 
@@ -37,6 +38,8 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
     recommendedBibit: null,
     analysis: null,
     ratio: null,
+    useOwnBottle: false,
+    ownBottleVolumeMl: 30,
     selectedBottle: null,
     loading: false,
     error: null,
@@ -69,10 +72,16 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
       updateState({ step: "input", recommendedBibit: null, analysis: null });
     } else if (step === "ratio") {
       updateState({ step: "result", ratio: null });
+    } else if (step === "bottle_choice") {
+      updateState({ step: "ratio", useOwnBottle: false, selectedBottle: null });
     } else if (step === "bottle") {
-      updateState({ step: "ratio", selectedBottle: null });
+      updateState({ step: "bottle_choice", selectedBottle: null });
     } else if (step === "summary") {
-      updateState({ step: "bottle" });
+      if (state.useOwnBottle) {
+        updateState({ step: "bottle_choice" });
+      } else {
+        updateState({ step: "bottle" });
+      }
     }
   };
 
@@ -145,7 +154,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
         : (state.recommendedBibit ? [state.recommendedBibit] : []);
 
       const ratioPercent = state.ratio === "70/30" ? 0.7 : 0.5;
-      const capacityMl = state.selectedBottle?.capacity_ml || 0;
+      const capacityMl = state.useOwnBottle ? state.ownBottleVolumeMl : (state.selectedBottle?.capacity_ml || 0);
       const totalBibitVolume = capacityMl * ratioPercent;
       const volumePerBibit = totalBibitVolume / (activeBibits.length || 1);
 
@@ -156,7 +165,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
         }, 0)
       );
 
-      const priceBottle = state.selectedBottle?.price || 0;
+      const priceBottle = state.useOwnBottle ? 0 : (state.selectedBottle?.price || 0);
       const totalPrice = pricePerfume + priceBottle;
       const baseNoteStr = state.recommendedBibit?.name || state.selectedBibits.map(b => b.name).join(" + ");
       
@@ -164,7 +173,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
         customer_name: user.user_metadata?.full_name || "Pelanggan Ela",
         customer_whatsapp: user.user_metadata?.phone || "08000000000",
         base_note: baseNoteStr,
-        description: `Mode: ${state.mode}, Rasio: ${state.ratio}, Botol: ${state.selectedBottle?.name}`,
+        description: `Mode: ${state.mode}, Rasio: ${state.ratio}, Botol: ${state.useOwnBottle ? `Botol Sendiri (${state.ownBottleVolumeMl}ml)` : state.selectedBottle?.name}`,
         volume_ml: capacityMl,
         price_perfume: pricePerfume,
         price_bottle: priceBottle,
@@ -172,9 +181,13 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
         total_price: totalPrice,
         ai_recipe: JSON.stringify({
           mode: state.mode,
+          name_suggestion: state.analysis?.custom_name || baseNoteStr,
+          admin_recipe: state.analysis?.technical_recipe || "Standar (Tidak ada custom blending dari AI)",
           ratio: state.ratio,
+          own_bottle: state.useOwnBottle,
+          own_bottle_volume_ml: state.useOwnBottle ? state.ownBottleVolumeMl : null,
           bibits: activeBibits,
-          bottle: state.selectedBottle,
+          bottle: state.useOwnBottle ? { name: `Botol Sendiri`, capacity_ml: state.ownBottleVolumeMl, price: 0 } : state.selectedBottle,
           analysis: state.analysis,
           price_breakdown: {
             bottle_price: priceBottle,
@@ -212,6 +225,8 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
       recommendedBibit: null,
       analysis: null,
       ratio: null,
+      useOwnBottle: false,
+      ownBottleVolumeMl: 30,
       selectedBottle: null,
       error: null
     });
@@ -354,7 +369,22 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
                 selected={state.ratio}
                 onSelect={ratio => {
                   updateState({ ratio });
-                  setTimeout(() => handleNextStep("bottle"), 400); // Small delay for UX
+                  setTimeout(() => handleNextStep("bottle_choice"), 400);
+                }}
+              />
+            </motion.div>
+          )}
+
+          {state.step === "bottle_choice" && (
+            <motion.div key="bottle_choice" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+              <StepBottleChoice
+                onChooseOurBottle={() => {
+                  updateState({ useOwnBottle: false });
+                  setTimeout(() => handleNextStep("bottle"), 300);
+                }}
+                onChooseOwnBottle={(volumeMl) => {
+                  updateState({ useOwnBottle: true, ownBottleVolumeMl: volumeMl, selectedBottle: null });
+                  setTimeout(() => handleNextStep("summary"), 300);
                 }}
               />
             </motion.div>
@@ -367,13 +397,13 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
                 selected={state.selectedBottle}
                 onSelect={bottle => {
                   updateState({ selectedBottle: bottle });
-                  setTimeout(() => handleNextStep("summary"), 400); // Small delay for UX
+                  setTimeout(() => handleNextStep("summary"), 400);
                 }}
               />
             </motion.div>
           )}
 
-          {state.step === "summary" && state.ratio && state.selectedBottle && (
+          {state.step === "summary" && state.ratio && (state.selectedBottle || state.useOwnBottle) && (
             <motion.div key="summary" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
               <StepPriceSummary
                 mode={state.mode!}
@@ -382,6 +412,8 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
                 analysis={state.analysis}
                 ratio={state.ratio}
                 bottle={state.selectedBottle}
+                useOwnBottle={state.useOwnBottle}
+                ownBottleVolumeMl={state.ownBottleVolumeMl}
                 onCheckout={handleCheckout}
                 onRetry={handleRetry}
                 loading={state.loading}

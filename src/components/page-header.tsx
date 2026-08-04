@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingBag, Menu, X } from "lucide-react";
+import { ShoppingBag, Menu, X, ClipboardList } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/lib/cart-context";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -126,6 +126,16 @@ export function PageHeader() {
           ) : (
             <Link href="/login" className="btn" style={{ padding: '0 16px', height: '36px', fontSize: '0.85rem', background: 'rgba(255,255,255,0.06)' }}>
               Masuk
+            </Link>
+          )}
+
+          {user && (
+            <Link
+              href="/riwayat-pesanan"
+              className="btn-icon"
+              aria-label="Riwayat Pesanan"
+            >
+              <ClipboardList size={18} />
             </Link>
           )}
 

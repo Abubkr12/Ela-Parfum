@@ -5,12 +5,18 @@ import { Check } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface StepRatioSelectProps {
-  selected: "50/50" | "70/30" | null;
-  onSelect: (ratio: "50/50" | "70/30") => void;
+  selected: "30/70" | "50/50" | "70/30" | "100/0" | null;
+  onSelect: (ratio: "30/70" | "50/50" | "70/30" | "100/0") => void;
 }
 
 export function StepRatioSelect({ selected, onSelect }: StepRatioSelectProps) {
   const ratios = [
+    {
+      id: "30/70" as const,
+      title: "Eau De Toilette",
+      subtitle: "30% Bibit · 70% Pelarut",
+      desc: "Konsentrasi ringan, cocok untuk aktivitas kasual. Ketahanan 4-6 jam.",
+    },
     {
       id: "50/50" as const,
       title: "Eau De Parfum",
@@ -22,6 +28,12 @@ export function StepRatioSelect({ selected, onSelect }: StepRatioSelectProps) {
       title: "Extrait De Parfum",
       subtitle: "70% Bibit · 30% Pelarut",
       desc: "Konsentrasi tinggi, aroma lebih kuat dan tahan lama. Ketahanan 8-12 jam.",
+    },
+    {
+      id: "100/0" as const,
+      title: "Elixir (Murni)",
+      subtitle: "100% Bibit · 0% Pelarut",
+      desc: "Konsentrasi murni tanpa campuran pelarut, menghadirkan aroma paling intens dan tahan sangat lama.",
     },
   ];
 

@@ -67,7 +67,7 @@ export async function uploadPaymentProof(orderId: number, base64Image: string) {
       throw updateError;
     }
 
-    revalidatePath("/pesanan");
+    revalidatePath("/riwayat-pesanan");
     revalidatePath(`/admin/pesanan/${orderId}`);
 
     return { success: true, url: publicUrl };

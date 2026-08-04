@@ -11,7 +11,7 @@ export default async function AdminProductsPage() {
 
   const { data: perfumes } = await supabase
     .from("perfumes")
-    .select("*, sizes:perfume_sizes(*)")
+    .select("*, sizes:perfume_sizes(*, product_stocks(stock_qty))")
     .order('created_at', { ascending: false });
 
   return (

@@ -18,16 +18,8 @@ const footerLinks = {
     { label: "Katalog Parfum", href: "/#catalog" },
     { label: "Konsultasi AI", href: "/#assistant" },
     { label: "Custom Request", href: "/#request" },
-    { label: "Tentang Kami", href: "/about" },
-    { label: "Kontak", href: "/contact" }
-  ],
-  kategori: [
-    { label: "Fresh & Clean", href: "/#catalog" },
-    { label: "Floral & Romantic", href: "/#catalog" },
-    { label: "Woody & Earthy", href: "/#catalog" },
-    { label: "Sweet & Gourmand", href: "/#catalog" },
-    { label: "Aquatic & Ocean", href: "/#catalog" },
-    { label: "Spicy & Bold", href: "/#catalog" }
+    { label: "Tentang Kami", href: "/#about" },
+    { label: "Kontak", href: "/#contact" }
   ],
   layanan: [
     { label: "Racikan Custom", href: "/#request" },
@@ -150,16 +142,7 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="footer__links-col">
-            <h4 className="footer__links-heading">Kategori Aroma</h4>
-            <ul className="footer__links">
-              {footerLinks.kategori.map((l) => (
-                <li key={l.label}>
-                  <Link href={l.href}>{l.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+
 
           <div className="footer__links-col">
             <h4 className="footer__links-heading">Layanan</h4>
