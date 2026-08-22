@@ -222,15 +222,18 @@ export function CustomerExperience({ user, serverPerfumes = [], serverFamilies =
         </div>
 
         <div className="hero__content">
-          <div className="hero__copy animate-fade-up">
+          <div className="hero__copy animate-fade-up">            
             <div className="hero__kicker">
               <span className="hero__kicker-line" />
-              <span className="eyebrow">Spesialis Parfum Refill Custom</span>
+              <span className="hero__kicker-text" style={{ fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.15em", color: "var(--c-blue)", textTransform: "uppercase" }}>
+                Spesialis Parfum Refill Custom
+              </span>
+              <span className="hero__kicker-line hero__kicker-line-right" />
             </div>
 
             <h1 className="hero__title">
-              Ciptakan<br />
-              <em>Aroma</em><br />
+              Ciptakan <br />
+              <em>Aroma</em> <br />
               Khasmu
             </h1>
 
@@ -239,13 +242,19 @@ export function CustomerExperience({ user, serverPerfumes = [], serverFamilies =
             </p>
 
             <div className="hero__actions">
-              <Link href="/refill" className="btn btn-primary">
-                <Sparkles size={17} />
-                Racik Refill Custom
+              <Link href="/refill" className="btn btn-primary hero-btn">
+                <Sparkles size={24} style={{ marginBottom: "2px" }} />
+                <div className="hero-btn-content">
+                  <span className="hero-btn-title">Racik Refill Custom</span>
+                  <span className="hero-btn-desc">Bebas kreasikan aroma sesuai seleramu</span>
+                </div>
               </Link>
-              <a href="#catalog" className="btn btn-ghost">
-                <Package size={17} />
-                Katalog Reguler
+              <a href="#catalog" className="btn btn-ghost hero-btn">
+                <Package size={24} style={{ marginBottom: "2px" }} />
+                <div className="hero-btn-content">
+                  <span className="hero-btn-title">Katalog Reguler</span>
+                  <span className="hero-btn-desc">Pilih dari koleksi parfum siap pakai</span>
+                </div>
               </a>
             </div>
           </div>
@@ -253,7 +262,7 @@ export function CustomerExperience({ user, serverPerfumes = [], serverFamilies =
           <FadeIn delay={0.2}>
             <div className="hero__metrics" aria-label="Statistik toko">
               <div className="hero__metric">
-              <span className="hero__metric-value">{serverPerfumes.length}+</span>
+              <span className="hero__metric-value">740+</span>
               <span className="hero__metric-label">Racikan tersedia</span>
             </div>
             <div className="hero__metric">

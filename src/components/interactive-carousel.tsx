@@ -108,8 +108,7 @@ export function InteractiveCarousel({ featuredPerfumes }: InteractiveCarouselPro
       style={{
         position: "relative",
         width: "100%",
-        height: "80vh",
-        minHeight: "500px",
+        height: "clamp(400px, 80vh, 600px)",
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
@@ -118,7 +117,7 @@ export function InteractiveCarousel({ featuredPerfumes }: InteractiveCarouselPro
         borderTop: "1px solid var(--c-border)",
         borderBottom: "1px solid var(--c-border)",
         cursor: isDragging ? "grabbing" : "grab",
-        touchAction: "none" // Prevent default scrolling when swiping
+        touchAction: "pan-y" // Allow vertical scrolling on mobile
       }}
     >
       <div style={{ position: "absolute", top: 15, left: 0, width: "100%", textAlign: "center", zIndex: 0 }}>

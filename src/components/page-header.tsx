@@ -171,7 +171,7 @@ export function PageHeader() {
 
           {/* Mobile hamburger */}
           <button
-            className="btn-icon"
+            className="btn-icon topbar__hamburger"
             aria-label="Menu"
             onClick={() => setMobileOpen(!mobileOpen)}
             style={{ display: "none" }}
@@ -183,46 +183,76 @@ export function PageHeader() {
 
       </header>
 
-      {/* Mobile nav overlay */}
+      {/* Mobile Sidebar Overlay */}
       {mobileOpen && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            top: "64px",
-            zIndex: 99,
-            background: "var(--c-bg)",
-            padding: "24px",
+            zIndex: 999,
             display: "flex",
-            flexDirection: "column",
-            gap: "4px",
-            animation: "fadeSlideIn 200ms var(--ease-out) both",
           }}
         >
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMobileOpen(false)}
-              style={{
-                padding: "14px 16px",
-                borderRadius: "var(--r-md)",
-                fontSize: "1rem",
-                fontWeight: 500,
-                color:
-                  pathname === link.href || pathname.startsWith(link.href.replace("/#", "/"))
-                    ? "var(--c-gold)"
-                    : "var(--c-ink-muted)",
-                background:
-                  pathname === link.href || pathname.startsWith(link.href.replace("/#", "/"))
-                    ? "var(--c-gold-dim)"
-                    : "transparent",
-                transition: "all 140ms",
-              }}
-            >
-              {link.label}
-            </Link>
-          ))}
+          <div 
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.5)",
+              backdropFilter: "blur(4px)",
+              animation: "fadeSlideIn 200ms ease-out both"
+            }}
+            onClick={() => setMobileOpen(false)}
+          />
+          <div
+            style={{
+              position: "relative",
+              width: "280px",
+              height: "100%",
+              background: "var(--c-bg)",
+              borderRight: "1px solid var(--c-border)",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              animation: "slideInLeft 250ms cubic-bezier(0.16, 1, 0.3, 1) both"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "32px", width: "auto" }} />
+              <button className="btn-icon" onClick={() => setMobileOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            {navLinks.map((link) => {
+              const isActive =
+                link.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(link.href.replace("/#", "/"));
+              
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "var(--r-md)",
+                    fontSize: "1rem",
+                    fontWeight: 500,
+                    color: isActive ? "var(--c-gold)" : "var(--c-ink-muted)",
+                    background: isActive ? "var(--c-gold-dim)" : "transparent",
+                    transition: "all 140ms",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12
+                  }}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
     </>

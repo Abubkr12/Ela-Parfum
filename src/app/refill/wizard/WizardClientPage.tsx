@@ -24,9 +24,13 @@ export default function WizardClientPage({ bibits, bottles, initialMode }: Wizar
       <PageHeader />
 
       <main
+        className="wizard-main"
         style={{
           flex: 1,
-          padding: "100px 24px 80px",
+          paddingTop: "100px",
+          paddingRight: "24px",
+          paddingBottom: "100px",
+          paddingLeft: "24px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",

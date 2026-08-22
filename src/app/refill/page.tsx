@@ -57,7 +57,16 @@ export default function RefillLandingPage() {
     <div className="customer-page" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <PageHeader />
 
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 24px 80px" }}>
+      <main className="refill-main" style={{ 
+        flex: 1, 
+        display: "flex", 
+        flexDirection: "column", 
+        alignItems: "center", 
+        paddingTop: "var(--page-pad-y, 100px)", 
+        paddingRight: "24px",
+        paddingBottom: "48px", 
+        paddingLeft: "24px" 
+      }}>
         <motion.div
           initial="hidden"
           animate="visible"
@@ -100,11 +109,7 @@ export default function RefillLandingPage() {
             Mulai dari deskripsi, foto referensi, atau campurkan bibit sendiri.
           </motion.p>
 
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: 20, textAlign: "left",
-          }}>
+          <div className="refill-methods-grid">
             {methods.map((method) => {
               const Icon = method.icon;
               return (

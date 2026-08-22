@@ -40,11 +40,12 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
       }}
     >
       <div
+        className="wizard-progress-track"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          minWidth: "600px",
+          width: "100%",
           position: "relative",
           margin: "0 auto",
           maxWidth: "800px",
@@ -127,11 +128,13 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
                 )}
               </div>
               <span
+                className="wizard-progress-label"
                 style={{
                   fontSize: "0.75rem",
                   fontWeight: isCurrent ? 600 : 500,
                   color: isCurrent || isCompleted ? "var(--c-ink)" : "var(--c-ink-dim)",
                   transition: "color 0.3s ease",
+                  textAlign: "center",
                 }}
               >
                 {step.label}

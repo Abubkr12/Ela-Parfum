@@ -43,9 +43,10 @@ export function StepBottleChoice({ onChooseOurBottle, onChooseOwnBottle }: StepB
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: choice === "own" ? "24px" : "0" }}>
+      <div className="bottle-choice-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", marginBottom: choice === "own" ? "24px" : "0" }}>
         {/* Our Bottle */}
         <button
+          className="bottle-choice-btn"
           onClick={() => { setChoice("ours"); onChooseOurBottle(); }}
           onMouseEnter={() => setHovered("ours")}
           onMouseLeave={() => setHovered(null)}
@@ -83,6 +84,7 @@ export function StepBottleChoice({ onChooseOurBottle, onChooseOwnBottle }: StepB
 
         {/* Own Bottle */}
         <button
+          className="bottle-choice-btn"
           onClick={() => setChoice("own")}
           onMouseEnter={() => setHovered("own")}
           onMouseLeave={() => setHovered(null)}

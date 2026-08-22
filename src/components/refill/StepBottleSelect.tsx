@@ -48,10 +48,9 @@ export function StepBottleSelect({ bottles, selected, onSelect }: StepBottleSele
         </p>
       </div>
 
-      <div style={{ 
+      <div className="bottle-list-grid" style={{ 
         display: "grid", 
-        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", 
-        gap: "24px" 
+        gap: "16px" 
       }}>
         {bottles.filter(b => b.is_active).map((bottle) => {
           const isSelected = selected?.id === bottle.id;
@@ -120,14 +119,14 @@ export function StepBottleSelect({ bottles, selected, onSelect }: StepBottleSele
                 )}
               </div>
               
-              <div style={{ padding: "16px", width: "100%" }}>
+              <div className="bottle-card-body" style={{ padding: "16px", width: "100%" }}>
                 <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--c-ink-dim)", marginBottom: "4px" }}>
                   {bottle.capacity_ml} ml
                 </div>
-                <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--c-ink)", margin: "0 0 8px 0", lineHeight: 1.2 }}>
+                <h3 className="bottle-card-title" style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--c-ink)", margin: "0 0 8px 0", lineHeight: 1.2 }}>
                   {bottle.name}
                 </h3>
-                <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-gold)" }}>
+                <div className="bottle-card-price" style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-gold)" }}>
                   {formatRupiah(bottle.price)}
                 </div>
               </div>

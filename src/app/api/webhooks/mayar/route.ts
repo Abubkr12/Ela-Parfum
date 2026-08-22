@@ -152,32 +152,68 @@ export async function POST(req: Request) {
             .select('*')
             .eq('order_id', order.id);
             
-          const mappedItems = (items || []).map((i: any) => {
-            // Parse bottle size (e.g. "50ml", "100ml", "Botol: LE LABO 30ML")
-            const sizeStr = (i.size_label || order.notes || "").toLowerCase();
-            let bottleSize = 50; // default 50ml/g
-            const match = sizeStr.match(/(\d+)\s*ml/);
-            if (match && match[1]) {
-              bottleSize = parseInt(match[1], 10);
-            }
+          let mappedItems: any[] = [];
+          const isCustomOrder = order.notes?.includes('[Custom Refill]');
+          
+          const { data: currentItems } = await supabaseAdmin
+            .from('order_items')
+            .select('*')
+            .eq('order_id', order.id);
+
+          const allItems = currentItems && currentItems.length > 0 ? currentItems : (items || []);
+          
+          const DEFAULT_DIMENSIONS = { length: 25, width: 25, height: 20 };
+          const calcPackageWeight = (bottleSize: number) => {
+            return 500 + (bottleSize + 5);
+          };
+          
+          if (isCustomOrder) {
+            let totalBottleSize = 50;
+            let totalValue = 0;
+            let ingredientNames: string[] = [];
             
-            // Weight logic: 500g base. Extra items = + (bottleSize + 5)g each.
-            let itemWeight = 500;
-            if (i.quantity > 1) {
-              itemWeight = 500 + ((i.quantity - 1) * (bottleSize + 5));
-            }
+            allItems.forEach((i: any) => {
+               totalValue += i.subtotal || (i.price * i.quantity);
+               if (i.perfume_name) {
+                 ingredientNames.push(`${i.perfume_name} (${i.size_label})`);
+               }
+               if (i.perfume_name?.toLowerCase().includes('botol')) {
+                 const match = (i.size_label || i.perfume_name || "").match(/(\d+)\s*ml/i);
+                 if (match && match[1]) {
+                   totalBottleSize = parseInt(match[1], 10);
+                 }
+               }
+            });
             
-            return {
-              name: i.perfume_name,
-              description: i.size_label,
-              value: i.price,
-              quantity: i.quantity,
-              weight: itemWeight,
-              length: 25,
-              width: 25,
-              height: 20
-            };
-          });
+            const detailDescription = ingredientNames.join(", ");
+            
+            mappedItems.push({
+              name: `Custom Refill (${orderCode})`,
+              description: `Racikan ${totalBottleSize}ml: ${detailDescription}`,
+              value: Math.max(1, totalValue),
+              quantity: 1,
+              weight: calcPackageWeight(totalBottleSize),
+              ...DEFAULT_DIMENSIONS
+            });
+          } else {
+            mappedItems = allItems.map((i: any) => {
+              const sizeStr = (i.size_label || order.notes || "").toLowerCase();
+              let bottleSize = 50;
+              const match = sizeStr.match(/(\d+)\s*ml/);
+              if (match && match[1]) {
+                bottleSize = parseInt(match[1], 10);
+              }
+              
+              return {
+                name: i.perfume_name,
+                description: i.size_label || "-",
+                value: Math.max(1, i.price || 0),
+                quantity: i.quantity,
+                weight: calcPackageWeight(bottleSize),
+                ...DEFAULT_DIMENSIONS
+              };
+            });
+          }
           
           // Parse courier details
           // courierInfo pattern: "JNE - REG"
@@ -196,8 +232,12 @@ export async function POST(req: Request) {
           const destinationPostalCode = postalMatch ? parseInt(postalMatch[0], 10) : undefined;
 
           const biteshipPayload: any = {
+            shipper_contact_name: 'Ela Parfum',
+            shipper_contact_phone: '+6281384104147',
+            shipper_contact_email: 'elaparfum@gmail.com',
+            shipper_organization: 'Ela Parfum',
             origin_contact_name: "Ela Parfum",
-            origin_contact_phone: "08123456789",
+            origin_contact_phone: "+6281384104147",
             origin_address: originDetails.address,
             origin_note: originDetails.name,
             origin_area_id: originAreaId,

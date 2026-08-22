@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const supabase = createClient(true);
   
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   const handleLogout = async () => {
@@ -80,7 +81,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="admin-layout" style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg-color)" }}>
       {/* Sidebar */}
-      <aside className={`pro-sidebar ${isCollapsed ? "collapsed" : ""}`}>
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div 
+          className="pro-sidebar-overlay" 
+          onClick={() => setIsMobileOpen(false)} 
+        />
+      )}
+      <aside className={`pro-sidebar ${isCollapsed ? "collapsed" : ""} ${isMobileOpen ? "mobile-open" : ""}`}>
         <div className="sidebar-collapser" onClick={() => setIsCollapsed(!isCollapsed)}>
           <ChevronLeft size={16} />
         </div>
@@ -111,7 +119,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   
                   return (
                     <li key={item.name} className={`menu-item ${hasSubItems ? 'sub-menu' : ''} ${isOpen && hasSubItems ? 'open' : ''} ${isRouteActive && !hasSubItems ? 'active' : ''}`}>
-                      <a onClick={() => hasSubItems ? toggleSubmenu(item.name) : router.push(item.href)}>
+                      <a onClick={() => hasSubItems ? toggleSubmenu(item.name) : (() => { router.push(item.href); setIsMobileOpen(false); })()}>
                         <span className="menu-icon">
                           <Icon size={18} />
                         </span>
@@ -125,7 +133,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               const isSubActive = pathname === sub.href;
                               return (
                                 <li key={sub.name} className={`menu-item ${isSubActive ? 'active' : ''}`}>
-                                  <Link href={sub.href}>
+                                  <Link href={sub.href} onClick={() => setIsMobileOpen(false)}>
                                     <span className="menu-title">{sub.name}</span>
                                   </Link>
                                 </li>
@@ -155,9 +163,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content */}
       <main className="admin-content-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <header style={{ height: 72, background: "var(--c-surface-1)", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px" }}>
-          <div style={{ fontWeight: 500, color: "var(--c-ink)" }}>
-            {navItems.find(n => pathname === n.href || pathname.startsWith(n.href + "/"))?.name || "Dashboard"}
+        <header style={{ height: 72, background: "var(--c-surface-1)", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 var(--admin-pad-x, 32px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <button 
+              className="admin-hamburger"
+              onClick={() => setIsMobileOpen(!isMobileOpen)}
+              style={{ display: "none", background: "none", border: "none", color: "var(--c-ink)", cursor: "pointer", padding: 0 }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            <div style={{ fontWeight: 500, color: "var(--c-ink)" }}>
+              {navItems.find(n => pathname === n.href || pathname.startsWith(n.href + "/"))?.name || "Dashboard"}
+            </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <ThemeToggle />
@@ -167,7 +184,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
         
-        <div style={{ padding: 32, flex: 1, overflowY: "auto", background: "var(--bg-color)" }}>
+        <div style={{ padding: "var(--admin-pad-x, 32px)", flex: 1, overflowY: "auto", background: "var(--bg-color)" }}>
           {children}
         </div>
       </main>

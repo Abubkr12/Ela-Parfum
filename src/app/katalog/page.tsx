@@ -145,7 +145,7 @@ export default function KatalogPage() {
         const [perfumeRes, familyRes, sizesRes] = await Promise.all([
           sb.from("perfumes").select("*").eq("is_active", true).order("created_at", { ascending: false }),
           sb.from("scent_families").select("*").order("sort_order"),
-          sb.from("perfume_sizes").select("*").eq("is_active", true),
+          fetch("/api/product-stocks", { cache: "no-store" }).then((res) => res.json()),
         ]);
 
         const perfumeData = (perfumeRes.data ?? []) as Perfume[];

@@ -304,7 +304,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     for (const b of bibitsList) {
       const ratioPercent = ratioStr === "100/0" ? 1.0 : ratioStr === "70/30" ? 0.7 : ratioStr === "50/50" ? 0.5 : 0.3;
       const vol = (bottleObj?.capacity_ml || 0) * ratioPercent / (bibitsList.length || 1);
-      const cost = vol * (b.price_per_ml || 0);
+      const cost = Math.round(vol * (b.price_per_ml || 0));
       itemsToInsert.push({
         order_id: orderData.id,
         perfume_id: null,
@@ -334,6 +334,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     }
     
     // Add Botol
+    const botolPrice = isOwnBottle ? 0 : Math.round(bottleObj?.price || request.price_bottle || 0);
     itemsToInsert.push({
       order_id: orderData.id,
       perfume_id: null,
@@ -341,13 +342,13 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
       perfume_name: isOwnBottle ? `Botol Sendiri` : `Botol: ${bottleObj?.name || request.bottle_type || 'Botol'}`,
       size_label: `${bottleObj?.capacity_ml || request.volume || 0}ml`,
       quantity: 1,
-      price: isOwnBottle ? 0 : (bottleObj?.price || request.price_bottle || 0),
-      subtotal: isOwnBottle ? 0 : (bottleObj?.price || request.price_bottle || 0)
+      price: botolPrice,
+      subtotal: botolPrice
     });
     
     // Add Biaya Layanan if there is a discrepancy in total
     const itemTotal = itemsToInsert.reduce((sum, it) => sum + it.price, 0);
-    const diff = subtotal - itemTotal;
+    const diff = Math.round(subtotal - itemTotal);
     if (diff > 0) {
       itemsToInsert.push({
         order_id: orderData.id,
