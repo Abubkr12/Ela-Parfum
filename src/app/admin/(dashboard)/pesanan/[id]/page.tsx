@@ -26,12 +26,12 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
     .eq("order_id", parseInt(id, 10));
 
   let customRequest = null;
-  const customMatch = order.notes?.match(/CustomRequestID:\s*(\d+)/i);
+  const customMatch = order.notes?.match(/CustomRequestID:\s*([a-f0-9\-]+)/i);
   if (customMatch && customMatch[1]) {
     const { data: reqData } = await supabase
       .from("custom_requests")
       .select("*")
-      .eq("id", parseInt(customMatch[1], 10))
+      .eq("id", customMatch[1])
       .single();
     if (reqData) {
       customRequest = reqData;
