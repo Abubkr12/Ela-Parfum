@@ -34,11 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { 
       name: "Pesanan", 
       href: "/admin/pesanan", 
-      icon: Package,
-      subItems: [
-        { name: "Pesanan Reguler", href: "/admin/pesanan" },
-        { name: "Pesanan Kustom", href: "/admin/pesanan-kustom" },
-      ]
+      icon: Package 
     },
     { name: "Chat", href: "/admin/chat", icon: MessageCircle },
     { 
