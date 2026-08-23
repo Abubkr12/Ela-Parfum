@@ -15,10 +15,10 @@ export async function POST(request: Request) {
         }
 
         const fetchRatesForOrigin = async (origin: { id: string, name: string }) => {
-            const payload = {
+            const payload: any = {
                 "origin_area_id": origin.id,
                 "destination_area_id": body.destination_area_id,
-                "couriers": "gojek,grab,lalamove,jnt,jne,ninja,wahana,jnt_cargo",
+                "couriers": "gojek,grab,lalamove,jnt,jne,ninja,idx",
                 "items": [
                     {
                         "name": "Parfum",
@@ -32,6 +32,14 @@ export async function POST(request: Request) {
                     }
                 ]
             };
+            
+            if (body.destination_latitude && body.destination_longitude) {
+                payload.destination_latitude = body.destination_latitude;
+                payload.destination_longitude = body.destination_longitude;
+            } else if (body.destination_coordinate?.latitude && body.destination_coordinate?.longitude) {
+                payload.destination_latitude = body.destination_coordinate.latitude;
+                payload.destination_longitude = body.destination_coordinate.longitude;
+            }
 
             const isSandbox = process.env.BITESHIP_IS_SANDBOX === 'true';
             const biteshipKey = isSandbox ? process.env.BITESHIP_SANDBOX_API_KEY : process.env.BITESHIP_API_KEY;
@@ -66,7 +74,16 @@ export async function POST(request: Request) {
         
         for (const rates of allRatesResults) {
             for (const rate of rates) {
-                const key = rate.courier_service_code;
+                // Filter out cars, vans, trucks because perfumes are small packages
+                const serviceLower = (rate.courier_service_code || '').toLowerCase();
+                const nameLower = (rate.courier_name || '').toLowerCase();
+                if (serviceLower.includes('car') || serviceLower.includes('van') || serviceLower.includes('truck') || nameLower.includes('car') || nameLower.includes('van') || nameLower.includes('truck')) {
+                    continue;
+                }
+
+                // Use company + service code as key to prevent Grab Instant from overwriting Gojek Instant
+                const key = `${rate.courier_company}_${rate.courier_service_code}`;
+                
                 if (!bestRatesMap.has(key) || rate.price < bestRatesMap.get(key).price) {
                     bestRatesMap.set(key, rate);
                 }
