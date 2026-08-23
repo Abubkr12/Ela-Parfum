@@ -50,7 +50,8 @@ export function StepBottleSelect({ bottles, selected, onSelect }: StepBottleSele
 
       <div className="bottle-list-grid" style={{ 
         display: "grid", 
-        gap: "16px" 
+        gap: "16px",
+        gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))"
       }}>
         {bottles.filter(b => b.is_active).map((bottle) => {
           const isSelected = selected?.id === bottle.id;
