@@ -45,6 +45,26 @@ export function StepAiResult({ mode, recommendedBibit, selectedBibits, analysis,
         </div>
       </div>
 
+      {/* Blend Verdict Warning / Status */}
+      {analysis.blend_verdict && (
+        <div style={{
+          padding: "16px",
+          marginBottom: "32px",
+          borderRadius: "var(--r-md)",
+          background: analysis.blend_verdict === "HARMONIS" ? "rgba(16, 185, 129, 0.1)" : analysis.blend_verdict === "CUKUP HARMONIS" ? "rgba(245, 158, 11, 0.1)" : "rgba(239, 68, 68, 0.1)",
+          border: `1px solid ${analysis.blend_verdict === "HARMONIS" ? "#10b981" : analysis.blend_verdict === "CUKUP HARMONIS" ? "#f59e0b" : "#ef4444"}40`,
+          color: analysis.blend_verdict === "HARMONIS" ? "#047857" : analysis.blend_verdict === "CUKUP HARMONIS" ? "#b45309" : "#b91c1c"
+        }}>
+          <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            {analysis.blend_verdict === "HARMONIS" ? "✨" : "⚠️"} 
+            Status Racikan: {analysis.blend_verdict}
+          </h4>
+          <p style={{ margin: 0, fontSize: "0.85rem", lineHeight: 1.5 }}>
+            {analysis.blend_warning || (analysis.blend_verdict === "HARMONIS" ? "Kombinasi bibit ini sangat cocok dan akan menghasilkan aroma yang seimbang dan menyenangkan." : "Kombinasi bibit ini memiliki risiko aroma yang kurang seimbang. Anda tetap dapat melanjutkan jika yakin dengan pilihan ini.")}
+          </p>
+        </div>
+      )}
+
       {/* Bibit Selection Display */}
       <div style={{ marginBottom: "32px" }}>
         <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: "16px" }}>

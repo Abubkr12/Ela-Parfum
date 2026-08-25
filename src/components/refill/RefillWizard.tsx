@@ -153,7 +153,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
         ? state.selectedBibits 
         : (state.recommendedBibit ? [state.recommendedBibit] : []);
 
-      const ratioPercent = state.ratio === "70/30" ? 0.7 : 0.5;
+      const ratioPercent = state.ratio === "100/0" ? 1.0 : state.ratio === "70/30" ? 0.7 : state.ratio === "50/50" ? 0.5 : 0.3;
       const capacityMl = state.useOwnBottle ? state.ownBottleVolumeMl : (state.selectedBottle?.capacity_ml || 0);
       const totalBibitVolume = capacityMl * ratioPercent;
       const volumePerBibit = totalBibitVolume / (activeBibits.length || 1);
@@ -169,6 +169,47 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
       const totalPrice = pricePerfume + priceBottle;
       const baseNoteStr = state.recommendedBibit?.name || state.selectedBibits.map(b => b.name).join(" + ");
       
+      const totalSolventVolume = capacityMl - totalBibitVolume;
+      const ratioName = state.ratio === "100/0" ? "Elixir" : state.ratio === "70/30" ? "Extrait de Parfum" : state.ratio === "50/50" ? "Eau De Parfum" : "Eau De Toilette";
+      
+      let admin_recipe = "";
+      if (state.mode === "custom" && activeBibits.length > 1 && state.analysis?.technical_recipe) {
+        let recipeContent = "";
+        
+        // Attempt to parse percentages from AI's technical_recipe
+        const parsedBibits = activeBibits.map(b => {
+          // Look for number followed by % near the bibit name
+          const escapedName = b.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex1 = new RegExp(`${escapedName}[^0-9]*(\\d{1,3})\\s*%`, 'i');
+          const regex2 = new RegExp(`(\\d{1,3})\\s*%[^,]*${escapedName}`, 'i');
+          
+          let match = state.analysis!.technical_recipe!.match(regex1) || state.analysis!.technical_recipe!.match(regex2);
+          let pct = 0;
+          if (match && match[1]) {
+            pct = parseInt(match[1]);
+          }
+          return { bibit: b, percent: pct };
+        });
+
+        // Validate if percentages sum to roughly 100
+        const totalPct = parsedBibits.reduce((acc, curr) => acc + curr.percent, 0);
+        
+        parsedBibits.forEach(({ bibit, percent }) => {
+          let finalPct = percent;
+          // Fallback if AI didn't provide clear percentages or they don't sum to 100
+          if (totalPct < 90 || totalPct > 110 || percent === 0) {
+            finalPct = Math.round(100 / activeBibits.length);
+          }
+          const bibitMl = totalBibitVolume * (finalPct / 100);
+          recipeContent += `Bibit ${bibit.name} (${finalPct}%) : ${bibitMl.toFixed(1)} ml\n`;
+        });
+        
+        admin_recipe = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRACIKAN PARFUM — ${capacityMl}ml (${ratioName})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${recipeContent}Pelarut Absolute : ${totalSolventVolume.toFixed(1)} ml\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTotal Volume : ${capacityMl.toFixed(1)} ml`;
+      } else {
+        // Single bibit
+        admin_recipe = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRACIKAN PARFUM — ${capacityMl}ml (${ratioName})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBibit ${activeBibits[0]?.name || 'Unknown'} (100%) : ${totalBibitVolume.toFixed(1)} ml\nPelarut Absolute : ${totalSolventVolume.toFixed(1)} ml\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTotal Volume : ${capacityMl.toFixed(1)} ml`;
+      }
+      
       const payload = {
         customer_name: user.user_metadata?.full_name || "Pelanggan Ela",
         customer_whatsapp: user.user_metadata?.phone || "08000000000",
@@ -182,7 +223,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
         ai_recipe: JSON.stringify({
           mode: state.mode,
           name_suggestion: state.analysis?.custom_name || baseNoteStr,
-          admin_recipe: state.analysis?.technical_recipe || "Standar (Tidak ada custom blending dari AI)",
+          admin_recipe: admin_recipe,
           ratio: state.ratio,
           own_bottle: state.useOwnBottle,
           own_bottle_volume_ml: state.useOwnBottle ? state.ownBottleVolumeMl : null,

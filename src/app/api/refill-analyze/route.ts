@@ -54,12 +54,14 @@ Struktur JSON yang diharapkan:
     // Selalu ada:
     "analysis": {
       "custom_name": "string", // Hanya jika mode 'custom', nama blend / nama asli jika 1 bibit
-      "technical_recipe": "string", // Hanya jika mode 'custom', rasio (misal: 60% A, 40% B). Jika 1 bibit, 100%. Ini rahasia untuk seller.
+      "technical_recipe": "string", // Hanya jika mode 'custom', rasio (misal: 60% A, 40% B).
       "predicted_notes": { "top": ["string"], "middle": ["string"], "base": ["string"] },
       "predicted_intensity": "string", // 'Soft' | 'Medium' | 'Strong' | 'Extreme'
       "description": "string", // Deskripsi aroma hasil analisismu
-      "reasoning": "string", // Alasan kamu memilih bibit ini atau hasil campuran ini
-      "confidence": number // 0-100
+      "reasoning": "string", // Alasan
+      "confidence": number, // 0-100
+      "blend_verdict": "string", // WAJIB untuk mode 'custom' > 1 bibit. Pilihan: 'HARMONIS' | 'CUKUP HARMONIS' | 'TIDAK HARMONIS'. Kosongkan jika 1 bibit atau mode lain.
+      "blend_warning": "string" // Berikan alasan singkat mengapa TIDAK HARMONIS atau peringatan untuk kustomer. Kosongkan jika HARMONIS atau 1 bibit.
     }
   }
 }
@@ -106,16 +108,17 @@ ${catalogueText}
 Tugasmu: Berikan deskripsi dan analisa dasar terhadap bibit ini. 
 Untuk "custom_name", gunakan nama variasi atau nama asli bibit tersebut. 
 Untuk "technical_recipe", tulis "100% ${customSelectedBibits[0].name}". 
-Gunakan data notes dan intensitas asli dari database. JANGAN buat aroma baru yang jauh menyimpang, analisalah karakteristik bawaannya.`;
+Gunakan data notes dan intensitas asli dari database. JANGAN buat aroma baru yang jauh menyimpang. "blend_verdict" harus kosong.`;
         userContentParts.push({ text: "Tolong analisis 1 bibit pilihan saya ini." });
       } else {
         systemPrompt += `\nINTRUKSI: Pelanggan meracik beberapa bibit parfum secara manual: ${JSON.stringify(customSelectedBibits)}. 
-Tugasmu: Analisis campuran dari bibit-bibit tersebut.
+Tugasmu: Analisis JUJUR campuran dari bibit-bibit tersebut.
 1. "custom_name": BUATKAN nama baru yang unik, kreatif, dan elegan untuk racikan ini.
-2. "technical_recipe": BUATKAN racikan persentase spesifik (contoh: ${customSelectedBibits[0].name} 60%, bibit lainnya 40%) sesuai harmoni notes.
-3. Prediksi notes baru (top, middle, base), intensitas hasil campuran, dan deskripsikan sensasi wangi barunya.
-Jawab dengan penuh percaya diri dan elegan, layaknya racikan perfumer ahli.`;
-        userContentParts.push({ text: "Tolong analisis campuran bibit-bibit parfum ini dan jadikan racikan baru." });
+2. "technical_recipe": BUATKAN racikan persentase spesifik (contoh: ${customSelectedBibits[0].name} 60%, bibit lainnya 40%).
+3. "blend_verdict": JADILAH OBJEKTIF DAN GENERAL! Jangan netral dan menganggap semua enak. Evaluasi secara kritis kecocokan notes-nya (apakah clashing? apakah dominan menabrak?). Berikan "HARMONIS", "CUKUP HARMONIS", atau "TIDAK HARMONIS".
+4. "blend_warning": Jika verdict BUKAN "HARMONIS", berikan peringatan jujur tentang aroma clashing yang mungkin terjadi (contoh: aroma citrus segar bertabrakan dengan oud yang tajam sehingga akan memusingkan).
+5. Prediksi notes baru (top, middle, base), intensitas hasil campuran, dan deskripsikan sensasi wangi barunya.`;
+        userContentParts.push({ text: "Tolong analisis campuran bibit-bibit parfum ini secara objektif." });
       }
     }
 

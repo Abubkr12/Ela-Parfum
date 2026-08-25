@@ -40,6 +40,8 @@ export interface AiAnalysis {
   description: string;
   reasoning: string;
   confidence: number;
+  blend_verdict?: string;
+  blend_warning?: string;
 }
 
 export interface WizardState {
