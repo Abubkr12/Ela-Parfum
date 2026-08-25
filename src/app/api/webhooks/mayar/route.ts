@@ -4,11 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const supabaseAdmin = createAdminClient();
 
-const STORE_LOCATIONS = {
-  'IDNP6IDNC149IDND851': { name: 'Condet', address: 'Jl. Condet Raya No. 1' },
-  'IDNP6IDNC146IDND825': { name: 'Rawa Belong', address: 'Jl. Rawa Belong No. 2' },
-  'IDNP3IDNC445IDND5590': { name: 'Tangerang', address: 'Jl. Ciledug Raya No. 3' }
-};
+import { STORE_LOCATIONS } from '@/lib/biteship';
 
 export async function POST(req: Request) {
   try {
@@ -126,27 +122,35 @@ export async function POST(req: Request) {
           originAreaId = 'IDNP6IDNC149IDND851'; // Default Condet
         }
         
-        // Find Destination Area ID
+        // Find Destination Area ID & Coordinates
         let destinationAreaId = '';
         const destMatch = order.notes?.match(/Dest:\s*([^|]+)/);
         if (destMatch && destMatch[1]) {
             destinationAreaId = destMatch[1].trim();
-        } else {
-            // Fallback for older orders without Dest in notes
-            const { data: addresses } = await supabaseAdmin
-              .from('customer_addresses')
-              .select('region_code')
-              .eq('customer_id', order.customer_id)
-              .eq('full_address', order.customer_address)
-              .limit(1);
-              
-            destinationAreaId = addresses && addresses.length > 0 ? addresses[0].region_code : '';
+        }
+
+        // We NEED the latitude and longitude for Gojek/Grab, so query customer_addresses
+        let destLat: number | null = null;
+        let destLng: number | null = null;
+        
+        const { data: addresses } = await supabaseAdmin
+          .from('customer_addresses')
+          .select('region_code, maps_latitude, maps_longitude')
+          .eq('customer_id', order.customer_id)
+          .eq('full_address', order.customer_address)
+          .limit(1);
+          
+        if (addresses && addresses.length > 0) {
+            if (!destinationAreaId) {
+                destinationAreaId = addresses[0].region_code || '';
+            }
+            destLat = addresses[0].maps_latitude || null;
+            destLng = addresses[0].maps_longitude || null;
         }
 
         console.log(`[Biteship Debug] Order: ${orderCode}, Origin: ${originAreaId}, Dest: ${destinationAreaId}, Courier: ${order.courier_name}`);
 
         if (originAreaId && destinationAreaId) {
-          // Fetch order items
           const { data: items } = await supabaseAdmin
             .from('order_items')
             .select('*')
@@ -155,12 +159,7 @@ export async function POST(req: Request) {
           let mappedItems: any[] = [];
           const isCustomOrder = order.notes?.includes('[Custom Refill]');
           
-          const { data: currentItems } = await supabaseAdmin
-            .from('order_items')
-            .select('*')
-            .eq('order_id', order.id);
-
-          const allItems = currentItems && currentItems.length > 0 ? currentItems : (items || []);
+          const allItems = items || [];
           
           const DEFAULT_DIMENSIONS = { length: 25, width: 25, height: 20 };
           const calcPackageWeight = (bottleSize: number) => {
@@ -169,7 +168,7 @@ export async function POST(req: Request) {
           
           if (isCustomOrder) {
             let totalBottleSize = 50;
-            let totalValue = 0;
+            let totalValue = order.subtotal || 0;
             let ingredientNames: string[] = [];
             
             allItems.forEach((i: any) => {
@@ -228,7 +227,7 @@ export async function POST(req: Request) {
           const originDetails = STORE_LOCATIONS[originAreaId as keyof typeof STORE_LOCATIONS] || { name: 'Ela Parfum', address: 'Jl. Condet Raya' };
 
           // Extract 5-digit postal code from customer address
-          const postalMatch = order.customer_address.match(/\b\d{5}\b/);
+          const postalMatch = (order.customer_address || "").match(/\b\d{5}\b/);
           const destinationPostalCode = postalMatch ? parseInt(postalMatch[0], 10) : undefined;
 
           const biteshipPayload: any = {
@@ -241,15 +240,25 @@ export async function POST(req: Request) {
             origin_address: originDetails.address,
             origin_note: originDetails.name,
             origin_area_id: originAreaId,
-            destination_contact_name: order.customer_name,
-            destination_contact_phone: order.customer_phone,
-            destination_address: order.customer_address,
+            destination_contact_name: order.customer_name || "Customer",
+            destination_contact_phone: order.customer_phone || "+6280000000000",
+            destination_address: order.customer_address || "Alamat belum diisi",
             destination_area_id: destinationAreaId,
             courier_company: courierCompany,
             courier_type: courierType,
             delivery_type: "now",
             items: mappedItems
           };
+
+          if (originDetails.latitude && originDetails.longitude) {
+            biteshipPayload.origin_latitude = originDetails.latitude;
+            biteshipPayload.origin_longitude = originDetails.longitude;
+          }
+
+          if (destLat && destLng) {
+            biteshipPayload.destination_latitude = destLat;
+            biteshipPayload.destination_longitude = destLng;
+          }
 
           if (destinationPostalCode) {
             biteshipPayload.destination_postal_code = destinationPostalCode;
@@ -261,7 +270,7 @@ export async function POST(req: Request) {
           }
 
           const isSandbox = process.env.BITESHIP_IS_SANDBOX === 'true';
-          const biteshipUrl = isSandbox ? 'https://api-sandbox.biteship.com' : 'https://api.biteship.com';
+          const biteshipUrl = 'https://api.biteship.com';
           const biteshipKey = isSandbox ? process.env.BITESHIP_SANDBOX_API_KEY : process.env.BITESHIP_API_KEY;
 
           // Generate unique code for idempotency
@@ -324,3 +333,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+
+
