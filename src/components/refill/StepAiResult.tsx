@@ -141,7 +141,8 @@ export function StepAiResult({ mode, recommendedBibit, selectedBibits, analysis,
               <div 
                 style={{ 
                   height: "100%", 
-                  width: analysis.predicted_intensity.toLowerCase().includes("strong") || analysis.predicted_intensity.toLowerCase().includes("kuat") ? "85%" : 
+                  width: analysis.predicted_intensity.toLowerCase().includes("extreme") || analysis.predicted_intensity.toLowerCase().includes("ekstrem") ? "100%" :
+                         analysis.predicted_intensity.toLowerCase().includes("strong") || analysis.predicted_intensity.toLowerCase().includes("kuat") ? "85%" : 
                          analysis.predicted_intensity.toLowerCase().includes("medium") || analysis.predicted_intensity.toLowerCase().includes("sedang") ? "60%" : "35%", 
                   background: "var(--c-gold)",
                   borderRadius: "3px" 
