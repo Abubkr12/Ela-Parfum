@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { redirect } from "next/navigation";
 import WizardClientPage from "./WizardClientPage";
 
 export default async function RefillWizardPage({
@@ -25,6 +26,10 @@ export default async function RefillWizardPage({
 
   const validModes = ["ai", "gambar", "custom"];
   const initialMode = validModes.includes(params.mode || "") ? params.mode as any : undefined;
+
+  if (!initialMode) {
+    redirect("/refill");
+  }
 
   return (
     <WizardClientPage

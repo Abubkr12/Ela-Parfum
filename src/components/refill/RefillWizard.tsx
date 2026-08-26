@@ -67,7 +67,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
     scrollToTop();
     const { step, mode } = state;
     if (step === "input") {
-      updateState({ step: "method", mode: null, prompt: "", imageBase64: null, selectedBibits: [] });
+      router.push("/refill");
     } else if (step === "result") {
       updateState({ step: "input", recommendedBibit: null, analysis: null });
     } else if (step === "ratio") {
@@ -257,20 +257,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
 
   const handleRetry = () => {
     scrollToTop();
-    updateState({
-      mode: null,
-      step: "method",
-      prompt: "",
-      imageBase64: null,
-      selectedBibits: [],
-      recommendedBibit: null,
-      analysis: null,
-      ratio: null,
-      useOwnBottle: false,
-      ownBottleVolumeMl: 30,
-      selectedBottle: null,
-      error: null
-    });
+    router.push("/refill");
   };
 
   return (
