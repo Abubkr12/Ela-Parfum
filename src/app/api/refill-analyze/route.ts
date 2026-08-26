@@ -59,7 +59,7 @@ Struktur JSON yang diharapkan:
       "predicted_intensity": "string", // 'Soft' | 'Medium' | 'Strong' | 'Extreme'
       "description": "string", // Deskripsi aroma hasil analisismu
       "reasoning": "string", // Alasan
-      "confidence": number, // 0-100. Jika mode custom: HARMONIS (90-100), CUKUP HARMONIS (70-89), TIDAK HARMONIS (<70)
+      "confidence": number, // 0-100. Jika mode custom: HARMONIS (75-100), CUKUP HARMONIS (50-74), TIDAK HARMONIS (<50)
       "blend_verdict": "string", // WAJIB untuk mode 'custom' > 1 bibit. Pilihan: 'HARMONIS' | 'CUKUP HARMONIS' | 'TIDAK HARMONIS'. Kosongkan jika 1 bibit atau mode lain.
       "blend_warning": "string" // Berikan alasan singkat mengapa TIDAK HARMONIS atau peringatan untuk kustomer. Kosongkan jika HARMONIS atau 1 bibit.
     }
@@ -78,8 +78,12 @@ ${catalogueText}
       userContentParts.push({ text: `Deskripsi parfum yang saya inginkan: ${prompt}` });
     } 
     else if (mode === 'gambar') {
-      if (!imageBase64) return NextResponse.json({ error: "imageBase64 is required for gambar mode." }, { status: 400 });
-      systemPrompt += `\nINTRUKSI: Identifikasi parfum di gambar ini (kamu bisa gunakan Google Search). Cari 1 bibit dari katalog yang wanginya PALING MIRIP atau searah dengan parfum di gambar.`;
+        if (!imageBase64) return NextResponse.json({ error: "imageBase64 is required for gambar mode." }, { status: 400 });
+        systemPrompt += `\nINTRUKSI MODE GAMBAR:
+          1. Identifikasi merek dan nama parfum di gambar (gunakan Google Search jika perlu).
+          2. PRIORITAS UTAMA: Jika merek parfum tersebut ADA di katalog bibit (misal: gambar Baccarat Rouge 540, dan bibit "Baccarat Rouge 540" ada di katalog), WAJIB pilih bibit yang EXACT MATCH dengan merek itu.
+          3. Jika merek TIDAK ADA di katalog, baru cari bibit yang aromanya PALING MIRIP berdasarkan accord dan piramida notes.
+          4. Di "reasoning", jelaskan: merek apa yang terdeteksi, apakah exact match atau alternatif terdekat.`;
       const matches = imageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
       if (matches) {
         userContentParts.push({ text: "Tolong identifikasi parfum ini dan carikan bibit yang paling mirip di katalog." });
@@ -111,11 +115,31 @@ Untuk "technical_recipe", tulis "100% ${customSelectedBibits[0].name}".
 Gunakan data notes dan intensitas asli dari database. JANGAN buat aroma baru yang jauh menyimpang. "blend_verdict" harus kosong.`;
         userContentParts.push({ text: "Tolong analisis 1 bibit pilihan saya ini." });
       } else {
-        systemPrompt += `\nINTRUKSI: Pelanggan meracik beberapa bibit parfum secara manual: ${JSON.stringify(customSelectedBibits)}.          Tugasmu: Analisis JUJUR campuran dari bibit-bibit tersebut.
+        systemPrompt += `\nINTRUKSI: Pelanggan meracik beberapa bibit parfum secara manual: ${JSON.stringify(customSelectedBibits)}.          
+          PANDUAN KOMPATIBILITAS ACCORD:
+          ✅ HARMONIS (confidence 75-100):
+            - Woody + Spicy → Oriental klasik
+            - Floral + Citrus → Fresh floral
+            - Sweet + Woody → Oriental manis
+            - Musky + Floral → Romantis
+            - Fresh + Citrus → Clean modern
+            - Aquatic + Citrus → Marine fresh
+
+          ⚠️ CUKUP HARMONIS (confidence 50-74):
+            - Woody + Floral → Butuh balance
+            - Sweet + Floral → Tergantung intensitas
+            - Spicy + Musky → Bold, bisa terlalu berat
+
+          ❌ TIDAK HARMONIS (confidence 20-49):
+            - Aquatic + Sweet Gourmand → Clash water vs sugar
+            - Heavy Spicy + Aquatic → Kontradiksi panas vs dingin
+            - Extreme + Extreme intensity → Over-saturated
+
+          Tugasmu: Analisis JUJUR campuran dari bibit-bibit tersebut.
           1. "custom_name": BUATKAN nama baru yang unik, kreatif, dan elegan untuk racikan ini.
           2. "technical_recipe": BUATKAN racikan persentase spesifik (contoh: ${customSelectedBibits[0].name} 60%, bibit lainnya 40%).
           3. "blend_verdict": JADILAH OBJEKTIF DAN GENERAL! Jangan netral dan menganggap semua enak. Evaluasi secara kritis kecocokan notes-nya (apakah clashing? apakah dominan menabrak?). Berikan "HARMONIS", "CUKUP HARMONIS", atau "TIDAK HARMONIS".
-          4. "confidence": Sesuaikan persentase dengan verdict! HARMONIS = 90-100%, CUKUP HARMONIS = 70-89%, TIDAK HARMONIS = <70%.
+          4. "confidence": Sesuaikan persentase dengan verdict! HARMONIS = 75-100%, CUKUP HARMONIS = 50-74%, TIDAK HARMONIS = <50%.
           5. "blend_warning": Jika verdict BUKAN "HARMONIS", berikan peringatan jujur tentang aroma clashing yang mungkin terjadi (contoh: aroma citrus segar bertabrakan dengan oud yang tajam sehingga akan memusingkan).
           6. Prediksi notes baru (top, middle, base), intensitas hasil campuran, dan deskripsikan sensasi wangi barunya.`;
         userContentParts.push({ text: "Tolong analisis campuran bibit-bibit parfum ini secara objektif." });
