@@ -75,15 +75,31 @@ export function StepAiResult({ mode, recommendedBibit, selectedBibits, analysis,
         
         <div style={{ display: "grid", gridTemplateColumns: isCustom ? "repeat(auto-fit, minmax(200px, 1fr))" : "1fr", gap: "16px" }}>
           {isCustom ? (
-            selectedBibits.map(bibit => (
-              <div key={bibit.id} style={{ padding: "16px", borderRadius: "var(--r-md)", background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
-                <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "4px 8px", borderRadius: "4px", background: "var(--c-surface-2)", color: "var(--c-ink-dim)", display: "inline-block", marginBottom: "8px" }}>
-                  {bibit.collection}
-                </span>
-                <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink)", margin: "0 0 4px 0" }}>{bibit.name}</h4>
-                <p style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)", margin: 0 }}>{bibit.main_accord} · {bibit.intensity}</p>
-              </div>
-            ))
+            selectedBibits.map(bibit => {
+              // Extract percentage from technical_recipe if available
+              let percentDisplay = "";
+              if (analysis.technical_recipe && selectedBibits.length > 1) {
+                const escapedName = bibit.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex1 = new RegExp(`${escapedName}[^0-9]*(\\d{1,3})\\s*%`, 'i');
+                const regex2 = new RegExp(`(\\d{1,3})\\s*%[^,]*${escapedName}`, 'i');
+                const match = analysis.technical_recipe.match(regex1) || analysis.technical_recipe.match(regex2);
+                if (match && match[1]) {
+                  percentDisplay = ` · ${match[1]}%`;
+                }
+              }
+
+              return (
+                <div key={bibit.id} style={{ padding: "16px", borderRadius: "var(--r-md)", background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+                  <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "4px 8px", borderRadius: "4px", background: "var(--c-surface-2)", color: "var(--c-ink-dim)", display: "inline-block", marginBottom: "8px" }}>
+                    {bibit.collection}
+                  </span>
+                  <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink)", margin: "0 0 4px 0" }}>{bibit.name}</h4>
+                  <p style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)", margin: 0 }}>
+                    {bibit.main_accord} · {bibit.intensity}{percentDisplay}
+                  </p>
+                </div>
+              );
+            })
           ) : recommendedBibit ? (
             <div style={{ padding: "20px", borderRadius: "var(--r-md)", background: "var(--c-bg)", border: "1px solid var(--c-gold)", position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, right: 0, background: "var(--c-gold)", color: "#fff", padding: "4px 12px", fontSize: "0.75rem", fontWeight: 600, borderBottomLeftRadius: "var(--r-md)" }}>
