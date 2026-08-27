@@ -225,6 +225,27 @@ export async function POST(req: Request) {
           const postalMatch = (order.customer_address || "").match(/\b\d{5}\b/);
           const destinationPostalCode = postalMatch ? parseInt(postalMatch[0], 10) : undefined;
 
+          // Auto-schedule logic for Same Day couriers past cutoff time
+          let deliveryType = "now";
+          let deliveryDate = undefined;
+          let deliveryTime = undefined;
+
+          if (courierType === 'same_day') {
+            const now = new Date();
+            // Convert to Jakarta time (UTC+7)
+            const jakartaHour = (now.getUTCHours() + 7) % 24;
+            
+            // If it's 14:00 or later, Grab/Gojek Same Day will reject "now". Schedule for tomorrow 09:00.
+            if (jakartaHour >= 14) {
+              deliveryType = "later";
+              const tomorrow = new Date(now);
+              tomorrow.setUTCDate(now.getUTCDate() + 1);
+              deliveryDate = tomorrow.toISOString().split('T')[0];
+              deliveryTime = "09:00";
+              console.log(`[Biteship Debug] Past same_day cutoff (${jakartaHour}:00). Scheduling for tomorrow ${deliveryDate} 09:00`);
+            }
+          }
+
           const biteshipPayload: any = {
             shipper_contact_name: 'Ela Parfum',
             shipper_contact_phone: '+6281384104147',
@@ -241,9 +262,14 @@ export async function POST(req: Request) {
             destination_area_id: destinationAreaId,
             courier_company: courierCompany,
             courier_type: courierType,
-            delivery_type: "now",
+            delivery_type: deliveryType,
             items: mappedItems
           };
+
+          if (deliveryDate && deliveryTime) {
+            biteshipPayload.delivery_date = deliveryDate;
+            biteshipPayload.delivery_time = deliveryTime;
+          }
 
           if (originDetails.latitude && originDetails.longitude) {
             biteshipPayload.origin_coordinate = {
