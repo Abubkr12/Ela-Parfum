@@ -170,7 +170,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     try {
       const isSandbox = process.env.MAYAR_IS_SANDBOX === 'true';
       const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
-      const mayarUrl = isSandbox ? 'https://api.mayar.club/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
+      const mayarUrl = isSandbox ? 'https://api.mayar.io/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
       
       const invoiceData = {
         name: fullName,
@@ -408,7 +408,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     try {
       const isSandbox = process.env.MAYAR_IS_SANDBOX === 'true';
       const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
-      const mayarUrl = isSandbox ? 'https://api.mayar.club/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
+      const mayarUrl = isSandbox ? 'https://api.mayar.io/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
 
       const invoiceData = {
         name: fullName,

@@ -47,7 +47,7 @@ export default function PesananKustomDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const reqData = data.data;
-      setRequest(reqData);
+      if (typeof reqData.ai_recipe === "string") { try { reqData.ai_recipe = JSON.parse(reqData.ai_recipe); } catch(e) {} } setRequest(reqData);
       setOrder(data.order || null);
 
       let initialPerfume = reqData.price_perfume || 0;
@@ -187,41 +187,49 @@ export default function PesananKustomDetailPage() {
 
             <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-md)", border: "1px solid var(--c-border)", position: "relative", overflow: "hidden", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)" }}>
               <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", background: "linear-gradient(45deg, transparent, rgba(0,0,0,0.02))", pointerEvents: "none" }}></div>
-              <h4 style={{ fontSize: "0.8rem", color: "var(--c-gold)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600 }}>Technical Recipe</h4>
+              
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid var(--c-border)", paddingBottom: 12 }}>
+                <h4 style={{ fontSize: "0.85rem", color: "var(--c-gold)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, margin: 0 }}>Technical Recipe</h4>
+                <div style={{ background: "rgba(0,0,0,0.03)", padding: "4px 12px", borderRadius: "var(--r-pill)", fontSize: "0.75rem", fontWeight: 600, color: "var(--c-ink-dim)" }}>
+                  {request.volume_ml || 30} ML • {request.ai_recipe?.ratio || '50/50'}
+                </div>
+              </div>
+
+              {/* Rincian Komposisi ML (Bibit & Pelarut) */}
+              <div style={{ marginBottom: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {(() => {
+                  const volume = request.volume_ml || 30;
+                  const ratioStr = request.ai_recipe?.ratio || '50/50';
+                  const pctBibit = ratioStr === '100/0' ? 1.0 : ratioStr === '70/30' ? 0.7 : ratioStr === '50/50' ? 0.5 : 0.3;
+                  const mlBibit = volume * pctBibit;
+                  const mlPelarut = volume * (1 - pctBibit);
+                  
+                  return (
+                    <>
+                      <div style={{ background: "rgba(234, 179, 8, 0.05)", border: "1px solid rgba(234, 179, 8, 0.2)", padding: 16, borderRadius: "var(--r-md)" }}>
+                        <p style={{ fontSize: "0.75rem", color: "var(--c-gold)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4, fontWeight: 600 }}>Total Bibit (Fragrance)</p>
+                        <p style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--c-ink)", fontFamily: "var(--font-display)" }}>{mlBibit.toFixed(1)} <span style={{ fontSize: "0.9rem", color: "var(--c-ink-muted)", fontWeight: 500 }}>ML</span></p>
+                      </div>
+                      <div style={{ background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", padding: 16, borderRadius: "var(--r-md)" }}>
+                        <p style={{ fontSize: "0.75rem", color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4, fontWeight: 600 }}>Total Pelarut (Absolute)</p>
+                        <p style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--c-ink)", fontFamily: "var(--font-display)" }}>{mlPelarut.toFixed(1)} <span style={{ fontSize: "0.9rem", color: "var(--c-ink-muted)", fontWeight: 500 }}>ML</span></p>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              
+              <h5 style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "1px", fontWeight: 600 }}>Detail Racikan Bibit AI</h5>
               
               {request.ai_recipe?.admin_recipe ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {request.ai_recipe.admin_recipe.split('\n').map((line: string, i: number) => {
-                    const isSeparator = line.includes('━━━') || line.includes('===');
-                    if (isSeparator) return null;
-                    
-                    const isHeader = line.includes('RACIKAN PARFUM');
-                    const isTotal = line.includes('Total Volume');
-                    
-                    return (
-                      <div key={i} style={{ 
-                        display: "flex", 
-                        justifyContent: "space-between", 
-                        alignItems: "center",
-                        padding: isHeader || isTotal ? "12px 16px" : "8px 16px",
-                        background: isHeader || isTotal ? "var(--c-surface-2)" : "rgba(0,0,0,0.02)",
-                        borderRadius: "var(--r-md)",
-                        border: "1px solid var(--c-border)",
-                        fontWeight: isHeader || isTotal ? 600 : 500,
-                        color: isHeader || isTotal ? "var(--c-ink)" : "var(--c-ink-dim)",
-                        fontSize: "0.9rem"
-                      }}>
-                        <span>{line.split(':')[0]}</span>
-                        {line.split(':')[1] && (
-                          <span style={{ color: "var(--c-ink)", fontWeight: 600 }}>{line.split(':')[1]}</span>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div style={{ background: "#1a1a1a", borderRadius: "var(--r-md)", padding: 16, border: "1px solid #333", overflowX: "auto" }}>
+                  <pre style={{ margin: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: "0.85rem", color: "#e5e5e5", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                    {request.ai_recipe.admin_recipe}
+                  </pre>
                 </div>
               ) : (
-                <p style={{ fontFamily: "monospace", color: "var(--c-ink)", whiteSpace: "pre-wrap", fontSize: "0.95rem", lineHeight: 1.7 }}>
-                  Resep tidak tersedia
+                <p style={{ fontFamily: "monospace", color: "var(--c-ink-dim)", whiteSpace: "pre-wrap", fontSize: "0.95rem", lineHeight: 1.7, background: "rgba(0,0,0,0.02)", padding: 16, borderRadius: "var(--r-md)", border: "1px dashed var(--c-border)", textAlign: "center" }}>
+                  Resep AI belum tersedia / belum digenerate.
                 </p>
               )}
             </div>
@@ -340,3 +348,4 @@ export default function PesananKustomDetailPage() {
     </div>
   );
 }
+

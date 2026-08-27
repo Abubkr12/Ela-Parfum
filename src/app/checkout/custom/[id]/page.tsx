@@ -276,15 +276,15 @@ export default function CustomCheckoutPage() {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 32, alignItems: "start" }}>
+        <div className="checkout-grid">
           
           {/* LEFT: FORM */}
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <form onSubmit={handleSubmit} className="checkout-form-col">
             
             {/* ALAMAT & PENGIRIMAN (hanya jika BUKAN bawa botol sendiri) */}
             {isOwnBottle ? (
               /* OWN BOTTLE: PICKUP ONLY */
-              <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+              <div className="co-alamat" style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
                 <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", margin: 0, marginBottom: 20 }}>
                   <Store size={18} style={{ color: "#a855f7" }} />
                   Ambil di Toko
@@ -313,7 +313,7 @@ export default function CustomCheckoutPage() {
             ) : (
               <>
                 {/* ALAMAT PENGIRIMAN */}
-                <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+            <div className="co-alamat" style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                     <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", margin: 0 }}>
                       <MapPin size={18} style={{ color: "var(--c-gold)" }} />
@@ -377,7 +377,7 @@ export default function CustomCheckoutPage() {
                 </div>
 
                 {/* OPSI PENGIRIMAN */}
-                <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+                <div className="co-opsi" style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
                   <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 20, margin: 0 }}>
                     <Truck size={18} style={{ color: "var(--c-gold)" }} />
                     Opsi Pengiriman
@@ -429,7 +429,7 @@ export default function CustomCheckoutPage() {
             )}
 
             {/* METODE PEMBAYARAN */}
-            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+            <div className="co-metode" style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
               <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 20, margin: 0 }}>
                 <CreditCard size={18} style={{ color: "var(--c-gold)" }} />
                 Metode Pembayaran
@@ -508,7 +508,7 @@ export default function CustomCheckoutPage() {
             <button
               type="submit"
               disabled={submitting || (!isOwnBottle && (!selectedCourier || !selectedAddress)) || !paymentMethod}
-              className="btn btn-primary"
+              className="btn btn-primary co-button"
               style={{
                 padding: "16px",
                 justifyContent: "center",
@@ -525,7 +525,7 @@ export default function CustomCheckoutPage() {
           </form>
 
           {/* RIGHT: SUMMARY SIDEBAR */}
-          <div style={{ position: "sticky", top: 100 }}>
+          <div className="co-ringkasan" style={{ position: "sticky", top: 100 }}>
             <div style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border)", borderRadius: "var(--r-lg)", padding: 24 }}>
               <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 400, color: "var(--c-ink)", marginBottom: 16, marginTop: 0 }}>
                 Ringkasan Belanja Custom

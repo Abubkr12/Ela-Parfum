@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ShoppingBag, Menu, X, ClipboardList } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/lib/cart-context";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 
 const navLinks = [
@@ -19,6 +20,8 @@ const navLinks = [
 
 export function PageHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [clickedRoute, setClickedRoute] = useState<string | null>(null);
   const { totalItems } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -173,7 +176,7 @@ export function PageHeader() {
           <button
             className="btn-icon topbar__hamburger"
             aria-label="Menu"
-            onClick={() => setMobileOpen(!mobileOpen)}
+            onClick={() => { setMobileOpen(!mobileOpen); if (!mobileOpen) setClickedRoute(null); }}
             style={{ display: "none" }}
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
@@ -184,77 +187,111 @@ export function PageHeader() {
       </header>
 
       {/* Mobile Sidebar Overlay */}
-      {mobileOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999,
-            display: "flex",
-          }}
-        >
-          <div 
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             style={{
-              position: "absolute",
+              position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.5)",
-              backdropFilter: "blur(4px)",
-              animation: "fadeSlideIn 200ms ease-out both"
-            }}
-            onClick={() => setMobileOpen(false)}
-          />
-          <div
-            style={{
-              position: "relative",
-              width: "280px",
-              height: "100%",
-              background: "var(--c-bg)",
-              borderRight: "1px solid var(--c-border)",
-              padding: "24px",
+              zIndex: 999,
               display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              animation: "slideInLeft 250ms cubic-bezier(0.16, 1, 0.3, 1) both"
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-              <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "32px", width: "auto" }} />
-              <button className="btn-icon" onClick={() => setMobileOpen(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            
-            {navLinks.map((link) => {
-              const isActive =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(link.href.replace("/#", "/"));
+            <div 
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(0,0,0,0.5)",
+                backdropFilter: "blur(4px)",
+              }}
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+              style={{
+                position: "relative",
+                width: "280px",
+                height: "100%",
+                background: "var(--c-bg)",
+                borderRight: "1px solid var(--c-border)",
+                padding: "24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "32px", width: "auto" }} />
+                <button className="btn-icon" onClick={() => setMobileOpen(false)}>
+                  <X size={20} />
+                </button>
+              </div>
               
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "var(--r-md)",
-                    fontSize: "1rem",
-                    fontWeight: 500,
-                    color: isActive ? "var(--c-gold)" : "var(--c-ink-muted)",
-                    background: isActive ? "var(--c-gold-dim)" : "transparent",
-                    transition: "all 140ms",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12
-                  }}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              {navLinks.map((link) => {
+                const isActive = clickedRoute 
+                  ? link.href === clickedRoute
+                  : (link.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(link.href.replace("/#", "/")));
+                
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={(e) => {
+                      if (!isActive && link.href !== pathname) {
+                        e.preventDefault();
+                        setClickedRoute(link.href);
+                        setTimeout(() => {
+                          setMobileOpen(false);
+                          setTimeout(() => router.push(link.href), 50);
+                        }, 300);
+                      } else {
+                        setMobileOpen(false);
+                      }
+                    }}
+                    style={{
+                      position: "relative",
+                      padding: "14px 16px",
+                      borderRadius: "var(--r-md)",
+                      fontSize: "1rem",
+                      fontWeight: 500,
+                      color: isActive ? "var(--c-gold)" : "var(--c-ink-muted)",
+                      transition: "color 200ms",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      zIndex: 1
+                    }}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="mobile-sidebar-active"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "var(--r-md)",
+                          background: "var(--c-gold-dim)",
+                          zIndex: -1
+                        }}
+                        transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+                      />
+                    )}
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

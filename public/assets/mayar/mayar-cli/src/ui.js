@@ -170,7 +170,7 @@ async function selectEnvironment(flags = {}) {
     process.stdout.write(bold('Select Environment:') + '\n');
     const environments = [
       { title: 'Production', value: 'production', description: 'Live environment (web.mayar.id / api.mayar.id)' },
-      { title: 'Sandbox', value: 'sandbox', description: 'Testing environment (web.mayar.club / api.mayar.club)' },
+      { title: 'Sandbox', value: 'sandbox', description: 'Testing environment (web.mayar.io / api.mayar.io)' },
     ];
     const selected = await pickFromList(environments, {
       displayKey: 'title',

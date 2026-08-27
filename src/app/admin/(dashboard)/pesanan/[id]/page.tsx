@@ -35,6 +35,11 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
       .single();
     if (reqData) {
       customRequest = reqData;
+      if (typeof customRequest.ai_recipe === 'string') {
+        try {
+          customRequest.ai_recipe = JSON.parse(customRequest.ai_recipe);
+        } catch(e) {}
+      }
     }
   }
 

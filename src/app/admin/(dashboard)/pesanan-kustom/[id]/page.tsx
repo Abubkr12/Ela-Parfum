@@ -47,7 +47,7 @@ export default function PesananKustomDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const reqData = data.data;
-      setRequest(reqData);
+      if (typeof reqData.ai_recipe === "string") { try { reqData.ai_recipe = JSON.parse(reqData.ai_recipe); } catch(e) {} } setRequest(reqData);
       setOrder(data.order || null);
 
       let initialPerfume = reqData.price_perfume || 0;
@@ -307,3 +307,4 @@ export default function PesananKustomDetailPage() {
     </div>
   );
 }
+

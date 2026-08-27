@@ -1974,3 +1974,63 @@ button { cursor: pointer; border: none; background: none; }
     height: 22px !important;
   }
 }
+/* MOBILE SIDEBAR ANIMATIONS */
+@keyframes fadeSlideIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* CHECKOUT GRID */
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 32px;
+  align-items: start;
+}
+
+
+
+/* INVOICE RESPONSIVE (SCREEN ONLY) */
+@media screen and (max-width: 640px) {
+  .invoice-paper { padding: 24px 20px !important; }
+  .invoice-header { flex-direction: column !important; gap: 20px !important; }
+  .invoice-header-right { text-align: left !important; }
+  .invoice-meta { grid-template-columns: 1fr !important; gap: 24px !important; }
+  
+  /* Make table scrollable */
+  .invoice-table-wrapper { overflow-x: auto; margin-bottom: 24px; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+  .invoice-table-wrapper table { min-width: 500px; }
+  
+  /* Totals */
+  .invoice-totals { justify-content: flex-start !important; width: 100% !important; }
+  .invoice-totals > div { width: 100% !important; }
+}
+
+.checkout-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .checkout-grid {
+    display: flex !important;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .checkout-form-col {
+    display: contents; /* removes form from flex hierarchy, making its children direct children of .checkout-grid */
+  }
+  
+  /* REORDER SECTIONS FOR MOBILE */
+  .co-alamat { order: 1; }
+  .co-ringkasan { order: 2; width: 100% !important; margin-bottom: 0; position: static !important; }
+  .co-opsi { order: 3; }
+  .co-metode { order: 4; }
+  .co-button { order: 5; }
+}

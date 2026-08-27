@@ -41,7 +41,7 @@ export default async function InvoiceCustomPage({ params }: { params: { id: stri
         </div>
 
         {/* Invoice Paper */}
-        <div style={{ background: "#fff", padding: "40px 50px", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", color: "#222" }}>
+        <div className="invoice-paper" style={{ background: "#fff", padding: "40px 50px", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", color: "#222" }}>
           
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #eee", paddingBottom: 24, marginBottom: 32 }}>
@@ -70,7 +70,7 @@ export default async function InvoiceCustomPage({ params }: { params: { id: stri
           </div>
 
           {/* Items Table */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 32 }}>
+          <div className="invoice-table-wrapper"><table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 32 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #ddd", background: "#f9f9f9" }}>
                 <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.85rem", color: "#666", textTransform: "uppercase" }}>Deskripsi Racikan</th>
@@ -102,7 +102,7 @@ export default async function InvoiceCustomPage({ params }: { params: { id: stri
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
 
           {/* Summary */}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>

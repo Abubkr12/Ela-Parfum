@@ -27,7 +27,7 @@ env:
     required: false
     secret: true
   MAYAR_API_URL:
-    description: Override API base URL. Defaults to https://api.mayar.id (or api.mayar.club for sandbox).
+    description: Override API base URL. Defaults to https://api.mayar.id (or api.mayar.io for sandbox).
     required: false
     default: https://api.mayar.id
   MAYAR_AUTH_URL:
@@ -105,7 +105,7 @@ Successful output contains `"valid": true` and merchant details (`name`, `email`
 
 **Step 2 — Environment selection (Production vs Sandbox)**
 
-Target production (`api.mayar.id`) or sandbox (`api.mayar.club`) via flags or environment variables:
+Target production (`api.mayar.id`) or sandbox (`api.mayar.io`) via flags or environment variables:
 
 ```bash
 # Production (default)
@@ -328,7 +328,7 @@ npx -y mayar@latest software verify <licenseCode> <productId>
 | `--limit N` | Page size / result limit (v2 pagination, default 10, max 50) |
 | `--after CURSOR` | Cursor for pagination (`nextStartingAfter` from previous response) |
 | `--api-key <key>` | Override API key for invocation |
-| `--sandbox` | Target sandbox environment (`api.mayar.club`) |
+| `--sandbox` | Target sandbox environment (`api.mayar.io`) |
 | `--production` | Target production environment (`api.mayar.id`) |
 | `--env <value>` | Set environment: `sandbox` or `production` |
 | `--data <json|@file>` | Inline JSON string or path to JSON file (`@file.json`) |

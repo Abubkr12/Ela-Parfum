@@ -214,16 +214,11 @@ export async function POST(req: Request) {
             });
           }
           
-          // Parse courier details
-          // courierInfo pattern: "JNE - REG"
-          const courierParts = order.courier_name.split('-');
-          let courierCompany = courierParts[0]?.trim().toLowerCase() || 'jne';
-          let courierType = courierParts[1]?.trim().toLowerCase() || 'reg';
+          // Parse courier details using the shared helper that normalizes 'same day' -> 'sameday'
+          const { parseCourier } = require('@/lib/biteship');
+          const { company: courierCompany, type: courierType } = parseCourier(order.courier_name);
+
           
-          if (process.env.BITESHIP_IS_SANDBOX === 'true') {
-            courierCompany = 'biteship';
-            courierType = 'test';
-          }
           const originDetails = STORE_LOCATIONS[originAreaId as keyof typeof STORE_LOCATIONS] || { name: 'Ela Parfum', address: 'Jl. Condet Raya' };
 
           // Extract 5-digit postal code from customer address
@@ -251,23 +246,24 @@ export async function POST(req: Request) {
           };
 
           if (originDetails.latitude && originDetails.longitude) {
-            biteshipPayload.origin_latitude = originDetails.latitude;
-            biteshipPayload.origin_longitude = originDetails.longitude;
+            biteshipPayload.origin_coordinate = {
+              latitude: originDetails.latitude,
+              longitude: originDetails.longitude
+            };
           }
 
           if (destLat && destLng) {
-            biteshipPayload.destination_latitude = destLat;
-            biteshipPayload.destination_longitude = destLng;
+            biteshipPayload.destination_coordinate = {
+              latitude: destLat,
+              longitude: destLng
+            };
           }
 
           if (destinationPostalCode) {
             biteshipPayload.destination_postal_code = destinationPostalCode;
           }
 
-          if (process.env.BITESHIP_IS_SANDBOX === 'true') {
-            biteshipPayload.delivery_type = "later"; // Sandbox 'biteship' courier prefers 'later' instead of 'now'
-            console.log("[Biteship Debug] Hitting Biteship Sandbox API with courier: biteship, type: test, delivery: later");
-          }
+          // Sandboxing handles the API key, no need to override payload fields
 
           const isSandbox = process.env.BITESHIP_IS_SANDBOX === 'true';
           const biteshipUrl = 'https://api.biteship.com';

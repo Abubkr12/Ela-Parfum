@@ -71,12 +71,12 @@ function isDev() {
 
 function apiBaseUrl() {
   if (process.env.MAYAR_API_URL) return process.env.MAYAR_API_URL;
-  return resolveEndpoint() === 'sandbox' ? 'https://api.mayar.club' : 'https://api.mayar.id';
+  return resolveEndpoint() === 'sandbox' ? 'https://api.mayar.io' : 'https://api.mayar.id';
 }
 
 function authBaseUrl() {
   if (process.env.MAYAR_AUTH_URL) return process.env.MAYAR_AUTH_URL;
-  return resolveEndpoint() === 'sandbox' ? 'https://auth.mayar.club' : 'https://auth.mayar.id';
+  return resolveEndpoint() === 'sandbox' ? 'https://auth.mayar.io' : 'https://auth.mayar.id';
 }
 
 module.exports = { load, save, clear, file, dir, isDev, apiBaseUrl, authBaseUrl, setRuntimeEndpoint, resolveEndpoint };

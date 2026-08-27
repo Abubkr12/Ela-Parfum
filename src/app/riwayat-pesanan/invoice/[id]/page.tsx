@@ -45,10 +45,10 @@ export default async function InvoiceRegularPage({ params }: { params: Promise<{
         </div>
 
         {/* Invoice Paper */}
-        <div style={{ background: "#fff", padding: "40px 50px", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", color: "#222" }}>
+        <div className="invoice-paper" style={{ background: "#fff", padding: "40px 50px", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.05)", color: "#222" }}>
           
           {/* Top Header Section */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 40, borderBottom: "2px solid #eee", paddingBottom: 24 }}>
+          <div className="invoice-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 40, borderBottom: "2px solid #eee", paddingBottom: 24 }}>
             {/* Left: Logo & Company Info */}
             <div>
               <img src="/assets/invoice/elaparfum_logo.png" alt="Ela Parfum" style={{ height: 60, marginBottom: 12, objectFit: "contain" }} />
@@ -87,7 +87,7 @@ export default async function InvoiceRegularPage({ params }: { params: Promise<{
           </div>
 
           {/* Items Table */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 32 }}>
+          <div className="invoice-table-wrapper"><table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 32 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #ddd", background: "#f9f9f9" }}>
                 <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.85rem", color: "#666", textTransform: "uppercase" }}>Deskripsi Produk</th>
@@ -109,7 +109,7 @@ export default async function InvoiceRegularPage({ params }: { params: Promise<{
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
 
           {/* Summary */}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>

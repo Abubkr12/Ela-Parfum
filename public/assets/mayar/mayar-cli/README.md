@@ -216,7 +216,7 @@ Environment
   MAYAR_API_KEY         Used when --api-key is absent and no config is saved
   MAYAR_API_URL         Override API base URL
   MAYAR_AUTH_URL        Override auth server base URL (used by 'login')
-  NODE_ENV=development  Target the sandbox (*.mayar.club) instead of production
+  NODE_ENV=development  Target the sandbox (*.mayar.io) instead of production
 ```
 
 ## Examples
