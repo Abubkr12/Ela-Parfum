@@ -40,7 +40,7 @@ export default function CustomCheckoutPage() {
   const [voucherSuccess, setVoucherSuccess] = useState("");
   const [validatingVoucher, setValidatingVoucher] = useState(false);
 
-  const fetchRates = async (destinationId: string) => {
+  const fetchRates = async (destinationId: string, lat?: string, lng?: string) => {
     setLoadingRates(true);
     setRates([]);
     setSelectedCourier(null);
@@ -53,7 +53,11 @@ export default function CustomCheckoutPage() {
       const res = await fetch("/api/shipping/rates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ destination_area_id: destinationId }),
+        body: JSON.stringify({ 
+          destination_area_id: destinationId,
+          destination_latitude: lat,
+          destination_longitude: lng
+        }),
       });
       const data = await res.json();
       if (data && data.pricing) {
@@ -124,7 +128,7 @@ export default function CustomCheckoutPage() {
           setAddresses(addrs);
           const defaultAddr = addrs[0];
           setSelectedAddress(defaultAddr);
-          fetchRates(defaultAddr.region_code);
+          fetchRates(defaultAddr.region_code, defaultAddr.maps_latitude, defaultAddr.maps_longitude);
         }
       } catch (err: any) {
         setError(err.message || "Gagal memuat data checkout.");
@@ -139,7 +143,7 @@ export default function CustomCheckoutPage() {
   const handleSelectAddress = (addr: any) => {
     setSelectedAddress(addr);
     setShowAddressSelector(false);
-    fetchRates(addr.region_code);
+    fetchRates(addr.region_code, addr.maps_latitude, addr.maps_longitude);
   };
 
   const handleApplyVoucher = async () => {
@@ -200,6 +204,8 @@ export default function CustomCheckoutPage() {
         data.append("originAreaId", selectedCourier.origin_area_id || "");
         data.append("originName", selectedCourier.origin_name || "");
         data.append("destinationAreaId", selectedAddress.region_code || "");
+        data.append("destinationLatitude", selectedAddress.maps_latitude ? selectedAddress.maps_latitude.toString() : '');
+        data.append("destinationLongitude", selectedAddress.maps_longitude ? selectedAddress.maps_longitude.toString() : '');
       }
       if (discountAmount > 0) {
         data.append("voucherCode", voucherCode.trim());

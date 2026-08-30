@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { renderToStaticMarkup } from "react-dom/server";
+import WaybillTemplate from "./WaybillTemplate";
+import React from "react";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -29,13 +32,46 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json();
     
-    // Some couriers might not have waybill immediately in sandbox, but let's check
-    if (data.waybill_url) {
-      return NextResponse.redirect(data.waybill_url);
-    } else {
-      // In sandbox for testing or before pickup
-      return new NextResponse("Resi belum tersedia atau kurir belum di-pickup. Coba lagi nanti.", { status: 404 });
+    // Convert React component to HTML string
+    const html = renderToStaticMarkup(<WaybillTemplate order={data} />);
+
+    // Wrap in standard HTML boilerplate and auto-trigger print
+    const fullHtml = `
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cetak Resi - ${data.courier?.waybill_id || data.id}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #fff;
     }
+    @media print {
+      body {
+        padding: 0;
+      }
+      @page {
+        size: A4;
+        margin: 1cm;
+      }
+    }
+  </style>
+</head>
+<body onload="window.print()">
+  ${html}
+</body>
+</html>
+    `;
+
+    return new NextResponse(fullHtml, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    });
+
   } catch (err: any) {
     console.error("Waybill fetch error:", err);
     return new NextResponse("Internal Server Error", { status: 500 });

@@ -4,7 +4,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const supabaseAdmin = createAdminClient();
 
-import { STORE_LOCATIONS } from '@/lib/biteship';
+function extractPostalCode(address: string): number | undefined {
+  if (!address) return undefined;
+  const match = address.match(/\b\d{5}\b/);
+  return match ? parseInt(match[0], 10) : undefined;
+}
+
+const STORE_LOCATIONS = {
+  'IDNP6IDNC149IDND851': { name: 'Condet', address: 'Jl. Condet Raya No. 1', latitude: -6.2730, longitude: 106.8640 },
+  'IDNP6IDNC146IDND825': { name: 'Rawa Belong', address: 'Jl. Rawa Belong No. 2', latitude: -6.2057, longitude: 106.7850 },
+  'IDNP3IDNC445IDND5590': { name: 'Tangerang', address: 'Jl. Ciledug Raya No. 3', latitude: -6.2338, longitude: 106.7176 }
+};
 
 export async function POST(req: Request) {
   try {
@@ -29,7 +39,10 @@ export async function POST(req: Request) {
     
     // Check if payment success
     const validEvents = ['payment.received', 'invoice.paid', 'payment.success', 'transaction.success'];
-    if (validEvents.includes(payload.event) || payload.status === 'SUCCESS' || (payload.data && payload.data.status === 'SUCCESS')) {
+    const isSuccessStatus = payload.status === 'SUCCESS' || payload.status === 'PAID' || payload.status === 'SETTLED' || 
+                           (payload.data && (payload.data.status === 'SUCCESS' || payload.data.status === 'PAID' || payload.data.status === 'SETTLED'));
+
+    if (validEvents.includes(payload.event) && isSuccessStatus) {
       const data = payload.data || payload;
       
       let orderCode = data.referenceId || data.reference_id || null;
@@ -101,6 +114,7 @@ export async function POST(req: Request) {
         console.log(`[Webhook Debug] Updated custom_request ${customReqId} to paid`);
       }
 
+
       // 3. Trigger Biteship Order if it's not Pickup
       const isPickup = order.courier_name.toLowerCase().includes('ambil di tempat') || order.courier_name.toLowerCase().includes('pickup');
       
@@ -122,166 +136,140 @@ export async function POST(req: Request) {
           originAreaId = 'IDNP6IDNC149IDND851'; // Default Condet
         }
         
-        // Find Destination Area ID & Coordinates
+        // Find Destination Area ID
         let destinationAreaId = '';
         const destMatch = order.notes?.match(/Dest:\s*([^|]+)/);
         if (destMatch && destMatch[1]) {
             destinationAreaId = destMatch[1].trim();
+        } else {
+            // Fallback for older orders without Dest in notes
+            const { data: addresses } = await supabaseAdmin
+              .from('customer_addresses')
+              .select('region_code')
+              .eq('customer_id', order.customer_id)
+              .eq('full_address', order.customer_address)
+              .limit(1);
+              
+            destinationAreaId = addresses && addresses.length > 0 ? addresses[0].region_code : '';
         }
 
-        // We NEED the latitude and longitude for Gojek/Grab, so query customer_addresses
-        let destLat: number | null = null;
-        let destLng: number | null = null;
-        
-        const { data: addresses } = await supabaseAdmin
-          .from('customer_addresses')
-          .select('region_code, maps_latitude, maps_longitude')
-          .eq('customer_id', order.customer_id)
-          .eq('full_address', order.customer_address)
-          .limit(1);
-          
-        if (addresses && addresses.length > 0) {
-            if (!destinationAreaId) {
-                destinationAreaId = addresses[0].region_code || '';
-            }
-            destLat = addresses[0].maps_latitude || null;
-            destLng = addresses[0].maps_longitude || null;
+        // Extract destination postal code early for validation
+        let destinationPostalCode: number | undefined = undefined;
+        const destPostalMatch = order.notes?.match(/DestPostal:\s*(\d+)/);
+        if (destPostalMatch && destPostalMatch[1]) {
+          destinationPostalCode = parseInt(destPostalMatch[1], 10);
+        } else {
+          const extracted = extractPostalCode(order.customer_address);
+          if (extracted) destinationPostalCode = extracted;
         }
 
-        console.log(`[Biteship Debug] Order: ${orderCode}, Origin: ${originAreaId}, Dest: ${destinationAreaId}, Courier: ${order.courier_name}`);
+        console.log(`[Biteship Debug] Order: ${orderCode}, Origin: ${originAreaId}, Dest: ${destinationAreaId}, DestPostal: ${destinationPostalCode}, Courier: ${order.courier_name}`);
 
-        if (originAreaId && destinationAreaId) {
+        // Proceed if we have origin (always have via postal code) AND destination (postal code OR area_id)
+        if (originAreaId && (destinationPostalCode || destinationAreaId)) {
+          // Fetch order items
           const { data: items } = await supabaseAdmin
             .from('order_items')
             .select('*')
             .eq('order_id', order.id);
             
-          let mappedItems: any[] = [];
-          const isCustomOrder = order.notes?.includes('[Custom Refill]');
-          
-          const allItems = items || [];
-          
-          const DEFAULT_DIMENSIONS = { length: 25, width: 25, height: 20 };
-          const calcPackageWeight = (bottleSize: number) => {
-            return 500 + (bottleSize + 5);
-          };
-          
-          if (isCustomOrder) {
-            let totalBottleSize = 50;
-            let totalValue = order.subtotal || 0;
-            let ingredientNames: string[] = [];
+          const mappedItems = (items || []).map((i: any, index: number) => {
+            let itemWeight = 10; 
             
-            allItems.forEach((i: any) => {
-               totalValue += i.subtotal || (i.price * i.quantity);
-               if (i.perfume_name) {
-                 ingredientNames.push(`${i.perfume_name} (${i.size_label})`);
-               }
-               if (i.perfume_name?.toLowerCase().includes('botol')) {
-                 const match = (i.size_label || i.perfume_name || "").match(/(\d+)\s*ml/i);
-                 if (match && match[1]) {
-                   totalBottleSize = parseInt(match[1], 10);
-                 }
-               }
-            });
-            
-            const detailDescription = ingredientNames.join(", ");
-            
-            mappedItems.push({
-              name: `Custom Refill (${orderCode})`,
-              description: `Racikan ${totalBottleSize}ml: ${detailDescription}`,
-              value: Math.max(1, totalValue),
-              quantity: 1,
-              weight: calcPackageWeight(totalBottleSize),
-              ...DEFAULT_DIMENSIONS
-            });
-          } else {
-            mappedItems = allItems.map((i: any) => {
+            if (i.perfume_name?.toLowerCase().includes('botol') || index === 0) {
               const sizeStr = (i.size_label || order.notes || "").toLowerCase();
               let bottleSize = 50;
               const match = sizeStr.match(/(\d+)\s*ml/);
               if (match && match[1]) {
                 bottleSize = parseInt(match[1], 10);
               }
-              
-              return {
-                name: i.perfume_name,
-                description: i.size_label || "-",
-                value: Math.max(1, i.price || 0),
-                quantity: i.quantity,
-                weight: calcPackageWeight(bottleSize),
-                ...DEFAULT_DIMENSIONS
-              };
-            });
-          }
+              itemWeight = 300 + bottleSize + (i.quantity > 1 ? (i.quantity - 1) * (200 + bottleSize) : 0);
+            }
+            
+            return {
+              name: i.perfume_name,
+              description: i.size_label,
+              value: i.price,
+              quantity: i.quantity,
+              weight: itemWeight,
+              length: 15,
+              width: 15,
+              height: 15
+            };
+          });
           
-          // Parse courier details using the shared helper that normalizes 'same day' -> 'sameday'
-          const { parseCourier } = require('@/lib/biteship');
-          const { company: courierCompany, type: courierType } = parseCourier(order.courier_name);
-
-          
-          const originDetails = STORE_LOCATIONS[originAreaId as keyof typeof STORE_LOCATIONS] || { name: 'Ela Parfum', address: 'Jl. Condet Raya' };
+          // Parse courier details
+          // courierInfo pattern: "JNE - REG"
+          const courierParts = order.courier_name.split('-');
+          let courierCompany = courierParts[0]?.trim().toLowerCase() || 'jne';
+          let courierType = courierParts[1]?.trim().toLowerCase() || 'reg';
+          const originDetails = STORE_LOCATIONS[originAreaId as keyof typeof STORE_LOCATIONS] || { name: 'Ela Parfum', address: 'Jl. Condet Raya', latitude: -6.2730, longitude: 106.8640 };
 
           // Extract 5-digit postal code from customer address
-          const postalMatch = (order.customer_address || "").match(/\b\d{5}\b/);
+          const postalMatch = order.customer_address.match(/\b\d{5}\b/);
           const destinationPostalCode = postalMatch ? parseInt(postalMatch[0], 10) : undefined;
 
-          // Auto-schedule logic for Same Day couriers past cutoff time
+          // Handle Grab/Gojek Same Day cutoff at 14:00 WIB
           let deliveryType = "now";
-          let deliveryDate = undefined;
-          let deliveryTime = undefined;
+          let orderDate = undefined;
+          let orderTime = undefined;
 
-          if (courierType === 'same_day') {
+          const isSameDay = courierCompany.match(/grab|gojek/i) && courierType.match(/same_day|sameday/i);
+          if (isSameDay) {
             const now = new Date();
-            // Convert to Jakarta time (UTC+7)
-            const jakartaHour = (now.getUTCHours() + 7) % 24;
-            
-            // If it's 14:00 or later, Grab/Gojek Same Day will reject "now". Schedule for tomorrow 09:00.
+            const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+            const jakartaHour = jakartaTime.getHours();
+
             if (jakartaHour >= 14) {
               deliveryType = "later";
-              const tomorrow = new Date(now);
-              tomorrow.setUTCDate(now.getUTCDate() + 1);
-              deliveryDate = tomorrow.toISOString().split('T')[0];
-              deliveryTime = "09:00";
-              console.log(`[Biteship Debug] Past same_day cutoff (${jakartaHour}:00). Scheduling for tomorrow ${deliveryDate} 09:00`);
+              
+              // Set to tomorrow at 09:00
+              const tomorrow = new Date(jakartaTime);
+              tomorrow.setDate(tomorrow.getDate() + 1);
+              
+              const yyyy = tomorrow.getFullYear();
+              const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+              const dd = String(tomorrow.getDate()).padStart(2, '0');
+              
+              orderDate = `${yyyy}-${mm}-${dd}`;
+              orderTime = "09:00";
             }
           }
 
+          // Extract DestLat and DestLng from notes if available
+          const destLatMatch = order.notes?.match(/DestLat:\s*([-\d.]+)/);
+          const destLngMatch = order.notes?.match(/DestLng:\s*([-\d.]+)/);
+          const destinationLat = destLatMatch && destLatMatch[1] ? parseFloat(destLatMatch[1]) : undefined;
+          const destinationLng = destLngMatch && destLngMatch[1] ? parseFloat(destLngMatch[1]) : undefined;
+
           const biteshipPayload: any = {
-            shipper_contact_name: 'Ela Parfum',
-            shipper_contact_phone: '+6281384104147',
-            shipper_contact_email: 'elaparfum@gmail.com',
-            shipper_organization: 'Ela Parfum',
+            reference_id: orderCode,
             origin_contact_name: "Ela Parfum",
-            origin_contact_phone: "+6281384104147",
+            origin_contact_phone: "08123456789",
             origin_address: originDetails.address,
             origin_note: originDetails.name,
             origin_area_id: originAreaId,
-            destination_contact_name: order.customer_name || "Customer",
-            destination_contact_phone: order.customer_phone || "+6280000000000",
-            destination_address: order.customer_address || "Alamat belum diisi",
+            origin_coordinate: {
+              latitude: originDetails.latitude,
+              longitude: originDetails.longitude
+            },
+            destination_contact_name: order.customer_name,
+            destination_contact_phone: order.customer_phone,
+            destination_address: order.customer_address,
             destination_area_id: destinationAreaId,
             courier_company: courierCompany,
             courier_type: courierType,
             delivery_type: deliveryType,
+            order_date: orderDate,
+            order_time: orderTime,
+            order_note: orderCode,
             items: mappedItems
           };
 
-          if (deliveryDate && deliveryTime) {
-            biteshipPayload.delivery_date = deliveryDate;
-            biteshipPayload.delivery_time = deliveryTime;
-          }
-
-          if (originDetails.latitude && originDetails.longitude) {
-            biteshipPayload.origin_coordinate = {
-              latitude: originDetails.latitude,
-              longitude: originDetails.longitude
-            };
-          }
-
-          if (destLat && destLng) {
+          if (destinationLat !== undefined && destinationLng !== undefined) {
             biteshipPayload.destination_coordinate = {
-              latitude: destLat,
-              longitude: destLng
+              latitude: destinationLat,
+              longitude: destinationLng
             };
           }
 
@@ -289,7 +277,7 @@ export async function POST(req: Request) {
             biteshipPayload.destination_postal_code = destinationPostalCode;
           }
 
-          // Sandboxing handles the API key, no need to override payload fields
+
 
           const isSandbox = process.env.BITESHIP_IS_SANDBOX === 'true';
           const biteshipUrl = 'https://api.biteship.com';
@@ -355,6 +343,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-
-
-

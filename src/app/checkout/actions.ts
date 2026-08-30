@@ -73,6 +73,8 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     const originAreaId = formData.get('originAreaId') as string;
     const originName = formData.get('originName') as string;
     const destinationAreaId = formData.get('destinationAreaId') as string;
+    const destinationLat = formData.get('destinationLatitude') as string || '';
+    const destinationLng = formData.get('destinationLongitude') as string || '';
     
     const shippingCost = parseInt(shippingCostStr || "0", 10);
     let discount = 0;
@@ -112,7 +114,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
+        notes: `Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
       })
       .select('id, order_code')
       .single();
@@ -133,22 +135,24 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     const { error: itemsError } = await supabaseAdmin.from('order_items').insert(orderItemsData);
     if (itemsError) return { error: 'Gagal menyimpan detail pesanan: ' + itemsError.message };
 
-    // --- Deduct Stock ---
-    // Asumsikan pesanan online dikurangi dari store utama (store_id = 1, Condet)
-    for (const item of cart.items) {
-      const { data: stockData } = await supabaseAdmin
-        .from('product_stocks')
-        .select('stock_qty')
-        .eq('perfume_size_id', item.sizeId)
-        .eq('store_id', 1)
-        .single();
-        
-      if (stockData) {
-        await supabaseAdmin
+    // --- Deduct Stock (Only for TUNAI) ---
+    // QRIS orders will deduct stock in the webhook upon successful payment
+    if (paymentMethod === 'TUNAI') {
+      for (const item of cart.items) {
+        const { data: stockData } = await supabaseAdmin
           .from('product_stocks')
-          .update({ stock_qty: Math.max(0, stockData.stock_qty - item.quantity) })
+          .select('stock_qty')
           .eq('perfume_size_id', item.sizeId)
-          .eq('store_id', 1);
+          .eq('store_id', 2)
+          .single();
+          
+        if (stockData) {
+          await supabaseAdmin
+            .from('product_stocks')
+            .update({ stock_qty: Math.max(0, stockData.stock_qty - item.quantity) })
+            .eq('perfume_size_id', item.sizeId)
+            .eq('store_id', 2);
+        }
       }
     }
     // --------------------
@@ -204,9 +208,9 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         // Fallback if Mayar fails
         return { error: 'Gagal membuat link pembayaran: ' + (resData.message || resData.messages || 'Unknown Error') };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error creating Mayar invoice:", e);
-      return { error: 'Terjadi kesalahan saat memproses pembayaran.' };
+      return { error: `Terjadi kesalahan saat memproses pembayaran: ${e.message}` };
     }
 
   } catch (err: any) {
@@ -240,6 +244,8 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     const paymentMethod = formData.get('paymentMethod') as string;
     const originName = formData.get('originName') as string;
     const destinationAreaId = formData.get('destinationAreaId') as string;
+    const destinationLat = formData.get('destinationLatitude') as string || '';
+    const destinationLng = formData.get('destinationLongitude') as string || '';
 
     const shippingCost = parseInt(shippingCostStr || "0", 10);
     let discount = 0;
@@ -264,6 +270,20 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
 
     const orderCode = generateOrderCode();
 
+    // Prevent duplicate orders for the same custom request
+    // Cancel any previous pending orders for this specific customRequestId
+    const { data: existingOrders } = await supabaseAdmin
+      .from('orders')
+      .select('id')
+      .eq('customer_id', user.id)
+      .like('notes', `%CustomRequestID: ${customRequestId}%`)
+      .neq('status', 'paid');
+      
+    if (existingOrders && existingOrders.length > 0) {
+      const existingIds = existingOrders.map(o => o.id);
+      await supabaseAdmin.from('orders').update({ status: 'cancelled' }).in('id', existingIds);
+    }
+
     // 1. Create order record in orders table
     const { data: orderData, error: orderError } = await supabaseAdmin
       .from('orders')
@@ -280,7 +300,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''} | CustomRequestID: ${customRequestId}`
+        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''} | CustomRequestID: ${customRequestId}`
       })
       .select('id, order_code')
       .single();

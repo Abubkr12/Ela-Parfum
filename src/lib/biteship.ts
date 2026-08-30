@@ -81,8 +81,7 @@ export function parseCourier(courierString: string): { company: string; type: st
   
   // Map service names to codes
   const typeMap: Record<string, string> = {
-    'same day': 'same_day',
-    'sameday': 'same_day',
+    'same day': 'sameday',
     'instant': 'instant',
     'reguler': 'reg',
     'regular': 'reg',

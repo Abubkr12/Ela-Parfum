@@ -9,7 +9,7 @@ import { ChatWidget } from "@/components/chat-widget";
 import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
-  title: "Ela Parfum — Parfum Isi Ulang Premium Condet",
+  title: "Ela Parfum",
   description:
     "Toko parfum isi ulang premium di Condet. Jual parfum jadi, refill bermerk, karakter, dan elixir/biang mentahan.",
   keywords: [
@@ -22,11 +22,14 @@ export const metadata: Metadata = {
     "refill perfume"
   ],
   openGraph: {
-    title: "Ela Parfum — Parfum Isi Ulang Premium Condet",
+    title: "Ela Parfum",
     description:
       "Katalog parfum, request racikan, refill bermerk, dan AI assistant dalam satu platform.",
     type: "website",
     locale: "id_ID"
+  },
+  verification: {
+    google: "6Aj8ua-KeRu_TtC_25TGvB4kU-ohv2RgzXCCRV_x8_Y",
   }
 };
 

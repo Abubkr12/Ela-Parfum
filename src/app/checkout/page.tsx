@@ -37,7 +37,7 @@ export default function CheckoutPage() {
   const [voucherSuccess, setVoucherSuccess] = useState("");
   const [validatingVoucher, setValidatingVoucher] = useState(false);
 
-  const fetchRates = async (destinationId: string) => {
+  const fetchRates = async (destinationId: string, lat?: string, lng?: string) => {
     setLoadingRates(true);
     setRates([]);
     setSelectedCourier(null);
@@ -50,7 +50,11 @@ export default function CheckoutPage() {
       const res = await fetch('/api/shipping/rates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination_area_id: destinationId })
+        body: JSON.stringify({ 
+          destination_area_id: destinationId,
+          destination_latitude: lat,
+          destination_longitude: lng
+        })
       });
       const data = await res.json();
       if (data && data.pricing) {
@@ -86,7 +90,7 @@ export default function CheckoutPage() {
         setAddresses(addrs);
         const defaultAddr = addrs[0];
         setSelectedAddress(defaultAddr);
-        fetchRates(defaultAddr.region_code);
+        fetchRates(defaultAddr.region_code, defaultAddr.maps_latitude, defaultAddr.maps_longitude);
       }
 
       setLoading(false);
@@ -104,7 +108,7 @@ export default function CheckoutPage() {
   const handleSelectAddress = (addr: any) => {
     setSelectedAddress(addr);
     setShowAddressSelector(false);
-    fetchRates(addr.region_code);
+    fetchRates(addr.region_code, addr.maps_latitude, addr.maps_longitude);
   };
 
   const handleApplyVoucher = async () => {
@@ -152,6 +156,11 @@ export default function CheckoutPage() {
       data.append('originAreaId', selectedCourier.origin_area_id || "");
       data.append('originName', selectedCourier.origin_name || "");
       data.append('destinationAreaId', selectedAddress.region_code || "");
+      // Extract postal code from full address for Biteship order creation
+      const postalMatch = selectedAddress.full_address?.match(/\b(\d{5})\b/);
+      data.append('destinationPostalCode', postalMatch ? postalMatch[1] : '');
+      data.append('destinationLatitude', selectedAddress.maps_latitude ? selectedAddress.maps_latitude.toString() : '');
+      data.append('destinationLongitude', selectedAddress.maps_longitude ? selectedAddress.maps_longitude.toString() : '');
       if (discountAmount > 0) {
         data.append('voucherCode', voucherCode.trim());
       }
@@ -205,11 +214,11 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        <div className="checkout-grid">
-          <form onSubmit={handleSubmit} className="checkout-form-col">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 32, alignItems: "start" }}>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             
             {/* ALAMAT PENGIRIMAN */}
-            <div className="co-alamat" style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)" }}>
                   <MapPin size={18} style={{ color: "var(--c-gold)" }} />
@@ -266,7 +275,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* OPSI PENGIRIMAN */}
-                <div className="co-opsi" style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
                <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 20 }}>
                 <Truck size={18} style={{ color: "var(--c-gold)" }} />
                 Opsi Pengiriman
@@ -315,7 +324,7 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            <div className="co-metode" style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
                <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 20 }}>
                 <CreditCard size={18} style={{ color: "var(--c-gold)" }} />
                 Metode Pembayaran
@@ -388,7 +397,7 @@ export default function CheckoutPage() {
               )}
             </div>
             
-            <button type="submit" disabled={submitting || !selectedCourier || !selectedAddress || !paymentMethod} className="btn btn-primary co-button" style={{ padding: "16px", justifyContent: "center", fontSize: "1rem", opacity: (!selectedCourier || !selectedAddress || !paymentMethod || submitting) ? 0.6 : 1 }}>
+            <button type="submit" disabled={submitting || !selectedCourier || !selectedAddress || !paymentMethod} className="btn btn-primary" style={{ padding: "16px", justifyContent: "center", fontSize: "1rem", opacity: (!selectedCourier || !selectedAddress || !paymentMethod || submitting) ? 0.6 : 1 }}>
               {submitting ? (
                 <><Loader2 className="animate-spin" size={18} /> Memproses...</>
               ) : (
@@ -398,7 +407,7 @@ export default function CheckoutPage() {
           </form>
 
           {/* Right: Summary */}
-          <div className="co-ringkasan" style={{ position: "sticky", top: 100 }}>
+          <div style={{ position: "sticky", top: 100 }}>
             <div style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border)", borderRadius: "var(--r-lg)", padding: 24 }}>
               <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 400, color: "var(--c-ink)", marginBottom: 20 }}>
                 Ringkasan Belanja
