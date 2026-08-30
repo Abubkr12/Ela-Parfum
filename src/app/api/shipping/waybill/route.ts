@@ -72,11 +72,18 @@ export async function GET(req: NextRequest) {
       : `<h2 style="margin: 0; text-transform: uppercase;">${courierCompany}</h2>`;
 
     const html = `
-      <div class="print-controls" style="text-align: center; margin-bottom: 20px;">
-        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #000; color: #fff; border: none; border-radius: 5px; font-weight: bold;">🖨️ Cetak Resi Ulang</button>
+      <div class="print-controls" style="text-align: center; margin-bottom: 30px;">
+        <button onclick="window.print()" class="btn-print">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect width="12" height="8" x="6" y="14"></rect>
+          </svg>
+          Cetak Resi Ulang
+        </button>
       </div>
 
-      <div style="width: 100%; max-width: 800px; margin: 0 auto; font-family: Arial, Helvetica, sans-serif; color: #000; border: 2px solid #000; box-sizing: border-box;">
+      <div style="width: 100%; max-width: 800px; margin: 0 auto; font-family: Arial, Helvetica, sans-serif; color: #000; border: 2px solid #000; box-sizing: border-box; background: #fff;">
         
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; border-bottom: 2px solid #000;">
           <div>${logoHtml}</div>
@@ -157,8 +164,28 @@ export async function GET(req: NextRequest) {
   <style>
     body {
       margin: 0;
-      padding: 20px;
-      background: #fff;
+      padding: 30px;
+      background: #f4f4f5;
+    }
+    .btn-print {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background-color: #09090b;
+      border: 1px solid #09090b;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: Inter, Arial, sans-serif;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+    .btn-print:hover {
+      background-color: #27272a;
+      transform: translateY(-1px);
     }
     @media print {
       body {
