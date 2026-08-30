@@ -48,94 +48,98 @@ export async function GET(req: NextRequest) {
     // Logo mapping
     let logoUrl = '';
     const comp = courierCompany.toLowerCase();
-    if (comp.includes('grab')) logoUrl = '/assets/couriers/grab.png';
+    if (comp.includes('grab')) logoUrl = '/assets/couriers/grab.svg';
     else if (comp.includes('gojek') || comp.includes('gosend')) logoUrl = '/assets/couriers/gojek.svg';
-    else if (comp.includes('jne')) logoUrl = '/assets/couriers/jne.png';
-    else if (comp.includes('jnt') || comp.includes('j&t')) logoUrl = '/assets/couriers/jnt.png';
-    else if (comp.includes('sicepat')) logoUrl = '/assets/couriers/sicepat.png';
-    else if (comp.includes('anteraja')) logoUrl = '/assets/couriers/anteraja.png';
-    else if (comp.includes('lalamove')) logoUrl = '/assets/couriers/lalamove.png';
+    else if (comp.includes('jne')) logoUrl = '/assets/couriers/jne.svg';
+    else if (comp.includes('jnt') || comp.includes('j&t')) logoUrl = '/assets/couriers/jnt.svg';
+    else if (comp.includes('sicepat')) logoUrl = '/assets/couriers/sicepat.svg';
+    else if (comp.includes('anteraja')) logoUrl = '/assets/couriers/anteraja.svg';
+    else if (comp.includes('lalamove')) logoUrl = '/assets/couriers/lalamove.svg';
     else if (comp.includes('ninja')) logoUrl = '/assets/couriers/ninja.svg';
-    else if (comp.includes('lion')) logoUrl = '/assets/couriers/lion.png';
+    else if (comp.includes('lion')) logoUrl = '/assets/couriers/lion.svg';
     else if (comp.includes('pos')) logoUrl = '/assets/couriers/pos.svg';
-    else if (comp.includes('tiki')) logoUrl = '/assets/couriers/tiki.png';
-    else if (comp.includes('spx') || comp.includes('shopee')) logoUrl = '/assets/couriers/spx.png';
+    else if (comp.includes('tiki')) logoUrl = '/assets/couriers/tiki.svg';
+    else if (comp.includes('spx') || comp.includes('shopee')) logoUrl = '/assets/couriers/spx.svg';
     else if (comp.includes('indah')) logoUrl = '/assets/couriers/indah.svg';
-    else if (comp.includes('wahana')) logoUrl = '/assets/couriers/wahana.png';
+    else if (comp.includes('wahana')) logoUrl = '/assets/couriers/wahana.svg';
 
     const barcodeUrl1 = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(waybillNumber)}&scale=3&height=15&includetext=false`;
     const barcodeUrl2 = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(trackingId)}&scale=2&height=10&includetext=false`;
 
-    const itemsHtml = items.map((it: any) => `<div>${it.quantity}x ${it.name} ${it.description ? `- ${it.description}` : ''}</div>`).join('');
+    const itemsHtml = items.map((it: any) => `<div style="margin-bottom:4px;">${it.quantity}x ${it.name} ${it.description ? `- ${it.description}` : ''}</div>`).join('');
     const logoHtml = logoUrl 
-      ? `<img src="${logoUrl}" alt="${courierCompany}" style="height: 40px; object-fit: contain;" />` 
+      ? `<img src="${logoUrl}" alt="${courierCompany}" style="height: 50px; object-fit: contain;" />` 
       : `<h2 style="margin: 0; text-transform: uppercase;">${courierCompany}</h2>`;
 
     const html = `
-      <div style="width: 100%; max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif; color: #000; border: 2px solid #000; box-sizing: border-box;">
+      <div class="print-controls" style="text-align: center; margin-bottom: 20px;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #000; color: #fff; border: none; border-radius: 5px; font-weight: bold;">🖨️ Cetak Resi Ulang</button>
+      </div>
+
+      <div style="width: 100%; max-width: 800px; margin: 0 auto; font-family: Arial, Helvetica, sans-serif; color: #000; border: 2px solid #000; box-sizing: border-box;">
         
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 2px solid #000;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; border-bottom: 2px solid #000;">
           <div>${logoHtml}</div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <img src="/assets/Ela Parfum.svg" alt="Ela Parfum" style="height: 40px;" />
-            <div>
-              <h2 style="margin: 0; font-size: 1.2rem; font-weight: 800;">Ela Parfum</h2>
-              <p style="margin: 0; font-size: 0.8rem; color: #555;">elaparfum.com</p>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="/assets/Ela Parfum.svg" alt="Ela Parfum" style="height: 50px;" />
+            <div style="text-align: left;">
+              <h1 style="margin: 0; font-size: 1.6rem; font-weight: 900; letter-spacing: -0.5px; line-height: 1.1;">Ela Parfum</h1>
+              <p style="margin: 0; font-size: 0.9rem; color: #333; font-weight: 500;">elaparfum.com</p>
             </div>
           </div>
         </div>
 
-        <div style="text-align: center; padding: 20px; border-bottom: 2px solid #000;">
-          <img src="${barcodeUrl1}" alt="Barcode" style="width: 100%; max-height: 100px; object-fit: contain; margin-bottom: 10px;" />
-          <h3 style="margin: 0; font-size: 1.1rem;">Nomor Resi - ${waybillNumber}</h3>
+        <div style="text-align: center; padding: 25px 20px; border-bottom: 2px solid #000;">
+          <img src="${barcodeUrl1}" alt="Barcode" style="width: 100%; max-height: 120px; object-fit: contain; margin-bottom: 12px;" />
+          <h2 style="margin: 0; font-size: 1.3rem; font-weight: bold;">Nomor Resi - ${waybillNumber}</h2>
         </div>
 
-        <div style="text-align: center; padding: 15px; border-bottom: 2px solid #000; line-height: 1.6;">
+        <div style="text-align: center; padding: 15px; border-bottom: 2px solid #000; line-height: 1.6; font-size: 1.05rem;">
           <div>Ongkos Kirim: ${formatIDR(order.price)}</div>
           <div>Jenis Layanan - ${courierType.toUpperCase()}</div>
         </div>
 
         <div style="display: flex; border-bottom: 2px solid #000;">
-          <div style="flex: 1; padding: 15px; border-right: 2px solid #000;">
-            <div style="font-size: 0.9rem; font-weight: bold; margin-bottom: 10px;">Reference Number</div>
-            <img src="${barcodeUrl2}" alt="Barcode 2" style="width: 100%; max-height: 60px; object-fit: contain; margin-bottom: 5px;" />
-            <div style="font-size: 0.75rem; text-align: center;">${trackingId}</div>
+          <div style="flex: 1; padding: 15px 20px; border-right: 2px solid #000;">
+            <div style="font-size: 0.9rem; font-weight: 800; margin-bottom: 10px;">Reference Number</div>
+            <img src="${barcodeUrl2}" alt="Barcode 2" style="width: 100%; max-height: 60px; object-fit: contain; margin-bottom: 8px;" />
+            <div style="font-size: 0.8rem; text-align: center; font-family: monospace;">${trackingId}</div>
           </div>
-          <div style="flex: 1; padding: 15px; display: flex; flex-direction: column; justify-content: center; gap: 10px;">
-            <div>Quantity: <strong>${totalQty} Pcs</strong></div>
-            <div>Weight: <strong>${totalWeight.toFixed(3)} Kg</strong></div>
+          <div style="flex: 1; padding: 15px 20px; display: flex; flex-direction: column; justify-content: center; gap: 15px; font-size: 1.05rem;">
+            <div>Quantity: <strong style="font-weight: 800;">${totalQty} Pcs</strong></div>
+            <div>Weight: <strong style="font-weight: 800;">${totalWeight.toFixed(3)} Kg</strong></div>
           </div>
         </div>
 
-        <div style="display: flex; border-bottom: 2px solid #000; font-size: 0.9rem; line-height: 1.5;">
-          <div style="flex: 1; padding: 15px; border-right: 2px solid #000;">
-            <strong style="display: block; margin-bottom: 8px;">Alamat Penerima:</strong>
+        <div style="display: flex; border-bottom: 2px solid #000; font-size: 0.95rem; line-height: 1.6;">
+          <div style="flex: 1; padding: 15px 20px; border-right: 2px solid #000;">
+            <strong style="display: block; margin-bottom: 8px; font-weight: 800; font-size: 1rem;">Alamat Penerima:</strong>
             <div>${dest.contact_name}</div>
             <div>${dest.contact_phone}</div>
-            <div>${dest.address}</div>
-            <div>${dest.postal_code}</div>
+            <div style="margin-top: 4px;">${dest.address}</div>
+            <div style="margin-top: 4px;">${dest.postal_code || ''}</div>
           </div>
-          <div style="flex: 1; padding: 15px;">
-            <strong style="display: block; margin-bottom: 8px;">Alamat Pengirim:</strong>
+          <div style="flex: 1; padding: 15px 20px;">
+            <strong style="display: block; margin-bottom: 8px; font-weight: 800; font-size: 1rem;">Alamat Pengirim:</strong>
             <div>${origin.contact_name}</div>
             <div>${origin.contact_phone}</div>
-            <div>${origin.address}</div>
+            <div style="margin-top: 4px;">${origin.address}</div>
           </div>
         </div>
 
-        <div style="padding: 15px; border-bottom: 2px solid #000; font-size: 0.9rem; display: flex;">
-          <strong style="min-width: 120px;">Jenis Barang :</strong>
+        <div style="padding: 15px 20px; border-bottom: 2px solid #000; font-size: 0.95rem; display: flex;">
+          <strong style="min-width: 130px; font-weight: 800; font-size: 1rem;">Jenis Barang :</strong>
           <div style="flex: 1; line-height: 1.6;">
             ${itemsHtml}
           </div>
         </div>
 
-        <div style="padding: 15px; border-bottom: 2px solid #000; font-size: 0.9rem; display: flex;">
-          <strong style="min-width: 120px;">Catatan :</strong>
+        <div style="padding: 15px 20px; border-bottom: 2px solid #000; font-size: 0.95rem; display: flex; align-items: center;">
+          <strong style="min-width: 130px; font-weight: 800; font-size: 1rem;">Catatan :</strong>
           <div>Fragile, parfume${order.note ? ` - ${order.note}` : ''}</div>
         </div>
 
-        <div style="padding: 10px; text-align: center; font-size: 0.8rem; color: #555; line-height: 1.4;">
+        <div style="padding: 12px; text-align: center; font-size: 0.85rem; color: #444; line-height: 1.4;">
           Pengiriman melalui platform <strong>Biteship</strong><br />
           biteship.com
         </div>
@@ -159,6 +163,9 @@ export async function GET(req: NextRequest) {
     @media print {
       body {
         padding: 0;
+      }
+      .print-controls {
+        display: none !important;
       }
       @page {
         size: A4;

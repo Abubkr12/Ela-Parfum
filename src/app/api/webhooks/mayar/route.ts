@@ -11,9 +11,9 @@ function extractPostalCode(address: string): number | undefined {
 }
 
 const STORE_LOCATIONS = {
-  'IDNP6IDNC149IDND851': { name: 'Condet', address: 'Jl. Condet Raya No. 1', latitude: -6.2730, longitude: 106.8640 },
-  'IDNP6IDNC146IDND825': { name: 'Rawa Belong', address: 'Jl. Rawa Belong No. 2', latitude: -6.2057, longitude: 106.7850 },
-  'IDNP3IDNC445IDND5590': { name: 'Tangerang', address: 'Jl. Ciledug Raya No. 3', latitude: -6.2338, longitude: 106.7176 }
+  'IDNP6IDNC149IDND851': { name: 'Condet', address: 'Jl. Raya Condet No.1, RT.1/RW.15, Cililitan, Kec. Kramat jati, Kota Jakarta Timur, Daerah Khusus Ibukota Jakarta 13640', latitude: -6.2632931, longitude: 106.8648373 },
+  'IDNP6IDNC146IDND825': { name: 'Rawa Belong', address: 'Jl. Raya Kb. Jeruk No.57B, RT.8/RW.15, Palmerah, Kec. Palmerah, Kota Jakarta Barat, Daerah Khusus Ibukota Jakarta 11530', latitude: -6.2031502, longitude: 106.7829093 },
+  'IDNP3IDNC446IDND5630': { name: 'Tangerang', address: 'Jl. Pd. Kacang No.36, RT.002/RW.005, Parung Serab, Kec. Ciledug, Kota Tangerang, Banten 15226', latitude: -6.2445812, longitude: 106.6986676 }
 };
 
 export async function POST(req: Request) {
@@ -245,7 +245,7 @@ export async function POST(req: Request) {
           const biteshipPayload: any = {
             reference_id: orderCode,
             origin_contact_name: "Ela Parfum",
-            origin_contact_phone: "08123456789",
+            origin_contact_phone: "+62 813-8410-4147",
             origin_address: originDetails.address,
             origin_note: originDetails.name,
             origin_area_id: originAreaId,
