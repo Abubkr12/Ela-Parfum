@@ -143,13 +143,13 @@ export async function GET(req: NextRequest) {
     `;
 
     // Wrap in standard HTML boilerplate and auto-trigger print
-    const fullHtml = \`
+    const fullHtml = `
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cetak Resi - \${data.courier?.waybill_id || data.id}</title>
+  <title>Cetak Resi - ${data.courier?.waybill_id || data.id}</title>
   <style>
     body {
       margin: 0;
@@ -168,10 +168,10 @@ export async function GET(req: NextRequest) {
   </style>
 </head>
 <body onload="window.print()">
-  \${html}
+  ${html}
 </body>
 </html>
-    \`;
+    `;
 
     return new NextResponse(fullHtml, {
       headers: {
