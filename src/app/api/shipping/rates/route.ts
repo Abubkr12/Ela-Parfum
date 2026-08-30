@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
 const STORE_LOCATIONS = [
-  { id: 'IDNP6IDNC149IDND851', name: 'Condet', address: 'Jl. Raya Condet No. 1, RT.001/RW.015, Kelurahan Cililitan, Kecamatan Kramat Jati, Kota Jakarta Timur, Daerah Khusus Ibukota Jakarta 13640', latitude: -6.2632931, longitude: 106.8648373 },
-  { id: 'IDNP6IDNC146IDND825', name: 'Rawa Belong', address: 'Jl. Raya Kb. Jeruk No.57B, RT.8/RW.15, Palmerah, Kec. Palmerah, Kota Jakarta Barat, Daerah Khusus Ibukota Jakarta 11530', latitude: -6.2031502, longitude: 106.7829093 },
-  { id: 'IDNP3IDNC446IDND5630', name: 'Tangerang', address: 'Jl. Pondok Kacang No. 36, RT.002/RW.005, Kelurahan Parung Serab, Kecamatan Ciledug, Kota Tangerang, Provinsi Banten 15226', latitude: -6.2445812, longitude: 106.6986676 }
+  { id: 'IDNP6IDNC149IDND851', name: 'Condet', address: 'Jl. Raya Condet No. 1, RT.001/RW.015, Kelurahan Cililitan, Kecamatan Kramat Jati, Kota Jakarta Timur, Daerah Khusus Ibukota Jakarta 13640', latitude: -6.263281646322936, longitude: 106.86484090895478 },
+  { id: 'IDNP6IDNC146IDND825', name: 'Rawa Belong', address: 'Jl. Raya Kb. Jeruk No.57B, RT.8/RW.15, Palmerah, Kec. Palmerah, Kota Jakarta Barat, Daerah Khusus Ibukota Jakarta 11530', latitude: -6.202968871424059, longitude: 106.78298439693361 },
+  { id: 'IDNP3IDNC446IDND5630', name: 'Tangerang', address: 'Jl. Pondok Kacang No. 36, RT.002/RW.005, Kelurahan Parung Serab, Kecamatan Ciledug, Kota Tangerang, Provinsi Banten 15226', latitude: -6.244325229406331, longitude: 106.69862467974234 }
 ];
 
 export async function POST(request: Request) {
