@@ -11,9 +11,6 @@
    - Dilarang menggunakan default browser `alert()` (wajib gunakan `toast` dari `sonner`).
    - Menggunakan sistem variabel CSS kustom (`var(--c-gold)`, `var(--c-surface-1)`, `var(--c-bg)`, dll).
    - Aksesibilitas dan responsivitas mobile-first.
-4. **Scope & Batasan Sesi (Pusat Kendali)**:
-   - Sesi ini bertindak sebagai **Pusat Kendali**: Memastikan seluruh sistem checkout, payment gateway (Mayar), logistik/pengiriman (Biteship), webhook, resi, database integrity, dan kestabilan aplikasi tetap aman dan bebas bug.
-   - **STRICT BOUNDARY**: DILARANG mengubah atau mengutak-atik folder `src/app/admin/(dashboard)/statistik/` di sesi ini karena pengerjaannya berada pada sesi/jobdesk terpisah untuk menghindari penimpaan kode.
 
 ## Struktur Project Detail
 
