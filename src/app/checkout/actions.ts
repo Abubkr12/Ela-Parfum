@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Cart } from '@/lib/types';
+import { deductRefillStock } from '@/lib/stock/refill-stock';
 
 const supabaseAdmin = createAdminClient();
 
@@ -68,6 +69,8 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     const address = formData.get('address') as string;
     const shippingCostStr = formData.get('shippingCost') as string;
     const courierInfo = formData.get('courierInfo') as string;
+    const courierCompany = (formData.get('courierCompany') as string || '').trim().toLowerCase();
+    const courierServiceCode = (formData.get('courierServiceCode') as string || '').trim().toLowerCase();
     const voucherCode = formData.get('voucherCode') as string;
     const paymentMethod = formData.get('paymentMethod') as string;
     const originAreaId = formData.get('originAreaId') as string;
@@ -114,7 +117,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
+        notes: `Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
       })
       .select('id, order_code')
       .single();
@@ -141,17 +144,32 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
       for (const item of cart.items) {
         const { data: stockData } = await supabaseAdmin
           .from('product_stocks')
-          .select('stock_qty')
+          .select('id, stock_qty')
           .eq('perfume_size_id', item.sizeId)
           .eq('store_id', 2)
           .single();
           
         if (stockData) {
+          const newQty = Math.max(0, stockData.stock_qty - item.quantity);
+          
           await supabaseAdmin
             .from('product_stocks')
-            .update({ stock_qty: Math.max(0, stockData.stock_qty - item.quantity) })
+            .update({ stock_qty: newQty })
             .eq('perfume_size_id', item.sizeId)
             .eq('store_id', 2);
+            
+          await supabaseAdmin
+            .from('stock_changelog')
+            .insert({
+              entity_type: 'product',
+              entity_id: stockData.id,
+              entity_name: `${item.perfumeName} - ${item.sizeLabel}`,
+              store_id: 2,
+              change_qty: -item.quantity,
+              new_qty: newQty,
+              reason: 'sale',
+              order_id: orderData.id
+            });
         }
       }
     }
@@ -240,6 +258,8 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     const address = formData.get('address') as string;
     const shippingCostStr = formData.get('shippingCost') as string;
     const courierInfo = formData.get('courierInfo') as string;
+    const courierCompany = (formData.get('courierCompany') as string || '').trim().toLowerCase();
+    const courierServiceCode = (formData.get('courierServiceCode') as string || '').trim().toLowerCase();
     const voucherCode = formData.get('voucherCode') as string;
     const paymentMethod = formData.get('paymentMethod') as string;
     const originName = formData.get('originName') as string;
@@ -300,7 +320,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''} | CustomRequestID: ${customRequestId}`
+        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''} | CustomRequestID: ${customRequestId}`
       })
       .select('id, order_code')
       .single();
@@ -419,8 +439,9 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
       }
     }
 
-    // 4. Jika TUNAI, langsung success
+    // 4. Jika TUNAI, langsung potong stok refill & return success
     if (paymentMethod === 'TUNAI') {
+      await deductRefillStock(orderData.id);
       return { url: `/checkout/success?id=${orderData.id}`, success: true };
     }
 

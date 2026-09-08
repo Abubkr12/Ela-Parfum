@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-
+import { deductRefillStock } from '@/lib/stock/refill-stock';
+import { parseCourier } from '@/lib/biteship';
 
 const supabaseAdmin = createAdminClient();
 
@@ -99,6 +100,64 @@ export async function POST(req: Request) {
           console.error("Failed to update order status:", updateError);
       }
 
+      // --- Deduct Stock & Record Changelog for QRIS Orders ---
+      if (!updateError) {
+        // Fetch order items
+        const { data: items } = await supabaseAdmin
+          .from('order_items')
+          .select('*')
+          .eq('order_id', order.id);
+          
+        if (items && items.length > 0) {
+          // Determine store_id from order notes
+          let storeId = 2; // Default to Rawabelong
+          const originNameMatch = order.notes?.match(/Origin:\s*([^|]+)/);
+          if (originNameMatch && originNameMatch[1]) {
+            const originName = originNameMatch[1].trim().toLowerCase();
+            if (originName.includes('condet')) storeId = 1;
+            else if (originName.includes('rawa belong') || originName.includes('rawabelong')) storeId = 2;
+            else if (originName.includes('tangerang')) storeId = 3;
+          }
+          
+          for (const item of items) {
+            // Check if it's a standard product (has size_id)
+            if (item.size_id) {
+              const { data: stockData } = await supabaseAdmin
+                .from('product_stocks')
+                .select('id, stock_qty')
+                .eq('perfume_size_id', item.size_id)
+                .eq('store_id', storeId)
+                .single();
+                
+              if (stockData) {
+                const newQty = Math.max(0, stockData.stock_qty - item.quantity);
+                
+                // Update stock
+                await supabaseAdmin
+                  .from('product_stocks')
+                  .update({ stock_qty: newQty })
+                  .eq('id', stockData.id);
+                  
+                // Insert changelog
+                await supabaseAdmin
+                  .from('stock_changelog')
+                  .insert({
+                    entity_type: 'product',
+                    entity_id: stockData.id,
+                    entity_name: `${item.perfume_name} - ${item.size_label}`,
+                    store_id: storeId,
+                    change_qty: -item.quantity,
+                    new_qty: newQty,
+                    reason: 'sale',
+                    order_id: order.id
+                  });
+              }
+            }
+          }
+        }
+      }
+      // ----------------------------------------------------
+
       // Check if order is linked to a Custom Request
       const customReqMatch = order.notes?.match(/CustomRequestID:\s*([a-f0-9-]+)/i);
       if (customReqMatch && customReqMatch[1]) {
@@ -112,6 +171,9 @@ export async function POST(req: Request) {
           })
           .eq('id', customReqId);
         console.log(`[Webhook Debug] Updated custom_request ${customReqId} to paid`);
+
+        // Potong stok bibit, pelarut, dan botol untuk pesanan refill
+        await deductRefillStock(order.id);
       }
 
 
@@ -198,12 +260,9 @@ export async function POST(req: Request) {
             };
           });
           
-          // Parse courier details
-          // courierInfo pattern: "JNE - REG"
-          const courierParts = order.courier_name.split('-');
-          let courierCompany = courierParts[0]?.trim().toLowerCase() || 'jne';
-          let courierType = courierParts[1]?.trim().toLowerCase() || 'reg';
-          const originDetails = STORE_LOCATIONS[originAreaId as keyof typeof STORE_LOCATIONS] || { name: 'Ela Parfum', address: 'Jl. Condet Raya', latitude: -6.2730, longitude: 106.8640 };
+          // Parse courier details reliably using centralized parseCourier
+          const { company: courierCompany, type: courierType } = parseCourier(order.courier_name, order.notes);
+          const originDetails = STORE_LOCATIONS[originAreaId as keyof typeof STORE_LOCATIONS] || { name: 'Ela Parfum', address: 'Jl. Raya Condet No.1', latitude: -6.263281646322936, longitude: 106.86484090895478 };
 
           // Extract 5-digit postal code from customer address
           const postalMatch = order.customer_address.match(/\b\d{5}\b/);
@@ -303,6 +362,8 @@ export async function POST(req: Request) {
           const bsData = await biteshipResponse.json();
           console.log(`[Biteship Debug] Response status: ${biteshipResponse.status}, data:`, JSON.stringify(bsData));
           
+          const cleanNotes = (order.notes || '').replace(/\s*\|\s*Biteship Error:[^|]+/g, '');
+
           if (biteshipResponse.ok && bsData.id) {
             // Update order with waybill info
             await supabaseAdmin
@@ -311,7 +372,7 @@ export async function POST(req: Request) {
                 status: 'processing',
                 waybill_number: bsData.courier?.waybill_id || null,
                 resi_number: bsData.courier?.waybill_id || null,
-                notes: order.notes + ` | Biteship Order ID: ${bsData.id}`
+                notes: `${cleanNotes} | Biteship Order ID: ${bsData.id}`
               })
               .eq('id', order.id);
           } else {
@@ -319,7 +380,7 @@ export async function POST(req: Request) {
             await supabaseAdmin
               .from('orders')
               .update({
-                notes: order.notes + ` | Biteship Error: ${JSON.stringify(bsData.error || bsData.message || 'Unknown Error')}`
+                notes: `${cleanNotes} | Biteship Error: ${JSON.stringify(bsData.error || bsData.message || 'Unknown Error')}`
               })
               .eq('id', order.id);
           }

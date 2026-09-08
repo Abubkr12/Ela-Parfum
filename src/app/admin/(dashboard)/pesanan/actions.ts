@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { deductRefillStock } from '@/lib/stock/refill-stock';
 
 const supabaseAdmin = createAdminClient();
 
@@ -48,6 +49,13 @@ export async function markAsPaid(payload: string | FormData) {
     throw new Error('Gagal update status: ' + error.message);
   }
 
+  // Pastikan stok refill terpotong jika belum pernah dipotong
+  try {
+    await deductRefillStock(Number(orderId));
+  } catch (stockErr) {
+    console.error('Error deductRefillStock in markAsPaid:', stockErr);
+  }
+
   revalidatePath('/admin/pesanan');
   revalidatePath(`/admin/pesanan/${orderId}`);
   revalidatePath('/pesanan');
@@ -76,7 +84,7 @@ export async function rejectPayment(payload: string | FormData) {
 
 export async function retryWebhook(orderCode: string) {
   try {
-    const url = process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000';
+    const url = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://127.0.0.1:3000');
     const res = await fetch(`${url}/api/webhooks/mayar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

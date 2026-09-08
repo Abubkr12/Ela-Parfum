@@ -152,6 +152,8 @@ export default function CheckoutPage() {
       data.append('address', selectedAddress.full_address);
       data.append('shippingCost', shippingCost.toString());
       data.append('courierInfo', `${selectedCourier.courier_name} - ${selectedCourier.courier_service_name}`);
+      data.append('courierCompany', selectedCourier.courier_code || selectedCourier.company || selectedCourier.courier_name || '');
+      data.append('courierServiceCode', selectedCourier.courier_service_code || selectedCourier.type || '');
       data.append('paymentMethod', paymentMethod);
       data.append('originAreaId', selectedCourier.origin_area_id || "");
       data.append('originName', selectedCourier.origin_name || "");
