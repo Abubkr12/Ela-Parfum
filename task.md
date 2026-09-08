@@ -1,14 +1,14 @@
 # Task List
 
 ## Aktif / Future Development
-- [ ] **Revamp Halaman Statistik Admin (/admin/statistik):**
-  - [ ] **Statistik Penjualan:** Mendata semua produk berhasil terjual (status PAID - QRIS & Cash), grafik chart omzet & transaksi interaktif ala saham (filter menit, jam, hari, minggu, bulan, tahun), pencatatan tanggal/waktu transaksi presisi, serta tabel rincian pemesan.
-  - [ ] **Statistik Barang:** Mendata barang keluar/terjual terpisah per kategori (Produk Jadi/Reguler, Bibit, Pelarut, Botol), grafik tren barang terlaris, analisis korelasi stok vs katalog untuk prioritas restok.
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
 - [ ] **Penanganan Kendala:** Buat alur untuk Pesanan Dibatalkan setelah dibayar (Opsi mengajukan pengiriman ulang ke Biteship atau Pengembalian Dana/Refund via Mayar).
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Revamp Halaman Statistik Admin (/admin/statistik):**
+  - [x] **Statistik Penjualan (`/admin/statistik/penjualan`):** Mendata semua pesanan berhasil (status PAID - QRIS & Cash), grafik chart interaktif ala saham dengan granulasi (Menit, Jam, Harian, Mingguan, Bulanan, Tahunan), metrik omzet, jumlah transaksi, rata-rata pesanan (AOV), filter toko (Condet, Rawabelong, Tangerang), export Excel berdesain rapi, serta tabel rincian transaksi & pemesan.
+  - [x] **Statistik Barang (`/admin/statistik/barang`):** Mendata barang keluar per kategori spesifik (Parfum Jadi/Reguler, Bibit dalam ml, Pelarut, Botol), grafik tren barang terlaris, korelasi stok vs katalog, alert restock otomatis, serta export Excel lengkap.
 - [x] **Perbaikan Integrasi Kurir Biteship (Instant & Non-Instant):**
   - [x] Analisis akar masalah penolakan Biteship *"Courier service type does not exist"* pada kurir non-instant (JNE YES, JNE Reguler).
   - [x] Implementasi normalisasi dan pemetaan cerdas `parseCourier` di `src/lib/biteship.ts` untuk JNE (`reg`, `yes`, `oke`), J&T (`ez`, `super`), SiCepat, Anteraja, Ninja, Wahana, TIKI, POS, Lion, Gojek, Grab, Lalamove.
