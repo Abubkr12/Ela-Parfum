@@ -44,10 +44,7 @@ export async function getBibitStocks(storeId: number) {
     .select(`
       id,
       store_id,
-      sealed_500ml,
-      sealed_1000ml,
-      opened_500ml_left,
-      opened_1000ml_left,
+      stock_ml,
       bibit (
         id,
         name,
@@ -82,11 +79,34 @@ export async function getBottleStocks(storeId: number) {
 }
 
 export async function updateProductStock(id: number, qty: number) {
+  const { data: currentStock, error: fetchError } = await supabaseAdmin
+    .from('product_stocks')
+    .select('stock_qty, store_id, perfume_sizes (size_label, perfumes (name))')
+    .eq('id', id)
+    .single();
+    
+  if (fetchError || !currentStock) throw new Error(fetchError?.message || 'Stock not found');
+  
+  const changeQty = qty - currentStock.stock_qty;
+
   const { error } = await supabaseAdmin
     .from('product_stocks')
     .update({ stock_qty: qty, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw new Error(error.message);
+  
+  const _ps = Array.isArray(currentStock.perfume_sizes) ? currentStock.perfume_sizes[0] : (currentStock.perfume_sizes as any);
+  const _pName = _ps ? (Array.isArray(_ps.perfumes) ? _ps.perfumes[0]?.name : _ps.perfumes?.name) : 'Unknown';
+  const entityName = `${_pName} - ${_ps?.size_label || 'Size'}`;
+  await supabaseAdmin.from('stock_changelog').insert({
+    entity_type: 'product',
+    entity_id: id,
+    entity_name: entityName,
+    store_id: currentStock.store_id,
+    change_qty: changeQty,
+    new_qty: qty,
+    reason: 'adjustment'
+  });
   
   revalidatePath('/admin/stok');
   revalidatePath('/admin/produk');
@@ -96,11 +116,31 @@ export async function updateProductStock(id: number, qty: number) {
 }
 
 export async function updateBottleStock(id: number, qty: number) {
+  const { data: currentStock, error: fetchError } = await supabaseAdmin
+    .from('bottle_stocks')
+    .select('stock_qty, store_id, bottles (name)')
+    .eq('id', id)
+    .single();
+    
+  if (fetchError || !currentStock) throw new Error(fetchError?.message || 'Stock not found');
+  
+  const changeQty = qty - currentStock.stock_qty;
+
   const { error } = await supabaseAdmin
     .from('bottle_stocks')
     .update({ stock_qty: qty, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw new Error(error.message);
+  
+  await supabaseAdmin.from('stock_changelog').insert({
+    entity_type: 'bottle',
+    entity_id: id,
+    entity_name: (Array.isArray(currentStock.bottles) ? currentStock.bottles[0]?.name : (currentStock.bottles as any)?.name) || 'Unknown Bottle',
+    store_id: currentStock.store_id,
+    change_qty: changeQty,
+    new_qty: qty,
+    reason: 'adjustment'
+  });
   
   revalidatePath('/admin/stok');
   revalidatePath('/admin/botol');
@@ -108,24 +148,37 @@ export async function updateBottleStock(id: number, qty: number) {
   return { success: true };
 }
 
-export async function updateBibitStock(
-  id: number, 
-  sealed_500ml: number, 
-  sealed_1000ml: number, 
-  opened_500ml_left: number, 
-  opened_1000ml_left: number
-) {
+export async function updateBibitStock(id: number, newStockMl: number) {
+  const { data: currentStock, error: fetchError } = await supabaseAdmin
+    .from('bibit_stocks')
+    .select('stock_ml, store_id, bibit (name)')
+    .eq('id', id)
+    .single();
+    
+  if (fetchError || !currentStock) throw new Error(fetchError?.message || 'Stock not found');
+
+  const oldTotal = Number(currentStock.stock_ml || 0);
+  const newTotal = Number(newStockMl || 0);
+  const changeQty = newTotal - oldTotal;
+
   const { error } = await supabaseAdmin
     .from('bibit_stocks')
     .update({ 
-      sealed_500ml, 
-      sealed_1000ml, 
-      opened_500ml_left, 
-      opened_1000ml_left,
+      stock_ml: newTotal,
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
   if (error) throw new Error(error.message);
+  
+  await supabaseAdmin.from('stock_changelog').insert({
+    entity_type: 'bibit',
+    entity_id: id,
+    entity_name: (Array.isArray(currentStock.bibit) ? currentStock.bibit[0]?.name : (currentStock.bibit as any)?.name) || 'Unknown Bibit',
+    store_id: currentStock.store_id,
+    change_qty: changeQty,
+    new_qty: newTotal,
+    reason: 'adjustment'
+  });
   
   revalidatePath('/admin/stok');
   revalidatePath('/admin/bibit');

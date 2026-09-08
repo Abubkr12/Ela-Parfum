@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { Loader2, Save, MapPin, Archive, Search, ChevronLeft, ChevronRight, Edit2, X, Plus, Minus } from "lucide-react";
+import { toast } from "sonner";
 import { 
   getStores, 
   getProductStocks, 
@@ -11,6 +12,7 @@ import {
   updateBibitStock,
   updateBottleStock
 } from "./actions";
+import { getSolventStocks, updateSolventStock } from "./actions-solvent";
 
 function getPaginationItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -65,11 +67,12 @@ export default function StokPage() {
   const [stores, setStores] = useState<any[]>([]);
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
   
-  const [activeTab, setActiveTab] = useState<"produk" | "bibit" | "botol">("produk");
+  const [activeTab, setActiveTab] = useState<"produk" | "bibit" | "botol" | "pelarut">("produk");
 
   const [productStocks, setProductStocks] = useState<any[]>([]);
   const [bibitStocks, setBibitStocks] = useState<any[]>([]);
   const [bottleStocks, setBottleStocks] = useState<any[]>([]);
+  const [solventStocks, setSolventStocks] = useState<any[]>([]);
   
   const [saving, setSaving] = useState<number | null>(null);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
@@ -118,14 +121,14 @@ export default function StokPage() {
         const data = await getBibitStocks(storeId);
         setBibitStocks(data?.map(d => ({ 
           ...d, 
-          _temp_sealed_500: d.sealed_500ml ?? 2, 
-          _temp_sealed_1000: d.sealed_1000ml ?? 2,
-          _temp_opened_500: d.opened_500ml_left ?? 500,
-          _temp_opened_1000: d.opened_1000ml_left ?? 1000
+          _temp_qty: d.stock_ml ?? 3500
         })) || []);
       } else if (activeTab === "botol") {
         const data = await getBottleStocks(storeId);
         setBottleStocks(data?.map(d => ({ ...d, _temp_qty: d.stock_qty })) || []);
+      } else if (activeTab === "pelarut") {
+        const data = await getSolventStocks(storeId);
+        setSolventStocks(data?.map(d => ({ ...d, _temp_qty: d.stock_ml })) || []);
       }
     } catch (err) {
       console.error("Gagal memuat data stok:", err);
@@ -143,8 +146,9 @@ export default function StokPage() {
       await updateProductStock(id, stock._temp_qty);
       setProductStocks(prev => prev.map(s => s.id === id ? { ...s, stock_qty: s._temp_qty } : s));
       setEditingRowId(null);
-    } catch (err) {
-      alert("Gagal update stok produk.");
+      toast.success("Stok produk berhasil diperbarui");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal update stok produk.");
     } finally {
       setSaving(null);
     }
@@ -159,8 +163,9 @@ export default function StokPage() {
       await updateBottleStock(id, stock._temp_qty);
       setBottleStocks(prev => prev.map(s => s.id === id ? { ...s, stock_qty: s._temp_qty } : s));
       setEditingRowId(null);
-    } catch (err) {
-      alert("Gagal update stok botol.");
+      toast.success("Stok botol berhasil diperbarui");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal update stok botol.");
     } finally {
       setSaving(null);
     }
@@ -172,17 +177,32 @@ export default function StokPage() {
 
     setSaving(id);
     try {
-      await updateBibitStock(id, stock._temp_sealed_500, stock._temp_sealed_1000, stock._temp_opened_500, stock._temp_opened_1000);
+      await updateBibitStock(id, stock._temp_qty);
       setBibitStocks(prev => prev.map(s => s.id === id ? { 
         ...s, 
-        sealed_500ml: s._temp_sealed_500,
-        sealed_1000ml: s._temp_sealed_1000,
-        opened_500ml_left: s._temp_opened_500,
-        opened_1000ml_left: s._temp_opened_1000 
+        stock_ml: s._temp_qty
       } : s));
       setEditingRowId(null);
-    } catch (err) {
-      alert("Gagal update stok bibit.");
+      toast.success("Stok bibit berhasil diperbarui");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal update stok bibit.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleUpdateSolvent = async (id: number) => {
+    const stock = solventStocks.find(s => s.id === id);
+    if (!stock) return;
+
+    setSaving(id);
+    try {
+      await updateSolventStock(id, stock._temp_qty);
+      setSolventStocks(prev => prev.map(s => s.id === id ? { ...s, stock_ml: s._temp_qty } : s));
+      setEditingRowId(null);
+      toast.success("Stok pelarut berhasil diperbarui");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal update stok pelarut.");
     } finally {
       setSaving(null);
     }
@@ -195,13 +215,12 @@ export default function StokPage() {
     } else if (activeTab === "bibit") {
       setBibitStocks(prev => prev.map(s => s.id === id ? { 
         ...s, 
-        _temp_sealed_500: s.sealed_500ml,
-        _temp_sealed_1000: s.sealed_1000ml,
-        _temp_opened_500: s.opened_500ml_left,
-        _temp_opened_1000: s.opened_1000ml_left
+        _temp_qty: s.stock_ml
       } : s));
     } else if (activeTab === "botol") {
       setBottleStocks(prev => prev.map(s => s.id === id ? { ...s, _temp_qty: s.stock_qty } : s));
+    } else if (activeTab === "pelarut") {
+      setSolventStocks(prev => prev.map(s => s.id === id ? { ...s, _temp_qty: s.stock_ml } : s));
     }
     setEditingRowId(null);
   };
@@ -214,6 +233,7 @@ export default function StokPage() {
     if (activeTab === "produk") rawData = productStocks;
     if (activeTab === "bibit") rawData = bibitStocks;
     if (activeTab === "botol") rawData = bottleStocks;
+    if (activeTab === "pelarut") rawData = solventStocks;
 
     const filtered = rawData.filter(item => {
       let matchesSearch = true;
@@ -229,19 +249,25 @@ export default function StokPage() {
           matchesSearch = item.bibit?.name?.toLowerCase().includes(q) || item.bibit?.collection?.toLowerCase().includes(q) || false;
         } else if (activeTab === "botol") {
           matchesSearch = item.bottles?.name?.toLowerCase().includes(q) || false;
+        } else if (activeTab === "pelarut") {
+          matchesSearch = item.solvents?.name?.toLowerCase().includes(q) || false;
         }
       }
 
       // Stock condition filtering
       if (stockFilter === "low") {
         if (activeTab === "bibit") {
-          matchesFilter = (item.sealed_500ml + item.sealed_1000ml) > 0 && (item.sealed_500ml + item.sealed_1000ml) <= 5;
+          matchesFilter = item.stock_ml > 0 && item.stock_ml <= 1000;
+        } else if (activeTab === "pelarut") {
+          matchesFilter = item.stock_ml > 0 && item.stock_ml <= 1000;
         } else {
           matchesFilter = item.stock_qty > 0 && item.stock_qty <= 5;
         }
       } else if (stockFilter === "empty") {
         if (activeTab === "bibit") {
-          matchesFilter = (item.sealed_500ml === 0 && item.sealed_1000ml === 0);
+          matchesFilter = Number(item.stock_ml || 0) === 0;
+        } else if (activeTab === "pelarut") {
+          matchesFilter = Number(item.stock_ml || 0) === 0;
         } else {
           matchesFilter = item.stock_qty === 0;
         }
@@ -268,10 +294,13 @@ export default function StokPage() {
       } else if (activeTab === "botol") {
         nameA = a.bottles?.name || "";
         nameB = b.bottles?.name || "";
+      } else if (activeTab === "pelarut") {
+        nameA = a.solvents?.name || "";
+        nameB = b.solvents?.name || "";
       }
       return nameA.localeCompare(nameB);
     });
-  }, [productStocks, bibitStocks, bottleStocks, activeTab, searchQuery, stockFilter, bibitCollectionFilter]);
+  }, [productStocks, bibitStocks, bottleStocks, solventStocks, activeTab, searchQuery, stockFilter, bibitCollectionFilter]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -364,6 +393,21 @@ export default function StokPage() {
             >
               Stok Botol
             </button>
+            <button 
+              onClick={() => setActiveTab("pelarut")}
+              style={{ 
+                padding: "10px 20px", 
+                borderRadius: "var(--r-md)", 
+                border: "none", 
+                fontWeight: 600,
+                cursor: "pointer",
+                background: activeTab === "pelarut" ? "var(--c-gold)" : "var(--c-surface-2)",
+                color: activeTab === "pelarut" ? "#fff" : "var(--c-ink)",
+                transition: "all 0.2s"
+              }}
+            >
+              Stok Pelarut
+            </button>
           </div>
           
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -441,14 +485,7 @@ export default function StokPage() {
                     <th style={{ padding: "16px 24px", fontWeight: 600 }}>Nama Item</th>
                     
                     {activeTab === "bibit" ? (
-                      <>
-                        <th style={{ padding: "16px 24px", fontWeight: 600 }}>Segel 500ml</th>
-                        <th style={{ padding: "16px 24px", fontWeight: 600 }}>Segel 1000ml</th>
-                        <th style={{ padding: "16px 24px", fontWeight: 600 }}>Sisa 500ml (ml)</th>
-                        <th style={{ padding: "16px 24px", fontWeight: 600 }}>Sisa 1000ml (ml)</th>
-                        <th style={{ padding: "16px 24px", fontWeight: 600 }}>Total 500ml (ml)</th>
-                        <th style={{ padding: "16px 24px", fontWeight: 600 }}>Total 1000ml (ml)</th>
-                      </>
+                      <th style={{ padding: "16px 24px", fontWeight: 600 }}>Stok Bibit (ml)</th>
                     ) : (
                       <th style={{ padding: "16px 24px", fontWeight: 600 }}>Kuantitas Stok</th>
                     )}
@@ -458,7 +495,7 @@ export default function StokPage() {
                 </thead>
                 <tbody>
                   {currentData.length === 0 && (
-                    <tr><td colSpan={activeTab === "bibit" ? 7 : 3} style={{ padding: 40, textAlign: "center", color: "var(--c-ink-dim)" }}>Tidak ada data yang sesuai pencarian/filter.</td></tr>
+                    <tr><td colSpan={3} style={{ padding: 40, textAlign: "center", color: "var(--c-ink-dim)" }}>Tidak ada data yang sesuai pencarian/filter.</td></tr>
                   )}
                   
                   {activeTab === "produk" && currentData.map(stock => (
@@ -571,13 +608,9 @@ export default function StokPage() {
                   ))}
 
                   {activeTab === "bibit" && currentData.map(stock => {
-                    // Compute totals
-                    const s500 = stock.sealed_500ml ?? 0;
-                    const s1000 = stock.sealed_1000ml ?? 0;
-                    const o500 = stock.opened_500ml_left ?? 0;
-                    const o1000 = stock.opened_1000ml_left ?? 0;
-                    const total500 = (s500 > 0 ? (s500 - 1) * 500 : 0) + o500;
-                    const total1000 = (s1000 > 0 ? (s1000 - 1) * 1000 : 0) + o1000;
+                    const ml = Number(stock.stock_ml ?? 0);
+                    const bottlesEquivalent = ml / 500;
+                    const isWholeBottles = Number.isInteger(bottlesEquivalent);
                     
                     return (
                       <tr key={stock.id} style={{ borderBottom: "1px solid var(--c-border)" }}>
@@ -589,55 +622,58 @@ export default function StokPage() {
                         </td>
                         <td style={{ padding: "16px 24px" }}>
                           {editingRowId === stock.id ? (
-                            <NumberControl value={stock._temp_sealed_500} onChange={v => setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_sealed_500: v } : s))} />
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--c-border)", borderRadius: "var(--r-full)", overflow: "hidden", width: "fit-content", background: "var(--c-surface-1)" }}>
+                                <button 
+                                  onClick={() => setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_qty: Math.max(0, (s._temp_qty || 0) - 500) } : s))}
+                                  style={{ padding: "6px 12px", background: "var(--c-surface-2)", border: "none", cursor: "pointer", color: "var(--c-ink)" }}
+                                  title="Kurang 500ml (1 botol)"
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                
+                                <input 
+                                  type="number"
+                                  value={stock._temp_qty === 0 ? "" : stock._temp_qty}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    if (e.target.value === "") {
+                                      setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_qty: 0 } : s));
+                                      return;
+                                    }
+                                    const val = parseInt(e.target.value, 10);
+                                    setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_qty: isNaN(val) ? 0 : Math.max(0, val) } : s));
+                                  }}
+                                  style={{ width: 85, textAlign: "center", border: "none", outline: "none", background: "transparent", color: "var(--c-ink)", fontSize: "0.9rem", fontWeight: 600 }}
+                                />
+                                
+                                <button 
+                                  onClick={() => setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_qty: (s._temp_qty || 0) + 500 } : s))}
+                                  style={{ padding: "6px 12px", background: "var(--c-surface-2)", border: "none", cursor: "pointer", color: "var(--c-ink)" }}
+                                  title="Tambah 500ml (1 botol)"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              </div>
+                              <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>ml</span>
+                            </div>
                           ) : (
-                            <span style={{ fontWeight: 500 }}>{s500} botol</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: 600, fontSize: "0.95rem", color: ml === 0 ? "#EF4444" : "var(--c-ink)" }}>
+                                {ml.toLocaleString("id-ID")} ml
+                              </span>
+                              <span style={{ 
+                                padding: "3px 10px", 
+                                background: ml > 0 ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", 
+                                color: ml > 0 ? "#059669" : "#EF4444", 
+                                borderRadius: "var(--r-full)", 
+                                fontSize: "0.75rem", 
+                                fontWeight: 600 
+                              }}>
+                                {isWholeBottles ? `${bottlesEquivalent} botol @500ml` : `~${bottlesEquivalent.toFixed(1)} botol @500ml`}
+                              </span>
+                            </div>
                           )}
-                        </td>
-                        <td style={{ padding: "16px 24px" }}>
-                          {editingRowId === stock.id ? (
-                            <NumberControl value={stock._temp_sealed_1000} onChange={v => setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_sealed_1000: v } : s))} />
-                          ) : (
-                            <span style={{ fontWeight: 500 }}>{s1000} botol</span>
-                          )}
-                        </td>
-                        <td style={{ padding: "16px 24px" }}>
-                          {editingRowId === stock.id ? (
-                            <NumberControl value={stock._temp_opened_500} onChange={v => setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_opened_500: v } : s))} />
-                          ) : (
-                            <span style={{ fontWeight: 500, color: "var(--c-ink-dim)" }}>{o500} ml</span>
-                          )}
-                        </td>
-                        <td style={{ padding: "16px 24px" }}>
-                          {editingRowId === stock.id ? (
-                            <NumberControl value={stock._temp_opened_1000} onChange={v => setBibitStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_opened_1000: v } : s))} />
-                          ) : (
-                            <span style={{ fontWeight: 500, color: "var(--c-ink-dim)" }}>{o1000} ml</span>
-                          )}
-                        </td>
-                        <td style={{ padding: "16px 24px" }}>
-                          <span style={{ 
-                            padding: "6px 12px", 
-                            background: "rgba(52, 211, 153, 0.1)", 
-                            color: "#059669", 
-                            borderRadius: "var(--r-full)", 
-                            fontSize: "0.85rem", 
-                            fontWeight: 600 
-                          }}>
-                            {total500.toLocaleString()} ml
-                          </span>
-                        </td>
-                        <td style={{ padding: "16px 24px" }}>
-                          <span style={{ 
-                            padding: "6px 12px", 
-                            background: "rgba(59, 130, 246, 0.1)", 
-                            color: "#2563eb", 
-                            borderRadius: "var(--r-full)", 
-                            fontSize: "0.85rem", 
-                            fontWeight: 600 
-                          }}>
-                            {total1000.toLocaleString()} ml
-                          </span>
                         </td>
                         <td style={{ padding: "16px 24px" }}>
                           {editingRowId === stock.id ? (
@@ -672,6 +708,55 @@ export default function StokPage() {
                       </tr>
                     );
                   })}
+
+                  {activeTab === "pelarut" && currentData.map(stock => (
+                    <tr key={stock.id} style={{ borderBottom: "1px solid var(--c-border)" }}>
+                      <td style={{ padding: "16px 24px" }}>
+                        <div style={{ fontWeight: 500, color: "var(--c-ink)" }}>{stock.solvents?.name || "Pelarut"}</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)" }}>Tipe: {stock.solvents?.type}</div>
+                      </td>
+                      <td style={{ padding: "16px 24px" }}>
+                        {editingRowId === stock.id ? (
+                          <NumberControl 
+                            value={stock._temp_qty} 
+                            onChange={(v) => setSolventStocks(prev => prev.map(s => s.id === stock.id ? { ...s, _temp_qty: v } : s))} 
+                          />
+                        ) : (
+                          <span style={{ fontWeight: 500 }}>{stock.stock_ml} ml</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "16px 24px" }}>
+                        {editingRowId === stock.id ? (
+                           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                             <button 
+                               onClick={() => handleUpdateSolvent(stock.id)}
+                               disabled={saving === stock.id}
+                               style={{ background: "none", color: "#10B981", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}
+                               title="Simpan"
+                             >
+                               {saving === stock.id ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                             </button>
+                             <button 
+                               onClick={() => handleCancelEdit(stock.id)}
+                               disabled={saving === stock.id}
+                               style={{ background: "none", color: "#EF4444", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}
+                               title="Batal"
+                             >
+                               <X size={16} />
+                             </button>
+                           </div>
+                        ) : (
+                           <button 
+                             onClick={() => setEditingRowId(stock.id)}
+                             style={{ background: "none", color: "var(--c-ink-dim)", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}
+                             title="Edit"
+                           >
+                             <Edit2 size={16} />
+                           </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
               

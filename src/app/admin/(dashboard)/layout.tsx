@@ -42,7 +42,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       href: "/admin/statistik", 
       icon: TrendingUp,
       subItems: [
-        { name: "Penjualan", href: "/admin/statistik" }
+        { name: "Penjualan", href: "/admin/statistik/penjualan" },
+        { name: "Barang", href: "/admin/statistik/barang" }
       ]
     },
     { name: "Stok", href: "/admin/stok", icon: Archive },
