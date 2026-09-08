@@ -11,6 +11,9 @@
    - Dilarang menggunakan default browser `alert()` (wajib gunakan `toast` dari `sonner`).
    - Menggunakan sistem variabel CSS kustom (`var(--c-gold)`, `var(--c-surface-1)`, `var(--c-bg)`, dll).
    - Aksesibilitas dan responsivitas mobile-first.
+4. **Scope & Batasan Sesi (Pusat Kendali)**:
+   - Sesi ini bertindak sebagai **Pusat Kendali**: Memastikan seluruh sistem checkout, payment gateway (Mayar), logistik/pengiriman (Biteship), webhook, resi, database integrity, dan kestabilan aplikasi tetap aman dan bebas bug.
+   - **STRICT BOUNDARY**: DILARANG mengubah atau mengutak-atik folder `src/app/admin/(dashboard)/statistik/` di sesi ini karena pengerjaannya berada pada sesi/jobdesk terpisah untuk menghindari penimpaan kode.
 
 ## Struktur Project Detail
 
@@ -68,19 +71,24 @@ Minyak Wangi/
 6. **Checkout**:
    - Membuat rekaman pesanan di `custom_requests` dan mengarahkan ke `/checkout/custom/[id]`.
 
-## Arsitektur Stok Multi-Cabang (Baru)
+## Arsitektur Stok Multi-Cabang (Revisi Bibit 500ml Base & ML Direct)
 1. **Entitas Terpisah**:
    - Stok dipisah dari tabel master (`bibit`, `bottles`, `perfume_sizes`).
    - Tabel master hanya untuk mengatur metadata (nama, deskripsi, notes, harga, dsb) di halaman **Katalog**.
 2. **Manajemen Cabang**:
-   - Menggunakan tabel `stores` (Toko Condet, Rawabelong, Tangerang).
+   - Menggunakan tabel `stores` (ID 1: Condet, ID 2: Rawabelong, ID 3: Tangerang).
 3. **Jenis Stok**:
-   - **Stok Bibit** (`bibit_stocks`): Mengelola botol utuh (`sealed_bottles_qty`) dan sisa mili di botol buka (`opened_bottle_ml`).
+   - **Stok Bibit** (`bibit_stocks`):
+     - Dikelola murni dalam satuan mililiter (`stock_ml NUMERIC(10,2)`).
+     - Tidak ada sistem botol segel / buka (disederhanakan total).
+     - Hanya ada ukuran botol fisik 500 ml. Input admin bisa langsung mili (misal 3000 ml = 6 botol @500ml).
+     - Stok awal di setiap cabang di-reset menjadi 3500 ml (~7 botol @500ml).
    - **Stok Botol** (`bottle_stocks`): Botol kosong untuk packaging.
-   - **Stok Produk** (`product_stocks`): Parfum racikan/produk jadi per ukuran.
-4. **Logika Transaksi (Checkout)**:
-   - Pemotongan otomatis dilakukan pada stok cabang terkait saat order checkout.
-   - Untuk pesanan refill, pemotongan dilakukan pada sisa mili botol buka (`opened_bottle_ml`). Jika habis/kurang, ambil dari botol segel dan pecah ke mili.
+   - **Stok Pelarut** (`solvent_stocks`): Pelarut absolute dalam satuan ml (`stock_ml`).
+   - **Stok Produk** (`product_stocks`): Parfum racikan/produk jadi per ukuran (`stock_qty`).
+4. **Logika Transaksi Refill (Pemotongan Otomatis)**:
+   - Setiap transaksi refill yang berhasil (tunai saat checkout, atau QRIS saat webhook Mayar sukses/admin markAsPaid) otomatis memotong `stock_ml` pada tabel `bibit_stocks` di cabang yang bersangkutan sesuai formula racikan (ml).
+   - Setiap pemotongan dicatat ke `stock_changelog` (`entity_type = 'bibit'`, `reason = 'sale'`) dengan link `order_id`.
 5. **Akses Admin**:
-   - Halaman **Stok** adalah sumber kebenaran (Source of Truth) untuk mutasi barang.
+   - Halaman **Stok** (`/admin/stok`) adalah sumber kebenaran (Source of Truth) untuk mutasi barang.
    - Halaman **Katalog** bersifat *read-only* untuk jumlah stok (sum agregasi).
