@@ -2,9 +2,6 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deductRefillStock } from '@/lib/stock/refill-stock';
 import { parseCourier } from '@/lib/biteship';
-
-const supabaseAdmin = createAdminClient();
-
 function extractPostalCode(address: string): number | undefined {
   if (!address) return undefined;
   const match = address.match(/\b\d{5}\b/);
@@ -17,8 +14,13 @@ const STORE_LOCATIONS = {
   'IDNP3IDNC446IDND5630': { name: 'Tangerang', address: 'Jl. Pd. Kacang No.36, RT.002/RW.005, Parung Serab, Kec. Ciledug, Kota Tangerang, Banten 15226', latitude: -6.244325229406331, longitude: 106.69862467974234 }
 };
 
+export async function GET() {
+  return NextResponse.json({ success: true, message: 'Mayar webhook endpoint is active' }, { status: 200 });
+}
+
 export async function POST(req: Request) {
   try {
+    const supabaseAdmin = createAdminClient();
     const payload = await req.json();
 
     // Log to Supabase Database
