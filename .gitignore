@@ -13,3 +13,6 @@ pnpm-debug.log*
 .vercel
 artifacts
 *.tsbuildinfo
+reconstruct.js
+search_transcripts.js
+reconstructed_aug20/

@@ -208,8 +208,48 @@ export default function CheckoutSuccessPage() {
             )}
           </div>
 
-          {/* Payment Instructions - Hide for Mayar */}
-          {!order.payment_method?.includes('Mayar') && (
+          {/* Payment Instructions / Tunai / Mayar */}
+          {order.payment_method?.toLowerCase().includes('tunai') ? (
+            <div style={{ background: 'var(--c-surface-1)', padding: '36px 28px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-gold)', textAlign: 'center' }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(234, 179, 8, 0.15)', color: 'var(--c-gold)', display: 'grid', placeItems: 'center', margin: '0 auto 20px auto' }}>
+                <CheckCircle2 size={32} />
+              </div>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--c-ink)', marginBottom: 12 }}>
+                Bayar Tunai Langsung di Kasir Toko
+              </h3>
+              <p style={{ color: 'var(--c-ink-dim)', fontSize: '0.95rem', maxWidth: '550px', margin: '0 auto 24px auto', lineHeight: 1.6 }}>
+                Pesanan Anda telah kami terima dan sedang disiapkan oleh tim toko. Silakan tunjukkan ID Pesanan <strong>{order.order_code}</strong> ke kasir saat mengambil parfum Anda di cabang toko pilihan.
+              </p>
+
+              <div style={{ padding: 20, background: 'var(--glass-bg)', borderRadius: 'var(--r-md)', border: '1px solid var(--c-border)', maxWidth: 500, margin: '0 auto 28px auto', textAlign: 'left' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--c-gold)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Lokasi Toko Pengambilan:
+                </div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--c-ink)', marginBottom: 4 }}>
+                  {order.store_id === 1 ? 'Ela Parfum Condet' : order.store_id === 3 ? 'Ela Parfum Tangerang' : 'Ela Parfum Rawa Belong'}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--c-ink-dim)', lineHeight: 1.5 }}>
+                  {order.store_id === 1 
+                    ? 'Jl. Raya Condet No. 1, Cililitan, Kramat Jati, Jakarta Timur'
+                    : order.store_id === 3
+                    ? 'Jl. Pondok Kacang No. 36, Parung Serab, Ciledug, Tangerang'
+                    : 'Jl. Raya Kb. Jeruk No.57B, Palmerah, Jakarta Barat'}
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--c-ink-muted)', marginTop: 8 }}>
+                  Jam Buka: <strong>Setiap Hari, 08:00 - 22:00 WIB</strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Link href="/riwayat-pesanan" className="btn btn-primary" style={{ padding: '0 32px', height: '48px', borderRadius: 100, display: 'inline-flex', alignItems: 'center' }}>
+                  Lihat Riwayat Pesanan
+                </Link>
+                <Link href={`/riwayat-pesanan/invoice/${orderId}`} target="_blank" className="btn" style={{ padding: '0 24px', height: '48px', borderRadius: 100, border: '1px solid var(--c-gold)', color: 'var(--c-gold)', display: 'inline-flex', alignItems: 'center' }}>
+                  Lihat Invoice
+                </Link>
+              </div>
+            </div>
+          ) : !order.payment_method?.includes('Mayar') ? (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                 {/* Transfer Bank */}
@@ -348,7 +388,7 @@ export default function CheckoutSuccessPage() {
             )}
           </div>
           </>
-          )}
+          ) : null}
         </div>
       </main>
     </div>

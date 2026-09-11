@@ -29,8 +29,8 @@ export async function deductRefillStock(orderId: number, preferredStoreId?: numb
       return { success: false, error: 'Order not found' };
     }
 
-    // 3. Tentukan store_id
-    let storeId = preferredStoreId;
+    // 3. Tentukan store_id (prioritaskan kolom resmi order.store_id)
+    let storeId = preferredStoreId || order.store_id;
     if (!storeId) {
       const originMatch = order.notes?.match(/Origin:\s*([^|]+)/);
       if (originMatch && originMatch[1]) {
@@ -40,8 +40,8 @@ export async function deductRefillStock(orderId: number, preferredStoreId?: numb
         else if (originName.includes('tangerang')) storeId = 3;
       }
     }
-    // Default fallback ke cabang 1 (Condet) jika tidak terdeteksi
-    if (!storeId) storeId = 1;
+    // Default fallback ke cabang 2 (Rawa Belong) jika tidak terdeteksi
+    if (!storeId) storeId = 2;
 
     // 4. Cari custom request ID dari notes
     const customReqMatch = order.notes?.match(/CustomRequestID:\s*([^|]+)/);

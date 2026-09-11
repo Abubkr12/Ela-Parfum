@@ -137,6 +137,17 @@ export async function POST(req: Request) {
                   .from('product_stocks')
                   .update({ stock_qty: newQty })
                   .eq('id', stockData.id);
+
+                // Sync aggregate stock in perfume_sizes for backward compatibility
+                const { data: allStocks } = await supabaseAdmin
+                  .from('product_stocks')
+                  .select('stock_qty')
+                  .eq('perfume_size_id', item.size_id);
+                const totalQty = (allStocks || []).reduce((sum, s) => sum + (s.stock_qty || 0), 0);
+                await supabaseAdmin
+                  .from('perfume_sizes')
+                  .update({ stock: totalQty })
+                  .eq('id', item.size_id);
                   
                 // Insert changelog
                 await supabaseAdmin

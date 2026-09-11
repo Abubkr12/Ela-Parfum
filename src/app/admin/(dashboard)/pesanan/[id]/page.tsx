@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRupiah } from "@/lib/types";
 import Link from "next/link";
 import { ChevronLeft, Truck, Package, User, MapPin, CheckCircle, XCircle, FileImage } from "lucide-react";
-import { markAsPaid, updateResiStatus, rejectPayment, retryWebhook } from "../actions";
+import { markAsPaid, updateResiStatus, rejectPayment, retryWebhook, markAsReadyForPickup, confirmCashPaymentAndComplete, markPickupCompleted } from "../actions";
 import { PaymentProofModal } from "../PaymentProofModal";
 import { SyncWebhookButton } from "./SyncWebhookButton";
 
@@ -200,16 +200,43 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
             </div>
           )}
 
-          {/* Shipping Update Form */}
+          {/* Fulfillment Card */}
           <div style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border)", borderRadius: "var(--r-lg)", padding: 24 }}>
             <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 20 }}>
-              <Truck size={18} style={{ color: "var(--c-gold)" }} />
-              Status Pengiriman
+              {order.fulfillment_type === 'pickup' ? (
+                <>
+                  <Package size={18} style={{ color: "var(--c-gold)" }} />
+                  Pengambilan di Toko (Pickup)
+                </>
+              ) : (
+                <>
+                  <Truck size={18} style={{ color: "var(--c-gold)" }} />
+                  Status Pengiriman Kurir
+                </>
+              )}
             </h2>
             
-            <div style={{ padding: "12px", background: "var(--glass-bg)", borderRadius: "var(--r-md)", fontSize: "0.85rem", color: "var(--c-ink)", marginBottom: 20, border: "1px solid var(--glass-border)" }}>
-              {order.notes}
+            {/* Cabang Info */}
+            <div style={{ padding: "14px", background: "var(--glass-bg)", borderRadius: "var(--r-md)", border: "1px solid var(--c-border)", marginBottom: 16 }}>
+              <div style={{ fontSize: "0.75rem", color: "var(--c-gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+                {order.fulfillment_type === 'pickup' ? "Lokasi Toko Pengambilan" : "Cabang Pengirim"}
+              </div>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 2 }}>
+                {order.store_id === 1 ? "Ela Parfum Condet" : order.store_id === 3 ? "Ela Parfum Tangerang" : "Ela Parfum Rawa Belong"}
+              </div>
+              <div style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)" }}>
+                {order.store_id === 1 
+                  ? "Jl. Raya Condet No. 1, Cililitan, Kramat Jati, Jakarta Timur"
+                  : order.store_id === 3
+                  ? "Jl. Pondok Kacang No. 36, Parung Serab, Ciledug, Tangerang"
+                  : "Jl. Raya Kb. Jeruk No.57B, Palmerah, Jakarta Barat"}
+              </div>
             </div>
+
+            <div style={{ padding: "12px", background: "var(--c-surface-2)", borderRadius: "var(--r-md)", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 20, border: "1px solid var(--c-border)" }}>
+              <span style={{ fontWeight: 600, color: "var(--c-ink)" }}>Catatan: </span>{order.notes || "-"}
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
               <div style={{ padding: 12, background: "var(--c-surface-2)", borderRadius: "var(--r-md)", border: "1px solid var(--c-border)" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 4 }}>Metode Bayar</div>
@@ -217,73 +244,149 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
               </div>
               <div style={{ padding: 12, background: "var(--c-surface-2)", borderRadius: "var(--r-md)", border: "1px solid var(--c-border)" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 4 }}>Status Bayar</div>
-                <div style={{ fontSize: "0.85rem", color: order.payment_status === "paid" ? "var(--c-teal)" : (order.payment_status === "waiting_confirmation" ? "var(--c-gold)" : "var(--c-ink-dim)"), fontWeight: 600 }}>
-                  {order.payment_status === "paid" ? "Lunas" : (order.payment_status === "waiting_confirmation" ? "Dibayar (Menunggu Verifikasi)" : "Belum Dibayar")}
+                <div style={{ fontSize: "0.85rem", color: order.payment_status === "paid" ? "var(--c-teal)" : (order.payment_status === "waiting_confirmation" ? "var(--c-gold)" : "var(--c-rose)"), fontWeight: 600 }}>
+                  {order.payment_status === "paid" ? "Lunas" : (order.payment_status === "waiting_confirmation" ? "Menunggu Verifikasi" : "Belum Dibayar")}
                 </div>
               </div>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <SyncWebhookButton orderCode={order.order_code} />
-            </div>
+            {order.payment_method?.includes("QRIS") && order.payment_status !== "paid" && (
+              <div style={{ marginBottom: 20 }}>
+                <SyncWebhookButton orderCode={order.order_code} />
+              </div>
+            )}
 
-            {(() => {
-              const bsMatch = order.notes?.match(/Biteship Order ID:\s*([a-zA-Z0-9_-]+)/i);
-              const biteshipOrderId = bsMatch ? bsMatch[1] : null;
-
-              if (biteshipOrderId) {
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div style={{ padding: 16, background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "var(--r-md)" }}>
-                      <h4 style={{ fontSize: "0.95rem", color: "var(--c-ink)", marginBottom: 12, fontWeight: 600 }}>Pengiriman via Biteship</h4>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Nomor Resi / AWB:</span>
-                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)" }}>{order.waybill_number || "Menunggu Pickup"}</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Status Pengiriman:</span>
-                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)" }}>
-                          {order.status === 'completed' ? 'Selesai' : (order.waybill_number ? 'Dalam Pengiriman' : 'Diproses')}
-                        </span>
-                      </div>
+            {/* AKSI KHUSUS AMBIL DI TOKO */}
+            {order.fulfillment_type === 'pickup' ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {order.status === 'completed' ? (
+                  <div style={{ padding: 16, background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: "var(--r-md)", textAlign: "center" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#10b981", fontWeight: 600, fontSize: "0.95rem" }}>
+                      <CheckCircle size={18} /> Pesanan Telah Selesai & Diserahkan
                     </div>
-                    <a 
-                      href={`/api/shipping/waybill?id=${biteshipOrderId}`} 
-                      target="_blank" 
-                      className="btn btn-primary" 
-                      style={{ width: "100%", justifyContent: "center", padding: "12px", textAlign: "center", textDecoration: "none" }}
-                    >
-                      Cetak Label Pengiriman (Resi)
-                    </a>
+                    <div style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)", marginTop: 4 }}>
+                      Transaksi tuntas pada {new Date(order.updated_at || order.created_at).toLocaleDateString('id-ID', { hour: '2-digit', minute: '2-digit' })}.
+                    </div>
                   </div>
-                );
-              }
+                ) : order.status === 'ready_for_pickup' ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ padding: 14, background: "rgba(234, 179, 8, 0.1)", border: "1px solid rgba(234, 179, 8, 0.3)", borderRadius: "var(--r-md)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--c-gold)", fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>
+                        <Package size={16} /> Siap Diambil di Kasir
+                      </div>
+                      <p style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)", margin: 0 }}>
+                        Parfum sudah diracik & dikemas. Menunggu pembeli datang ke counter toko.
+                      </p>
+                    </div>
 
-              return (
-                <form action={updateResiStatus} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <input type="hidden" name="orderId" value={order.id} />
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 8 }}>Nomor Resi Manual (AWB)</label>
-                    <input 
-                      type="text" 
-                      name="waybillNumber" 
-                      defaultValue={order.waybill_number || ''}
-                      className="input-field" 
-                      style={{ width: "100%", padding: "10px 16px", background: "var(--bg-color)", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", color: "var(--c-ink)" }} 
-                      placeholder="Misal: JP71829038" 
-                    />
+                    {order.payment_status !== 'paid' ? (
+                      <form action={confirmCashPaymentAndComplete}>
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <button 
+                          type="submit" 
+                          className="btn btn-primary" 
+                          style={{ width: "100%", justifyContent: "center", padding: "14px", background: "linear-gradient(135deg, #10b981, #059669)", border: "none", color: "#fff", fontWeight: 600, fontSize: "0.95rem" }}
+                        >
+                          <CheckCircle size={18} /> Terima Uang Tunai & Selesaikan Pesanan
+                        </button>
+                      </form>
+                    ) : (
+                      <form action={markPickupCompleted}>
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <button 
+                          type="submit" 
+                          className="btn btn-primary" 
+                          style={{ width: "100%", justifyContent: "center", padding: "14px", background: "linear-gradient(135deg, #10b981, #059669)", border: "none", color: "#fff", fontWeight: 600, fontSize: "0.95rem" }}
+                        >
+                          <CheckCircle size={18} /> Serahkan Pesanan ke Pelanggan (Selesai)
+                        </button>
+                      </form>
+                    )}
                   </div>
-                  
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary" 
-                    style={{ width: "100%", justifyContent: "center", padding: "12px" }}
-                  >
-                    Tandai Sudah Dikirim
-                  </button>
-                </form>
-              );
-            })()}
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ padding: 14, background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "var(--r-md)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3b82f6", fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>
+                        <Package size={16} /> Sedang Disiapkan / Diracik
+                      </div>
+                      <p style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)", margin: 0 }}>
+                        Staf toko sedang mempersiapkan racikan parfum ini. Klik tombol di bawah setelah parfum siap diambil.
+                      </p>
+                    </div>
+
+                    <form action={markAsReadyForPickup}>
+                      <input type="hidden" name="orderId" value={order.id} />
+                      <button 
+                        type="submit" 
+                        className="btn btn-primary" 
+                        style={{ width: "100%", justifyContent: "center", padding: "14px", background: "var(--c-gold)", color: "#000", fontWeight: 600 }}
+                      >
+                        <Package size={18} /> Tandai Siap Diambil di Toko
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* AKSI PENGIRIMAN KURIR EKSPEDISI */
+              (() => {
+                const bsMatch = order.notes?.match(/Biteship Order ID:\s*([a-zA-Z0-9_-]+)/i);
+                const biteshipOrderId = bsMatch ? bsMatch[1] : null;
+
+                if (biteshipOrderId) {
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      <div style={{ padding: 16, background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "var(--r-md)" }}>
+                        <h4 style={{ fontSize: "0.95rem", color: "var(--c-ink)", marginBottom: 12, fontWeight: 600 }}>Pengiriman via Biteship</h4>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Nomor Resi / AWB:</span>
+                          <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)" }}>{order.waybill_number || "Menunggu Pickup"}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>Status Pengiriman:</span>
+                          <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)" }}>
+                            {order.status === 'completed' ? 'Selesai' : (order.waybill_number ? 'Dalam Pengiriman' : 'Diproses')}
+                          </span>
+                        </div>
+                      </div>
+                      <a 
+                        href={`/api/shipping/waybill?id=${biteshipOrderId}`} 
+                        target="_blank" 
+                        className="btn btn-primary" 
+                        style={{ width: "100%", justifyContent: "center", padding: "12px", textAlign: "center", textDecoration: "none" }}
+                      >
+                        Cetak Label Pengiriman (Resi)
+                      </a>
+                    </div>
+                  );
+                }
+
+                return (
+                  <form action={updateResiStatus} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 8 }}>Nomor Resi Manual (AWB)</label>
+                      <input 
+                        type="text" 
+                        name="waybillNumber" 
+                        defaultValue={order.waybill_number || ''}
+                        className="input-field" 
+                        style={{ width: "100%", padding: "10px 16px", background: "var(--bg-color)", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", color: "var(--c-ink)" }} 
+                        placeholder="Misal: JP71829038" 
+                      />
+                    </div>
+                    
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary" 
+                      style={{ width: "100%", justifyContent: "center", padding: "12px" }}
+                    >
+                      Tandai Sudah Dikirim
+                    </button>
+                  </form>
+                );
+              })()
+            )}
           </div>
 
         </div>

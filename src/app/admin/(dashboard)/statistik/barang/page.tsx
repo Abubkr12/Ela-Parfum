@@ -3,6 +3,22 @@ import BarangClient from "./BarangClient";
 
 export const dynamic = 'force-dynamic';
 
+async function fetchAllBatched<T = any>(
+  queryFn: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+): Promise<T[]> {
+  const results: T[] = [];
+  let from = 0;
+  const batchSize = 1000;
+  while (true) {
+    const { data, error } = await queryFn(from, from + batchSize - 1);
+    if (error || !data || data.length === 0) break;
+    results.push(...data);
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+  return results;
+}
+
 export default async function StatistikBarangPage() {
   const supabase = createAdminClient();
 
@@ -10,10 +26,13 @@ export default async function StatistikBarangPage() {
   const { data: stores } = await supabase.from("stores").select("*");
 
   // Fetch stock changelog
-  const { data: stockChangelog } = await supabase
-    .from("stock_changelog")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const stockChangelog = await fetchAllBatched(async (from, to) =>
+    await supabase
+      .from("stock_changelog")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(from, to)
+  );
 
   // Fetch product stocks
   const { data: productStocks } = await supabase
@@ -27,12 +46,15 @@ export default async function StatistikBarangPage() {
     `);
 
   // Fetch bibit stocks
-  const { data: bibitStocks } = await supabase
-    .from("bibit_stocks")
-    .select(`
-      *,
-      bibit:bibit_id (*)
-    `);
+  const bibitStocks = await fetchAllBatched(async (from, to) =>
+    await supabase
+      .from("bibit_stocks")
+      .select(`
+        *,
+        bibit:bibit_id (*)
+      `)
+      .range(from, to)
+  );
 
   // Fetch bottle stocks
   const { data: bottleStocks } = await supabase

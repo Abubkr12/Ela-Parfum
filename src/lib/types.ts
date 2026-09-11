@@ -92,11 +92,24 @@ export interface CustomerAddress {
 
 export type OrderStatus =
   | "pending"
+  | "paid"
   | "confirmed"
   | "processing"
+  | "ready_for_pickup"
   | "shipped"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "pending_verification";
+
+export interface Store {
+  id: number;
+  name: string;
+  address: string | null;
+  latitude?: number;
+  longitude?: number;
+  biteship_area_id?: string;
+  is_active: boolean;
+}
 
 export interface Order {
   id: number;
@@ -108,6 +121,8 @@ export interface Order {
   subtotal: number;
   discount: number;
   total: number;
+  store_id?: number | null;
+  fulfillment_type?: "delivery" | "pickup" | null;
   unique_code?: number | null;
   shipping_cost?: number | null;
   courier_name?: string | null;
@@ -127,6 +142,7 @@ export interface Order {
   updated_at: string;
   // Joined
   items?: OrderItem[];
+  stores?: Store | null;
 }
 
 export interface OrderItem {
@@ -250,14 +266,17 @@ export function getMinPrice(sizes: PerfumeSize[] | undefined): number {
   return Math.min(...sizes.filter((s) => s.is_active).map((s) => s.price));
 }
 
+export function getSizeStock(size: PerfumeSize | null | undefined): number {
+  if (!size) return 0;
+  if (Array.isArray(size.product_stocks) && size.product_stocks.length > 0) {
+    return size.product_stocks.reduce((acc, ps) => acc + (ps.stock_qty || 0), 0);
+  }
+  return typeof size.stock === "number" ? size.stock : 0;
+}
+
 export function getTotalStock(sizes: PerfumeSize[] | undefined): number {
   if (!sizes || sizes.length === 0) return 0;
-  return sizes.reduce((sum, s) => {
-    if (s.product_stocks && s.product_stocks.length > 0) {
-      return sum + s.product_stocks.reduce((acc, ps) => acc + ps.stock_qty, 0);
-    }
-    return sum + s.stock;
-  }, 0);
+  return sizes.reduce((sum, s) => sum + getSizeStock(s), 0);
 }
 
 export function slugify(text: string): string {

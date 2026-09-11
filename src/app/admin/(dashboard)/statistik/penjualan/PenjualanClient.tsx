@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import {
   CalendarIcon,
@@ -73,6 +73,11 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
   // Pagination
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, paymentFilter, selectedStore, timeRange, customStart, customEnd]);
   
   // Filter logic for orders based on time range
   const filteredOrders = useMemo(() => {
@@ -937,6 +942,7 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
                   <option value={10}>10</option>
                   <option value={25}>25</option>
                   <option value={50}>50</option>
+                  <option value={100}>100</option>
                 </select>
               </div>
               

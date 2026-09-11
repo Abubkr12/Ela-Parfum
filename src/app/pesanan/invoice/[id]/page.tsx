@@ -1,9 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRupiah } from "@/lib/types";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, Store, MapPin } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import PrintButton from "./PrintButton";
+import { ELA_STORES } from "@/lib/stores";
 
 export default async function InvoiceRegularPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = createAdminClient();
@@ -32,6 +33,29 @@ export default async function InvoiceRegularPage({ params }: { params: Promise<{
     .select("*")
     .eq("order_id", id);
 
+  const isPickup = order.fulfillment_type === 'pickup';
+  const orderStore = ELA_STORES.find((s) => s.id === order.store_id) || ELA_STORES[1];
+
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'ready_for_pickup':
+        return { label: 'SIAP DIAMBIL DI TOKO', color: '#d97706' };
+      case 'paid':
+        return { label: 'LUNAS', color: '#10b981' };
+      case 'processing':
+        return { label: isPickup ? 'SEDANG DIRACIK' : 'MENUNGGU DIKIRIM', color: '#8b5cf6' };
+      case 'shipped':
+        return { label: 'DALAM PENGIRIMAN', color: '#0ea5e9' };
+      case 'completed':
+        return { label: 'SELESAI', color: '#10b981' };
+      case 'cancelled':
+        return { label: 'DIBATALKAN', color: '#ef4444' };
+      default:
+        return { label: 'MENUNGGU PEMBAYARAN', color: '#f59e0b' };
+    }
+  };
+  const statusInfo = getStatusDisplay(order.status);
+
   return (
     <div style={{ minHeight: "100vh", background: "#f5f5f5", padding: "40px 20px" }}>
       <div style={{ maxWidth: 800, margin: "0 auto" }}>
@@ -53,9 +77,8 @@ export default async function InvoiceRegularPage({ params }: { params: Promise<{
             <div>
               <img src="/assets/invoice/elaparfum_logo.png" alt="Ela Parfum" style={{ height: 60, marginBottom: 12, objectFit: "contain" }} />
               <p style={{ margin: 0, fontSize: "0.9rem", color: "#666", lineHeight: "1.5" }}>
-                <strong style={{ color: "#333" }}>Ela Parfum Pusat</strong><br />
-                Jl. Condet Raya, Kramat Jati<br />
-                Jakarta Timur, DKI Jakarta 13520<br />
+                <strong style={{ color: "#333" }}>{orderStore.name}</strong><br />
+                {orderStore.address}<br />
                 Email: admin@elaparfum.com
               </p>
             </div>
@@ -67,22 +90,46 @@ export default async function InvoiceRegularPage({ params }: { params: Promise<{
             </div>
           </div>
 
-          {/* Customer Info */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 40 }}>
+          {/* Customer & Order Info */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 40 }}>
             <div>
-              <h3 style={{ fontSize: "0.85rem", color: "#666", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Tagihan Kepada:</h3>
+              <h3 style={{ fontSize: "0.85rem", color: "#666", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>
+                {isPickup ? 'Informasi Pelanggan:' : 'Tagihan Kepada:'}
+              </h3>
               <p style={{ fontWeight: 600, margin: "0 0 4px 0", fontSize: "1.1rem" }}>{order.customer_name}</p>
-              <p style={{ margin: "0 0 4px 0", color: "#444" }}>{order.customer_whatsapp}</p>
-              <p style={{ margin: 0, color: "#444", fontSize: "0.9rem" }}>
-                {order.shipping_address}<br/>
-                {order.shipping_city}, {order.shipping_province} {order.shipping_postal_code}
-              </p>
+              <p style={{ margin: "0 0 8px 0", color: "#444" }}>{order.customer_whatsapp}</p>
+              {isPickup ? (
+                <div style={{ background: "#f9f9f9", padding: "10px 14px", borderRadius: "6px", border: "1px solid #eee", marginTop: "8px" }}>
+                  <div style={{ fontSize: "0.8rem", color: "#b45309", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+                    Titik Ambil di Toko:
+                  </div>
+                  <div style={{ fontWeight: 600, color: "#222", fontSize: "0.88rem" }}>{orderStore.name}</div>
+                  <div style={{ color: "#666", fontSize: "0.82rem", lineHeight: 1.4, marginTop: 2 }}>{orderStore.address}</div>
+                  <div style={{ color: "#888", fontSize: "0.8rem", marginTop: 4 }}>Jam Buka: 08:00 - 22:00 WIB</div>
+                </div>
+              ) : (
+                <p style={{ margin: 0, color: "#444", fontSize: "0.9rem", lineHeight: 1.5 }}>
+                  {order.shipping_address}<br/>
+                  {order.shipping_city}, {order.shipping_province} {order.shipping_postal_code}
+                </p>
+              )}
             </div>
             <div style={{ textAlign: "right" }}>
               <h3 style={{ fontSize: "0.85rem", color: "#666", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Detail Pesanan:</h3>
               <p style={{ margin: "0 0 4px 0", color: "#444" }}><span style={{ fontWeight: 600 }}>Tanggal:</span> {new Date(order.created_at).toLocaleDateString('id-ID')}</p>
-              <p style={{ margin: "0 0 4px 0", color: "#444" }}><span style={{ fontWeight: 600 }}>Kurir:</span> {order.courier_name?.toUpperCase()} {order.courier_service}</p>
-              <p style={{ margin: "0 0 4px 0", color: "#444" }}><span style={{ fontWeight: 600 }}>Status:</span> <span style={{ color: order.status === 'paid' || order.status === 'shipped' || order.status === 'completed' ? '#10b981' : '#f59e0b', fontWeight: 600 }}>{order.status.toUpperCase()}</span></p>
+              <p style={{ margin: "0 0 4px 0", color: "#444" }}>
+                <span style={{ fontWeight: 600 }}>Tipe:</span> {isPickup ? 'Ambil di Toko' : 'Pengiriman Kurir'}
+              </p>
+              <p style={{ margin: "0 0 4px 0", color: "#444" }}>
+                <span style={{ fontWeight: 600 }}>{isPickup ? 'Cabang Toko:' : 'Kirim Dari:'}</span> {orderStore.shortName}
+              </p>
+              {!isPickup && (
+                <p style={{ margin: "0 0 4px 0", color: "#444" }}><span style={{ fontWeight: 600 }}>Kurir:</span> {order.courier_name?.toUpperCase()} {order.courier_service}</p>
+              )}
+              <p style={{ margin: "0 0 4px 0", color: "#444" }}>
+                <span style={{ fontWeight: 600 }}>Metode Bayar:</span> {order.payment_method || 'Online'}
+              </p>
+              <p style={{ margin: "0 0 4px 0", color: "#444" }}><span style={{ fontWeight: 600 }}>Status:</span> <span style={{ color: statusInfo.color, fontWeight: 700 }}>{statusInfo.label}</span></p>
             </div>
           </div>
 

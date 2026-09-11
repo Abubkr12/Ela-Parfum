@@ -1,8 +1,9 @@
 import { createServerSupabase } from "@/lib/supabase-server";
 import { formatRupiah } from "@/lib/types";
-import { Printer, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import PrintButton from "../../[id]/PrintButton";
 
 export default async function InvoiceCustomPage({ params }: { params: { id: string } }) {
   const supabase = await createServerSupabase();
@@ -32,12 +33,7 @@ export default async function InvoiceCustomPage({ params }: { params: { id: stri
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, color: "#666", textDecoration: "none", fontWeight: 500 }}>
             <ArrowLeft size={16} /> Kembali
           </Link>
-          <button 
-            onClick={() => window.print()}
-            style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--c-gold)", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
-          >
-            <Printer size={16} /> Cetak Invoice
-          </button>
+          <PrintButton />
         </div>
 
         {/* Invoice Paper */}
@@ -51,7 +47,7 @@ export default async function InvoiceCustomPage({ params }: { params: { id: stri
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: "1.5rem", fontWeight: "bold", fontFamily: "var(--font-display)", color: "var(--c-gold)" }}>Ela Parfum</div>
-              <p style={{ color: "#666", margin: "4px 0 0 0", fontSize: "0.9rem" }}>Jl. Contoh Alamat No. 123<br/>Jakarta Selatan, Indonesia</p>
+              <p style={{ color: "#666", margin: "4px 0 0 0", fontSize: "0.9rem" }}>Jl. Raya Condet No. 1, Kramat Jati<br/>Jakarta Timur, DKI Jakarta 13640</p>
             </div>
           </div>
 

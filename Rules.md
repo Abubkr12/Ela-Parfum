@@ -89,3 +89,50 @@ Minyak Wangi/
 5. **Akses Admin**:
    - Halaman **Stok** (`/admin/stok`) adalah sumber kebenaran (Source of Truth) untuk mutasi barang.
    - Halaman **Katalog** bersifat *read-only* untuk jumlah stok (sum agregasi).
+6. **Standar Statistik & Visualisasi Barang**:
+   - Visualisasi pergerakan stok menggunakan dual-metric: **Barang Keluar** (Merah / Rose `#EF4444`) dan **Barang Masuk** (Hijau / Emerald `#10B981`) untuk membandingkan inflow dan outflow.
+   - Mengingat limit default PostgREST Supabase membatasi 1.000 row per request, query pada tabel bervolume > 1.000 row (seperti `stock_changelog` dan `bibit_stocks`) WAJIB menggunakan batch range pagination agar data multi-cabang (Condet, Rawabelong, Tangerang) tidak terpotong.
+7. **Integritas Agregasi & Anti-Duplikasi Stok**:
+   - Catatan mutasi bertipe `reason === 'baseline'` adalah snapshot awal database dan dilarang dihitung sebagai transaksi arus masuk/keluar serta dilarang membuat entitas barang baru di luar master katalog.
+   - Nama entitas di changelog wajib dinormalisasi (misal pembersihan sufiks kapasitas `(XXml)` pada botol) agar teragregasi tepat ke master entitas.
+   - Entitas dengan kondisi `stock === 0 && out === 0 && in === 0` harus diabaikan dari tabel statistik untuk mencegah baris hantu (ghost duplicates).
+
+8. **Standar Arsitektur Dashboard Admin (/admin)**:
+   - **Peran Utama**: Berfungsi sebagai *Operational Command Center* terpadu untuk keputusan cepat admin harian (bukan sekadar replika grafik dari `/admin/statistik`).
+   - **Bypass RLS & Security**: Menggunakan `createAdminClient()` (Service Role) di Server Component dan Server Actions agar seluruh transaksi pesanan dan stok dari database teragregasi secara akurat tanpa terpotong RLS anon token.
+   - **Live Polling & Manual Sync**: Mekanisme auto-refresh setiap 60 detik secara halus tanpa reload browser, disertai tombol manual *Segarkan Data* dengan indikator timestamp relatif dan feedback toast `sonner`.
+   - **Radar Stok Kritis Multi-Cabang**: Agregasi stok menipis dengan threshold (bibit < 500ml, botol < 20 pcs, pelarut < 1000ml) dilengkapi filter cabang independen (Semua Cabang, Condet, Rawabelong, Tangerang).
+   - **Higienitas Visual**: Wajib 100% menggunakan icon `lucide-react` (dilarang keras menggunakan stock emoji Unicode seperti icon tips), desain responsif mobile-first, dan berpadu selaras dengan sistem variabel CSS (`var(--c-gold)`, `var(--c-surface-1)`, `var(--c-ink)`).
+
+9. **Standar Arsitektur Sistem Pesanan Multi-Cabang & Kasir Toko**:
+   - **Struktur Data Cabang**: Menggunakan foreign key `store_id INT REFERENCES stores(id)` dan `fulfillment_type TEXT CHECK (fulfillment_type IN ('delivery', 'pickup'))` pada tabel `orders`.
+     - Store 1: Condet (Jakarta Timur)
+     - Store 2: Rawa Belong (Jakarta Barat)
+     - Store 3: Tangerang (Ciledug)
+   - **Routing Jalan Aktual & Geolocation**:
+     - Perhitungan jarak pengiriman ke alamat customer menggunakan OpenStreetMap OSRM driving routing API via `getRoadDistance` (`src/lib/stores.ts`) dengan fallback Haversine factor 1.3x circuity.
+     - Opsi *Ambil di Toko* memanfaatkan `navigator.geolocation` browser customer untuk mengukur jarak jalan realtime ke ketiga toko fisik.
+     - Cabang terdekat secara otomatis direkomendasikan dengan badge highlight emas.
+   - **Validasi Stok Multi-Cabang**:
+     - Sebelum checkout diizinkan, API `/api/stores/check-stock` memvalidasi stok riil item pesanan (produk jadi di `product_stocks` atau racikan bibit di `bibit_stocks` dan botol di `bottle_stocks`) di ketiga cabang.
+     - Toko cabang yang stoknya tidak mencukupi dinonaktifkan dari pilihan customer dengan indikator status badge stok habis.
+   - **Integrasi Ongkir Dinamis Biteship**:
+     - Endpoint `/api/shipping/rates` menerima parameter dinamis `origin_store_id` untuk menentukan koordinat dan area ID asal penjemputan paket kurir Biteship.
+   - **Pemisahan Status Pembayaran vs Pemenuhan**:
+     - Tabel Admin `/admin/pesanan` memisahkan secara tegas `Status Pembayaran` (`Menunggu Pembayaran`, `Lunas`, `Ditolak`) dan `Status Pemenuhan` (`Menunggu Diproses`, `Sedang Diracik`, `Siap Diambil di Toko`, `Dalam Pengiriman`, `Selesai`, `Dibatalkan`).
+     - Nilai status mentah webhook Mayar (`paid`) dinormalisasi menjadi badge visual `LUNAS` dan tidak lagi muncul sebagai plain text unstyled.
+   - **Alur Kasir Toko (Ambil di Toko / Pickup)**:
+     - Pesanan pickup tidak menampilkan form input nomor resi kurir di detail pesanan `/admin/pesanan/[id]`.
+     - Kasir dapat menekan tombol operasional terarah:
+       1. *Tandai Siap Diambil di Toko* (`markAsReadyForPickup`): Mengubah status menjadi `ready_for_pickup`.
+       2. *Terima Uang Tunai & Selesaikan Pesanan* (`confirmCashPaymentAndComplete`): Untuk pesanan tunai, mengonfirmasi penerimaan uang, mengubah `payment_status = 'paid'`, `status = 'completed'`, memotong stok cabang pesanan secara otomatis, dan mencatat `stock_changelog`.
+       3. *Serahkan Pesanan ke Pelanggan* (`markPickupCompleted`): Untuk pesanan yang sudah dibayar (QRIS), menandai pesanan selesai setelah parfum diserahkan.
+   - **Halaman Riwayat & Invoice Pelanggan**:
+     - Riwayat pesanan (`/riwayat-pesanan`) dan lembar invoice (`/pesanan/invoice/[id]`, `/riwayat-pesanan/invoice/[id]`, kustom) menampilkan detail nama cabang, alamat lengkap pengambilan, jam buka, dan instruksi bayar tunai di kasir tanpa kebingungan.
+
+10. **Standar Sinkronisasi Stok Produk Detail (/parfum/[id]) & Agregasi Multi-Cabang**:
+    - **Single Source of Truth**: Tabel `product_stocks` (dihubungkan via `perfume_size_id` dan `store_id`) adalah sumber kebenaran stok fisik produk jadi di setiap cabang (Condet, Rawabelong, Tangerang).
+    - **Bypass Anon RLS via Proxy**: Karena query anonim Supabase browser client tidak memiliki akses SELECT ke `product_stocks`, data varian ukuran untuk halaman publik (`/katalog`, `/parfum/[id]`) wajib diambil melalui endpoint proxy server `/api/product-stocks` (mendukung filter `?perfume_id=...`) yang dieksekusi dengan Service Role Admin client.
+    - **Helper Kalkulasi Standar**: Seluruh tampilan UI (kartu katalog, button ukuran di detail produk, chip AI advisor) wajib menggunakan helper `getSizeStock(size)` dan `getTotalStock(sizes)` dari `src/lib/types.ts` yang menjumlahkan `stock_qty` dari relasi `product_stocks`.
+    - **Sinkronisasi Otomatis Dual-Write**: Setiap mutasi stok produk di Admin (`/admin/stok`), checkout kasir tunai, atau webhook Mayar QRIS wajib memperbarui `product_stocks` sekaligus meng-update kolom agregat `perfume_sizes.stock` agar konsistensi query lama dan fallback tetap terjaga 100%.
+    - **Toleransi URL & Slug**: Halaman `/parfum/[id]` wajib mendukung pencocokan toleran baik slug dash (`-`), underscore (`_`), maupun ID numeric dengan sanitasi `decodeURIComponent` untuk mencegah error 404 atau render kosong.

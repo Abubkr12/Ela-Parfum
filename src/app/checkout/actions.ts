@@ -100,6 +100,10 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
       total += fee;
     }
 
+    const storeIdStr = formData.get('storeId') as string;
+    const storeId = storeIdStr ? parseInt(storeIdStr, 10) : 2;
+    const fulfillmentType = (formData.get('fulfillmentType') as string || (courierInfo?.toLowerCase().includes('ambil') ? 'pickup' : 'delivery')) as 'delivery' | 'pickup';
+
     const orderCode = generateOrderCode();
 
     const { data: orderData, error: orderError } = await supabaseAdmin
@@ -110,6 +114,8 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         customer_name: fullName,
         customer_phone: phone,
         customer_address: address,
+        store_id: storeId,
+        fulfillment_type: fulfillmentType,
         subtotal: subtotal,
         discount: discount,
         shipping_cost: shippingCost,
@@ -117,7 +123,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
+        notes: `Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | StoreID: ${storeId} | Fulfillment: ${fulfillmentType} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
       })
       .select('id, order_code')
       .single();
@@ -146,7 +152,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
           .from('product_stocks')
           .select('id, stock_qty')
           .eq('perfume_size_id', item.sizeId)
-          .eq('store_id', 2)
+          .eq('store_id', storeId)
           .single();
           
         if (stockData) {
@@ -156,7 +162,18 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
             .from('product_stocks')
             .update({ stock_qty: newQty })
             .eq('perfume_size_id', item.sizeId)
-            .eq('store_id', 2);
+            .eq('store_id', storeId);
+
+          // Sync aggregate stock in perfume_sizes for backward compatibility
+          const { data: allStocks } = await supabaseAdmin
+            .from('product_stocks')
+            .select('stock_qty')
+            .eq('perfume_size_id', item.sizeId);
+          const totalQty = (allStocks || []).reduce((sum, s) => sum + (s.stock_qty || 0), 0);
+          await supabaseAdmin
+            .from('perfume_sizes')
+            .update({ stock: totalQty })
+            .eq('id', item.sizeId);
             
           await supabaseAdmin
             .from('stock_changelog')
@@ -164,7 +181,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
               entity_type: 'product',
               entity_id: stockData.id,
               entity_name: `${item.perfumeName} - ${item.sizeLabel}`,
-              store_id: 2,
+              store_id: storeId,
               change_qty: -item.quantity,
               new_qty: newQty,
               reason: 'sale',
@@ -304,6 +321,10 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
       await supabaseAdmin.from('orders').update({ status: 'cancelled' }).in('id', existingIds);
     }
 
+    const storeIdStr = formData.get('storeId') as string;
+    const storeId = storeIdStr ? parseInt(storeIdStr, 10) : 2;
+    const fulfillmentType = (formData.get('fulfillmentType') as string || (courierInfo?.toLowerCase().includes('ambil') ? 'pickup' : 'delivery')) as 'delivery' | 'pickup';
+
     // 1. Create order record in orders table
     const { data: orderData, error: orderError } = await supabaseAdmin
       .from('orders')
@@ -313,6 +334,8 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         customer_name: fullName,
         customer_phone: phone,
         customer_address: address,
+        store_id: storeId,
+        fulfillment_type: fulfillmentType,
         subtotal: subtotal,
         discount: discount,
         shipping_cost: shippingCost,
@@ -320,7 +343,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''} | CustomRequestID: ${customRequestId}`
+        notes: `[Custom Refill] ${request.description} | Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | StoreID: ${storeId} | Fulfillment: ${fulfillmentType} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''} | CustomRequestID: ${customRequestId}`
       })
       .select('id, order_code')
       .single();

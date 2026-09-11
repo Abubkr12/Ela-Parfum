@@ -1,11 +1,66 @@
 # Task List
 
+## Aktif / In Progress
+- [ ] **Persiapan & Eksekusi Deployment Domain `elaparfum.web.id`:**
+  - [x] **Audit Build Produksi & Type-checking:** Lolos uji kompilasi `npm run build` (68 rute dinamis lolos tanpa error).
+  - [x] **Sanitasi Git & Cache:** Bersihkan cache build `.next`, perbarui `tsconfig.json` & `.gitignore` (abaikan scratch files).
+  - [ ] **Commit & Push GitHub:** Push seluruh fitur terkini (multi-cabang, command center dashboard admin, sinkronisasi stok, routing rute jalan) ke repository `origin/main`.
+  - [ ] **Delegasi DNS DomaiNesia ke Cloudflare:** Tambahkan site di Cloudflare, ganti NS di MyDomaiNesia ke nameservers Cloudflare.
+  - [ ] **Konfigurasi Origin & Edge Security:** Hubungkan domain ke origin deployment, set SSL Full (Strict), matikan Rocket Loader & Auto Minify, amankan env secrets.
+
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
 - [ ] **Penanganan Kendala:** Buat alur untuk Pesanan Dibatalkan setelah dibayar (Opsi mengajukan pengiriman ulang ke Biteship atau Pengembalian Dana/Refund via Mayar).
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Fix Sinkronisasi Stok Detail Produk (/parfum/[id]):**
+  - [x] **Update Types Helper (`src/lib/types.ts`):** Tambah helper `getSizeStock(size: PerfumeSize)` yang menghitung agregasi riil dari relasi `product_stocks` across 3 cabang, serta selaraskan fungsi `getTotalStock`.
+  - [x] **API Route Stok Produk (`src/app/api/product-stocks/route.ts`):** Tambah dukungan filter query `?perfume_id=...` dengan select `*, product_stocks(store_id, stock_qty)` diurutkan `size_ml` menggunakan Service Role client untuk mem-bypass batasan anon RLS.
+  - [x] **Halaman Detail Produk (`src/app/parfum/[id]/page.tsx`):**
+    - [x] Perbaiki data fetching sizes agar memanggil `/api/product-stocks?perfume_id=...` dengan fallback join Supabase.
+    - [x] Normalisasi pencocokan slug dan URL decoding (mendukung dash `-`, underscore `_`, dan ID numeric) mencegah mismatch rute.
+    - [x] Gunakan `getSizeStock(s)` pada card ukuran, status badge, tombol disabled, dan label stok riil cabang (menghilangkan bug "Habis" atau stok cabang tunggal).
+    - [x] Batasi counter kuantitas maksimal belanja (`Plus`) agar tidak melebihi stok agregat yang tersedia.
+  - [x] **Landing Page & Hero Advisor (`src/app/page.tsx` & `customer-experience.tsx`):** Query sizes dengan `product_stocks` via admin client dan tampilkan stok akurat pada chip preview rekomendasi aroma.
+  - [x] **Sinkronisasi Otomatis Database:**
+    - [x] Backfill seluruh data `perfume_sizes.stock` agar setara dengan akumulasi riil 3 cabang di `product_stocks`.
+    - [x] Update action `updateProductStock` di admin stok, checkout action, dan webhook Mayar agar otomatis memperbarui kolom agregat `perfume_sizes.stock` secara konsisten.
+  - [x] **Verifikasi & Build:** Lolos verifikasi type checking TypeScript (`npx tsc --noEmit`) 0 error dan sukses build produksi (`npm run build`).
+- [x] **Sistem Pesanan Multi-Cabang & Alur Kasir Toko:**
+  - [x] **Migrasi Database:** Tambah kolom `store_id INT REFERENCES stores(id)` dan `fulfillment_type TEXT CHECK ('delivery', 'pickup')` pada tabel `orders`, update check constraint status (`ready_for_pickup`), serta backfill 40 pesanan lama.
+  - [x] **Routing Jarak Rute Jalan (OSRM Graph & Realtime GPS):** Implementasi engine kalkulasi jarak rute jalan aktual via OpenStreetMap OSRM driving API (`src/lib/stores.ts`) dengan fallback Haversine * 1.3x circuity factor. Endpoint `/api/stores/distances` menghitung jarak dan durasi berkendara dari koordinat pembeli ke 3 cabang Ela Parfum (Condet, Rawa Belong, Tangerang).
+  - [x] **Pengecekan Stok Multi-Cabang Real-time:** Endpoint `/api/stores/check-stock` memvalidasi ketersediaan stok fisik produk (`product_stocks`) dan racikan refill (`bibit_stocks`, `bottle_stocks`) di ketiga cabang. Cabang yang kehabisan stok otomatis dinonaktifkan dengan badge peringatan merah.
+  - [x] **Checkout Reguler & Kustom Multi-Cabang:** Segmented switcher `Dikirim Kurir` vs `Ambil di Toko`, rekomendasi cabang terdekat dengan tag badge emas, kartu cabang interaktif dengan indikator stok, serta deteksi lokasi GPS realtime untuk opsi pickup.
+  - [x] **Dukungan Ongkir Dinamis Biteship:** Endpoint `/api/shipping/rates` membaca `origin_store_id` (1, 2, atau 3) secara dinamis sehingga ongkir kurir Biteship dihitung akurat dari toko cabang asal pengiriman.
+  - [x] **Pemisahan Status Pembayaran vs Pemenuhan:** Redesign kolom tabel `/admin/pesanan` menjadi Status Pembayaran (Belum Bayar, Lunas, Ditolak) dan Status Pemenuhan (Menunggu Diproses, Sedang Diracik, Siap Diambil di Toko, Dalam Pengiriman, Selesai, Dibatalkan), memperbaiki bug teks polos `paid`.
+  - [x] **Filter Tabel Pesanan Admin Multi-Dimensi:** Dropdown filter Cabang (Semua, Condet, Rawa Belong, Tangerang), filter Tipe Pengiriman (Semua, Ambil di Toko, Kurir), filter Status, dan Search bar real-time.
+  - [x] **Alur Kasir Toko Detail Pesanan (`/admin/pesanan/[id]`):** Menghilangkan form resi kurir untuk pesanan pickup, menyediakan tombol operasional kasir: "Tandai Siap Diambil di Toko", "Terima Pembayaran Tunai & Selesaikan", dan "Serahkan Pesanan ke Pelanggan".
+  - [x] **Pemotongan Stok Cabang Akurat:** `processCheckout`, `processCustomCheckout`, dan kasir `confirmCashPaymentAndComplete` memotong stok pada `store_id` cabang pesanan yang bersangkutan secara idempotent.
+  - [x] **Tampilan Riwayat & Invoice Pelanggan:** Halaman riwayat (`/riwayat-pesanan`) dan invoice (`/pesanan/invoice/[id]`, `/riwayat-pesanan/invoice/[id]`, kustom) menampilkan lokasi cabang toko, alamat pengambilan, jam operasional, badge `SIAP DIAMBIL DI TOKO`, dan instruksi bayar tunai di kasir tanpa kebingungan.
+  - [x] **Verifikasi TypeScript:** Lolos uji build type-checking (`npx tsc --noEmit`) dengan 0 error.
+- [x] **Revamp Dashboard Admin (/admin) Menjadi Operational Command Center:**
+  - [x] **Data Layer Server Actions:** Buat `getDashboardData()` di `src/app/admin/(dashboard)/actions.ts` menggunakan `createAdminClient()` untuk mem-bypass RLS, agregasi pesanan aktif, omzet harian vs kemarin, order tracking pipeline, recent orders, dan ambang stok kritis per cabang.
+  - [x] **Multi-Branch Stock Radar with Store Filter:** Agregasi stok kritis (bibit, botol, pelarut) dari `bibit_stocks`, `bottle_stocks`, dan `solvent_stocks` dengan dropdown filter cabang (Semua Cabang, Condet, Rawabelong, Tangerang).
+  - [x] **Action Items To-Do Pipeline:** Shortcut status interaktif untuk pesanan menunggu verifikasi bayar, pesanan perlu dipacking/panggil Biteship, dan pesanan dalam pengiriman.
+  - [x] **Interactive Mini Trend Chart:** Integrasi grafik tren penjualan & pesanan interaktif (7, 14, 30 hari) dengan dukungan Dark/Light mode theme via Recharts.
+  - [x] **Live Recent Orders Stream:** Tabel 8-10 pesanan terbaru dengan badge status hidup, kurir, cabang, dan tombol navigasi langsung.
+  - [x] **Smart Polling & Auto Refresh:** Tombol segarkan data dengan animasi spin halus dan timer polling 60 detik tanpa reload browser.
+  - [x] **Design Compliance:** Hapus stock emoji (ganti `Tips Admin 💡` dengan `Lightbulb` Lucide icon) dan terapkan luxury glassmorphism khas Ela Parfum.
+  - [x] **Verifikasi & Testing:** Lolos uji type checking TypeScript (`npx tsc --noEmit`) dengan 0 error dan pastikan seluruh fungsi operasional bekerja sempurna.
+- [x] **Fix Duplikat & Phantom 0 Rows + Filter & Pagination Tabel (Statistik Barang & Penjualan):**
+
+  - [x] **Fix Duplikat & Baris Hantu (0 Doang):** Normalisasi nama botol (`CASA 20ML (20ml)` -> `CASA 20ML`), abaikan mutasi `baseline` changelog di semua tab agar tidak menyisipkan baris duplikat kosong, dan lakukan sanitasi akhir memfilter keluar entitas `stock === 0 && out === 0 && in === 0`.
+  - [x] **Filter & Sorting Tabel Barang:** Tambahkan filter status stok (Semua, Menipis, Aman, Ada Pergerakan, Stok Habis) dan sorting (Paling Banyak Keluar, Paling Banyak Masuk, Stok Tertinggi, Stok Terendah, Nama A-Z).
+  - [x] **Pagination Tabel Barang:** Implementasi pagination (10, 15, 25, 50, 100, Semua), tombol navigasi prev/next, counter data, serta auto-reset ke halaman 1 saat filter berubah.
+  - [x] **Polish Pagination Penjualan:** Tambah opsi 100 baris dan auto-reset halaman 1 saat filter status, metode bayar, toko, atau search berubah.
+  - [x] **Verifikasi TypeScript:** Lolos `npx tsc --noEmit` dengan 0 error.
+- [x] **Statistik Barang Dual-Metric Chart & Supabase Range Pagination:**
+  - [x] **Dual-Metric Chart:** Diagram dua warna (Barang Masuk = Hijau `#10B981`, Barang Keluar = Merah `#EF4444`) untuk mode semua barang (grouped bar horizontal dinamis) dan per produk tunggal (timeline).
+  - [x] **Pembersihan Icon/Emoji:** Ganti emoji `⚠️ Menipis` dengan icon `AlertCircle` dari Lucide.
+  - [x] **Supabase Batch Range Pagination:** Implementasi `fetchAllBatched` pada `stock_changelog` (2.333 baris) dan `bibit_stocks` (2.220 baris) untuk melompati batas 1.000 baris PostgREST agar seluruh cabang tersinkronisasi utuh tanpa batas.
+  - [x] **Verifikasi Sinkronisasi Multi-Cabang:** Validasi data stok dan order di Condet (1), Rawabelong (2), Tangerang (3), dan Semua Toko benar-benar klop 100% tanpa selisih.
+  - [x] **Verifikasi TypeScript:** Lolos `npx tsc --noEmit` dengan 0 error.
 - [x] **Revamp Halaman Statistik Admin (/admin/statistik):**
   - [x] **Statistik Penjualan (`/admin/statistik/penjualan`):** Mendata semua pesanan berhasil (status PAID - QRIS & Cash), grafik chart interaktif ala saham dengan granulasi (Menit, Jam, Harian, Mingguan, Bulanan, Tahunan), metrik omzet, jumlah transaksi, rata-rata pesanan (AOV), filter toko (Condet, Rawabelong, Tangerang), export Excel berdesain rapi, serta tabel rincian transaksi & pemesan.
   - [x] **Statistik Barang (`/admin/statistik/barang`):** Mendata barang keluar per kategori spesifik (Parfum Jadi/Reguler, Bibit dalam ml, Pelarut, Botol), grafik tren barang terlaris, korelasi stok vs katalog, alert restock otomatis, serta export Excel lengkap.

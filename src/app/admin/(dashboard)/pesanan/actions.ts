@@ -82,6 +82,83 @@ export async function rejectPayment(payload: string | FormData) {
   revalidatePath('/pesanan');
 }
 
+export async function markAsReadyForPickup(payload: string | FormData | number) {
+  const orderId = typeof payload === 'object' && 'get' in payload ? payload.get('orderId') as string : payload.toString();
+  if (!orderId) throw new Error('Order ID hilang');
+
+  const { error } = await supabaseAdmin
+    .from('orders')
+    .update({
+      status: 'ready_for_pickup',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', parseInt(orderId, 10));
+
+  if (error) {
+    throw new Error('Gagal update status siap diambil: ' + error.message);
+  }
+
+  revalidatePath('/admin/pesanan');
+  revalidatePath(`/admin/pesanan/${orderId}`);
+  revalidatePath('/pesanan');
+  revalidatePath('/riwayat-pesanan');
+}
+
+export async function confirmCashPaymentAndComplete(payload: string | FormData | number) {
+  const orderId = typeof payload === 'object' && 'get' in payload ? payload.get('orderId') as string : payload.toString();
+  if (!orderId) throw new Error('Order ID hilang');
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from('orders')
+    .update({
+      status: 'completed',
+      payment_status: 'paid',
+      paid_at: nowIso,
+      payment_verified_at: nowIso,
+      updated_at: nowIso
+    })
+    .eq('id', parseInt(orderId, 10));
+
+  if (error) {
+    throw new Error('Gagal konfirmasi pembayaran tunai: ' + error.message);
+  }
+
+  try {
+    await deductRefillStock(parseInt(orderId, 10));
+  } catch (stockErr) {
+    console.error('Error deductRefillStock in confirmCashPaymentAndComplete:', stockErr);
+  }
+
+  revalidatePath('/admin/pesanan');
+  revalidatePath(`/admin/pesanan/${orderId}`);
+  revalidatePath('/pesanan');
+  revalidatePath('/riwayat-pesanan');
+}
+
+export async function markPickupCompleted(payload: string | FormData | number) {
+  const orderId = typeof payload === 'object' && 'get' in payload ? payload.get('orderId') as string : payload.toString();
+  if (!orderId) throw new Error('Order ID hilang');
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from('orders')
+    .update({
+      status: 'completed',
+      updated_at: nowIso
+    })
+    .eq('id', parseInt(orderId, 10));
+
+  if (error) {
+    throw new Error('Gagal menyelesaikan pesanan: ' + error.message);
+  }
+
+  revalidatePath('/admin/pesanan');
+  revalidatePath(`/admin/pesanan/${orderId}`);
+  revalidatePath('/pesanan');
+  revalidatePath('/riwayat-pesanan');
+}
+
 export async function retryWebhook(orderCode: string) {
   try {
     const url = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://127.0.0.1:3000');

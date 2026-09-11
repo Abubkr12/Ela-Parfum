@@ -25,7 +25,7 @@ import { Footer } from "@/components/footer";
 import { FadeIn } from "@/components/fade-in";
 import { InteractiveCarousel } from "@/components/interactive-carousel";
 import { useCart } from "@/lib/cart-context";
-import { getMinPrice, formatRupiah } from "@/lib/types";
+import { getMinPrice, formatRupiah, getTotalStock } from "@/lib/types";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
@@ -414,7 +414,7 @@ export function CustomerExperience({ user, serverPerfumes = [], serverFamilies =
                 <div className="match-chips">
                   <span className="chip chip-active">{selectedPerfume?.family?.label || "Uncategorized"}</span>
                   <span className="chip">{selectedPerfume?.longevity || "Ketahanan"}</span>
-                  <span className="chip">Stok {selectedPerfume?.stock || 0}</span>
+                  <span className="chip">Stok {getTotalStock(selectedPerfume?.sizes)}</span>
                 </div>
               </div>
 

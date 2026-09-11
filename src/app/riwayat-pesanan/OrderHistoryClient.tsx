@@ -2,15 +2,17 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Package, Search, Filter } from 'lucide-react'
+import { Package, Search, Filter, Store, MapPin, CheckCircle2 } from 'lucide-react'
 import { formatRupiah } from '@/lib/types'
 import { TrackingWidget } from './TrackingWidget'
 import { TanyaStatusButton } from '@/components/tanya-status-button'
+import { ELA_STORES } from '@/lib/stores'
 
 const statusColors: Record<string, { bg: string, text: string, label: string }> = {
   pending: { bg: 'var(--c-gold-dim)', text: 'var(--c-gold-light)', label: 'Menunggu Pembayaran' },
   confirmed: { bg: 'rgba(59, 130, 246, 0.1)', text: 'rgb(59, 130, 246)', label: 'Dikonfirmasi' },
-  processing: { bg: 'rgba(168, 85, 247, 0.1)', text: 'rgb(168, 85, 247)', label: 'Pembayaran Diterima, Menunggu Dikirim' },
+  processing: { bg: 'rgba(168, 85, 247, 0.1)', text: 'rgb(168, 85, 247)', label: 'Sedang Disiapkan' },
+  ready_for_pickup: { bg: 'rgba(234, 179, 8, 0.15)', text: '#d97706', label: 'Siap Diambil di Toko' },
   shipped: { bg: 'rgba(14, 165, 233, 0.1)', text: 'rgb(14, 165, 233)', label: 'Dikirim' },
   paid: { bg: 'rgba(59, 130, 246, 0.1)', text: 'rgb(59, 130, 246)', label: 'Dibayar' },
   completed: { bg: 'rgba(34, 197, 94, 0.1)', text: 'rgb(34, 197, 94)', label: 'Selesai' },
@@ -67,7 +69,8 @@ export function OrderHistoryClient({ initialOrders }: { initialOrders: any[] }) 
               <option value="all">Semua Status</option>
               <option value="pending">Menunggu Pembayaran</option>
               <option value="paid">Dibayar</option>
-              <option value="processing">Pembayaran Diterima</option>
+              <option value="processing">Sedang Disiapkan</option>
+              <option value="ready_for_pickup">Siap Diambil di Toko</option>
               <option value="shipped">Dikirim</option>
               <option value="completed">Selesai</option>
               <option value="cancelled">Dibatalkan</option>
@@ -100,14 +103,24 @@ export function OrderHistoryClient({ initialOrders }: { initialOrders: any[] }) 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {filteredOrders.map((order: any) => {
             const statusConfig = statusColors[order.status] || { bg: 'var(--c-surface-1)', text: 'var(--c-ink)', label: order.status };
+            const orderStore = ELA_STORES.find(s => s.id === order.store_id) || ELA_STORES[1]; // default Rawa Belong
             
             return (
               <div key={order.id} style={{ background: 'var(--c-surface-1)', borderRadius: 'var(--r-md)', border: '1px solid var(--c-border)', overflow: 'hidden' }}>
                 
                 <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                   <div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--c-ink-muted)', marginBottom: '4px' }}>
-                      {new Date(order.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    <div style={{ fontSize: '0.85rem', color: 'var(--c-ink-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span>{new Date(order.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      {order.fulfillment_type === 'pickup' ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(234, 179, 8, 0.12)', color: 'var(--c-gold)', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                          <Store size={12} /> Ambil di Toko ({orderStore.shortName})
+                        </span>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                          <MapPin size={12} /> Kurir dari {orderStore.shortName}
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: 'var(--c-ink)', fontWeight: 600 }}>
                       {order.order_code}
@@ -136,6 +149,38 @@ export function OrderHistoryClient({ initialOrders }: { initialOrders: any[] }) 
                 </div>
                 
                 <div style={{ padding: '24px' }}>
+                  {order.status === 'ready_for_pickup' && (
+                    <div style={{ padding: '16px 20px', background: 'rgba(217, 119, 6, 0.1)', border: '1px solid rgba(217, 119, 6, 0.3)', borderRadius: 'var(--r-md)', marginBottom: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#d97706', fontWeight: 700, fontSize: '0.95rem', marginBottom: 4 }}>
+                        <Store size={18} /> Pesanan Sudah Siap Diambil di Toko!
+                      </div>
+                      <p style={{ fontSize: '0.88rem', color: 'var(--c-ink)', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                        Parfum pesanan Anda sudah selesai diracik dan dikemas. Silakan tunjukkan <strong>Kode Pesanan #{order.order_code}</strong> ke kasir toko di cabang:
+                      </p>
+                      <div style={{ fontWeight: 600, color: 'var(--c-gold)', fontSize: '0.92rem' }}>
+                        {orderStore.name}
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--c-ink-dim)', marginTop: 2 }}>
+                        {orderStore.address}
+                      </div>
+                      {order.payment_method?.toLowerCase().includes('tunai') && (
+                        <div style={{ fontSize: '0.82rem', color: '#d97706', marginTop: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <CheckCircle2 size={14} /> Bayar Tunai: Siapkan uang pas {formatRupiah(order.total)} saat mengambil pesanan.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {order.fulfillment_type === 'pickup' && order.status !== 'ready_for_pickup' && order.status !== 'completed' && order.status !== 'cancelled' && (
+                    <div style={{ padding: '12px 16px', background: 'var(--c-surface-2)', border: '1px solid var(--c-border)', borderRadius: 'var(--r-sm)', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: '0.85rem', color: 'var(--c-ink-dim)' }}>
+                      <Store size={16} style={{ color: 'var(--c-gold)', flexShrink: 0, marginTop: 2 }} />
+                      <div>
+                        <div>Lokasi Pengambilan: <strong style={{ color: 'var(--c-ink)' }}>{orderStore.name}</strong></div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--c-ink-muted)', marginTop: 2 }}>{orderStore.address} (Jam Operasional: 08:00 - 22:00 WIB)</div>
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {order.order_items && order.order_items.length > 0 ? (
                       order.order_items.map((item: any) => (

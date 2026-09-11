@@ -1,14 +1,16 @@
 import { CustomerExperience } from "@/components/customer-experience";
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export default async function Home() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = await createClient();
+  const supabaseAdmin = createAdminClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
   const [perfumeRes, familyRes, sizesRes] = await Promise.all([
     supabase.from("perfumes").select("*").eq("is_active", true).order("created_at", { ascending: false }),
     supabase.from("scent_families").select("*").order("sort_order"),
-    supabase.from("perfume_sizes").select("*").eq("is_active", true),
+    supabaseAdmin.from("perfume_sizes").select("*, product_stocks(store_id, stock_qty)").eq("is_active", true),
   ]);
 
   const perfumesData = perfumeRes.data || [];

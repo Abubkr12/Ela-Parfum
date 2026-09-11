@@ -1,8 +1,19 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Download, Search, TrendingDown, TrendingUp, Package, AlertCircle } from "lucide-react";
+import { 
+  Download, 
+  Search, 
+  TrendingDown, 
+  TrendingUp, 
+  Package, 
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  ArrowUpDown
+} from "lucide-react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { useTheme } from "@/lib/theme-context";
@@ -39,6 +50,17 @@ export default function BarangClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [productSearch, setProductSearch] = useState("");
 
+  // Table filter, sort, & pagination states
+  const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'menipis' | 'aman' | 'bergerak' | 'habis'>('all');
+  const [sortBy, setSortBy] = useState<'out_desc' | 'in_desc' | 'stock_desc' | 'stock_asc' | 'name_asc'>('out_desc');
+  const [page, setPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(15);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchQuery, stockStatusFilter, sortBy, selectedStore, timeRange]);
+
   const TABS: Tab[] = ["Parfum Jadi", "Bibit", "Pelarut", "Botol"];
   const TIME_RANGES: TimeRange[] = ["Hari Ini", "7 Hari", "30 Hari", "3 Bulan", "1 Tahun", "Semua"];
   const GRANULARITIES: Granularity[] = ["Menit", "Jam", "Harian", "Mingguan", "Bulanan", "Tahunan"];
@@ -70,7 +92,7 @@ export default function BarangClient({
     let lowStockCount = 0;
     let totalCurrentStock = 0;
     let mostSold = { name: "-", qty: 0 };
-    let chartData = [];
+    let chartData: { x: string; out: number; in: number }[] = [];
     let tableData = [];
     let productList: string[] = [];
 
@@ -100,10 +122,18 @@ export default function BarangClient({
         // Ignore raw materials and custom refill parts
         if (/^(Bibit:|Pelarut:|Botol)/i.test(name)) return;
 
-        const existing = groupedStocks.get(name);
+        let existing = groupedStocks.get(name);
+        if (!existing) {
+          for (const [key, val] of groupedStocks.entries()) {
+            if (name.startsWith(key) || key.startsWith(name)) {
+              existing = val;
+              break;
+            }
+          }
+        }
         if (existing) {
           existing.out += order.quantity || 0;
-        } else {
+        } else if ((order.quantity || 0) > 0) {
           groupedStocks.set(name, { id: name, name, stock: 0, out: order.quantity || 0, in: 0 });
         }
       });
@@ -117,7 +147,8 @@ export default function BarangClient({
       movements = filteredChangelogs;
 
       filteredChangelogs.forEach(c => {
-        const rawName = c.entity_name || '';
+        if (c.reason === 'baseline') return; // Skip baseline snapshot
+        const rawName = (c.entity_name || '').trim();
         let matchedName = '';
         for (const pName of groupedStocks.keys()) {
           if (rawName.startsWith(pName)) {
@@ -127,14 +158,12 @@ export default function BarangClient({
         }
         if (matchedName && groupedStocks.has(matchedName)) {
           const existing = groupedStocks.get(matchedName)!;
-          if (c.reason !== 'baseline') {
-            if (c.change_qty > 0) existing.in += c.change_qty;
-            else if (c.reason !== 'sale') existing.out += Math.abs(c.change_qty);
-          }
+          if (c.change_qty > 0) existing.in += c.change_qty;
+          else if (c.reason !== 'sale') existing.out += Math.abs(c.change_qty);
         }
       });
 
-      tableData = Array.from(groupedStocks.values());
+      tableData = Array.from(groupedStocks.values()).filter(d => d.stock > 0 || d.out > 0 || d.in > 0);
       lowStockCount = tableData.filter(d => d.stock <= 5).length;
     } 
     else if (activeTab === "Bibit") {
@@ -162,9 +191,10 @@ export default function BarangClient({
         const match = (order.size_label || '').match(/([\d.]+)\s*ml/i);
         const ml = match ? parseFloat(match[1]) * (order.quantity || 1) : (order.quantity || 1);
 
-        const existing = grouped.get(name) || { id: name, name, stock: 0, out: 0, in: 0 };
-        existing.out += Math.round(ml * 10) / 10;
-        grouped.set(name, existing);
+        const existing = grouped.get(name);
+        if (existing) {
+          existing.out += Math.round(ml * 10) / 10;
+        }
       });
 
       const filteredChangelogs = stockChangelog.filter(c => 
@@ -175,16 +205,16 @@ export default function BarangClient({
       movements = filteredChangelogs;
 
       filteredChangelogs.forEach(c => {
-        const name = c.entity_name;
-        const existing = grouped.get(name) || { id: name, name, stock: 0, out: 0, in: 0 };
-        if (c.reason !== 'baseline') {
+        if (c.reason === 'baseline') return; // Skip baseline snapshot
+        const name = (c.entity_name || '').trim();
+        const existing = grouped.get(name);
+        if (existing) {
           if (c.change_qty < 0 && c.reason !== 'sale') existing.out += Math.abs(c.change_qty);
           else if (c.change_qty > 0) existing.in += c.change_qty;
         }
-        grouped.set(name, existing);
       });
 
-      tableData = Array.from(grouped.values());
+      tableData = Array.from(grouped.values()).filter(d => d.stock > 0 || d.out > 0 || d.in > 0);
       lowStockCount = tableData.filter(d => d.stock <= 500).length;
     }
     else if (activeTab === "Pelarut") {
@@ -211,9 +241,10 @@ export default function BarangClient({
         const match = (order.size_label || '').match(/([\d.]+)\s*ml/i);
         const ml = match ? parseFloat(match[1]) * (order.quantity || 1) : (order.quantity || 1);
 
-        const existing = grouped.get(name) || { id: name, name, stock: 0, out: 0, in: 0 };
-        existing.out += Math.round(ml * 10) / 10;
-        grouped.set(name, existing);
+        const existing = grouped.get(name) || (grouped.size === 1 ? Array.from(grouped.values())[0] : undefined);
+        if (existing) {
+          existing.out += Math.round(ml * 10) / 10;
+        }
       });
 
       const filteredChangelogs = stockChangelog.filter(c => 
@@ -224,16 +255,16 @@ export default function BarangClient({
       movements = filteredChangelogs;
 
       filteredChangelogs.forEach(c => {
-        const name = c.entity_name;
-        const existing = grouped.get(name) || { id: name, name, stock: 0, out: 0, in: 0 };
-        if (c.reason !== 'baseline') {
+        if (c.reason === 'baseline') return; // Skip baseline snapshot
+        const name = (c.entity_name || '').trim();
+        const existing = grouped.get(name) || (grouped.size === 1 ? Array.from(grouped.values())[0] : undefined);
+        if (existing) {
           if (c.change_qty < 0 && c.reason !== 'sale') existing.out += Math.abs(c.change_qty);
           else if (c.change_qty > 0) existing.in += c.change_qty;
         }
-        grouped.set(name, existing);
       });
 
-      tableData = Array.from(grouped.values());
+      tableData = Array.from(grouped.values()).filter(d => d.stock > 0 || d.out > 0 || d.in > 0);
       lowStockCount = tableData.filter(d => d.stock <= 500).length;
     }
     else if (activeTab === "Botol") {
@@ -256,10 +287,10 @@ export default function BarangClient({
         const raw = (order.perfume_name || '').trim();
         if (!/^Botol:/i.test(raw)) return;
         const name = raw.replace(/^Botol:\s*/i, '').trim();
+        const normalized = name.replace(/\s*\(\d+ml\)/i, '').trim();
 
-        const existing = grouped.get(name) || { id: name, name, stock: 0, out: 0, in: 0 };
-        existing.out += (order.quantity || 1);
-        grouped.set(name, existing);
+        const existing = grouped.get(name) || grouped.get(normalized);
+        if (existing) existing.out += (order.quantity || 1);
       });
 
       const filteredChangelogs = stockChangelog.filter(c => 
@@ -270,19 +301,21 @@ export default function BarangClient({
       movements = filteredChangelogs;
 
       filteredChangelogs.forEach(c => {
-        const name = c.entity_name;
-        const existing = grouped.get(name) || { id: name, name, stock: 0, out: 0, in: 0 };
-        if (c.reason !== 'baseline') {
+        if (c.reason === 'baseline') return; // Skip baseline snapshot
+        const raw = (c.entity_name || '').trim();
+        const normalized = raw.replace(/\s*\(\d+ml\)/i, '').trim();
+        const existing = grouped.get(raw) || grouped.get(normalized);
+        if (existing) {
           if (c.change_qty < 0 && c.reason !== 'sale') existing.out += Math.abs(c.change_qty);
           else if (c.change_qty > 0) existing.in += c.change_qty;
         }
-        grouped.set(name, existing);
       });
 
-      tableData = Array.from(grouped.values());
+      tableData = Array.from(grouped.values()).filter(d => d.stock > 0 || d.out > 0 || d.in > 0);
       lowStockCount = tableData.filter(d => d.stock <= 5).length;
     }
 
+    tableData = tableData.filter(d => d.stock > 0 || d.out > 0 || d.in > 0);
     tableData.sort((a, b) => b.out - a.out);
     
     totalCurrentStock = tableData.reduce((acc, curr) => acc + curr.stock, 0);
@@ -293,60 +326,135 @@ export default function BarangClient({
 
     // Chart processing
     if (selectedProduct === "all") {
-      // Bar chart for top products
-      chartData = tableData.slice(0, 15).map(d => ({ x: d.name, y: d.out }));
+      // Top products dual-metric comparison
+      chartData = tableData.slice(0, 15).map(d => ({
+        x: d.name,
+        out: d.out,
+        in: d.in
+      }));
     } else {
-      // Line chart for single product timeline
-      // Construct timeline from changelog. We need a starting point.
-      // Since it's complex to re-calculate exact historical stock accurately across branches, 
-      // we'll plot the movement quantities (out) over time for simplicity as "Usage over time"
-      // or "Stock level" if we trace back. Let's trace back from current stock.
-      
-      const productInfo = tableData.find(d => d.name === selectedProduct);
-      let currentAccStock = productInfo ? productInfo.stock : 0;
-      
-      const productMovements = movements
-        .filter(m => 
-          (activeTab === "Parfum Jadi" ? true : m.entity_name === selectedProduct) // Need better match for Parfum Jadi if changelog doesn't have names
-        )
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()); // descending
+      // Single product timeline
+      const timeMap = new Map<string, { out: number; in: number; time: number }>();
 
-      // Group by time based on granularity
-      const timeMap = new Map();
-      
+      const getOrCreate = (key: string, dateStr: string) => {
+        let entry = timeMap.get(key);
+        if (!entry) {
+          entry = { out: 0, in: 0, time: new Date(dateStr).getTime() };
+          timeMap.set(key, entry);
+        }
+        return entry;
+      };
+
       if (activeTab === "Parfum Jadi") {
-         // Using orderItems for timeline out
-         const pOrders = orderItems.filter(o => o.perfume_name === selectedProduct && filterByDate(o.created_at, timeRange));
-         pOrders.forEach(o => {
-            const date = new Date(o.created_at);
-            // simplify granularity to Day for now
-            const key = date.toLocaleDateString("id-ID");
-            timeMap.set(key, (timeMap.get(key) || 0) + o.quantity);
-         });
-      } else {
-         productMovements.forEach(m => {
-            const date = new Date(m.created_at);
-            const key = date.toLocaleDateString("id-ID");
-            if (m.change_qty < 0) {
-               timeMap.set(key, (timeMap.get(key) || 0) + Math.abs(m.change_qty));
-            }
-         });
-      }
-      
-      chartData = Array.from(timeMap.entries())
-        .map(([time, qty]) => ({ x: time, y: qty }))
-        .sort((a, b) => {
-           // parse date logic required for strict sorting, simplified for example
-           return a.x.localeCompare(b.x); 
+        // Calculate out from orderItems for this product
+        const pOrders = orderItems.filter(o => 
+          (o.perfume_name || '').trim() === selectedProduct && 
+          filterByDate(o.created_at, timeRange) &&
+          isStoreMatch((o as any).store_id)
+        );
+
+        pOrders.forEach(o => {
+          const key = new Date(o.created_at).toLocaleDateString("id-ID");
+          const entry = getOrCreate(key, o.created_at);
+          entry.out += o.quantity || 0;
         });
+
+        // Calculate in and additional out from stockChangelog (where change_qty > 0 => in, change_qty < 0 and reason !== 'sale' => out)
+        const pMovements = movements.filter(m => {
+          const raw = (m.entity_name || '').trim();
+          if (raw === selectedProduct) return true;
+          if (raw.startsWith(selectedProduct)) {
+            const nextChar = raw.charAt(selectedProduct.length);
+            return nextChar === ' ' || nextChar === '-' || nextChar === '(';
+          }
+          return false;
+        });
+
+        pMovements.forEach(c => {
+          if (c.reason !== 'baseline') {
+            const key = new Date(c.created_at).toLocaleDateString("id-ID");
+            const entry = getOrCreate(key, c.created_at);
+            if (c.change_qty > 0) {
+              entry.in += c.change_qty;
+            } else if (c.change_qty < 0 && c.reason !== 'sale') {
+              entry.out += Math.abs(c.change_qty);
+            }
+          }
+        });
+      } else {
+        // For other tabs: Track in and out from productMovements (c.change_qty > 0 => in, c.change_qty < 0 => out)
+        const productMovements = movements.filter(m => {
+          if (activeTab === "Botol") {
+            const raw = (m.entity_name || '').trim();
+            const normalized = raw.replace(/\s*\(\d+ml\)/i, '').trim();
+            return raw === selectedProduct || normalized === selectedProduct;
+          }
+          return (m.entity_name || '').trim() === selectedProduct;
+        });
+        productMovements.forEach(c => {
+          if (c.reason !== 'baseline') {
+            const key = new Date(c.created_at).toLocaleDateString("id-ID");
+            const entry = getOrCreate(key, c.created_at);
+            if (c.change_qty > 0) {
+              entry.in += c.change_qty;
+            } else if (c.change_qty < 0) {
+              entry.out += Math.abs(c.change_qty);
+            }
+          }
+        });
+      }
+
+      chartData = Array.from(timeMap.entries())
+        .map(([time, val]) => ({
+          x: time,
+          out: Math.round(val.out * 10) / 10,
+          in: Math.round(val.in * 10) / 10,
+          _time: val.time
+        }))
+        .sort((a, b) => a._time - b._time)
+        .map(({ x, out, in: inVal }) => ({ x, out, in: inVal }));
     }
 
     return { tableData, totalOut, lowStockCount, totalCurrentStock, mostSold, chartData, productList };
   }, [activeTab, selectedStore, timeRange, granularity, selectedProduct, stockChangelog, productStocks, bibitStocks, bottleStocks, solventStocks, orderItems]);
 
-  const filteredTable = processedData.tableData.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTable = useMemo(() => {
+    let result = processedData.tableData.filter(d => 
+      d.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Filter status stok
+    if (stockStatusFilter !== 'all') {
+      const lowThreshold = activeTab === 'Bibit' || activeTab === 'Pelarut' ? 500 : 5;
+      if (stockStatusFilter === 'menipis') {
+        result = result.filter(d => d.stock <= lowThreshold && d.stock > 0);
+      } else if (stockStatusFilter === 'aman') {
+        result = result.filter(d => d.stock > lowThreshold);
+      } else if (stockStatusFilter === 'bergerak') {
+        result = result.filter(d => d.out > 0 || d.in > 0);
+      } else if (stockStatusFilter === 'habis') {
+        result = result.filter(d => d.stock === 0);
+      }
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'out_desc': return b.out - a.out;
+        case 'in_desc': return b.in - a.in;
+        case 'stock_desc': return b.stock - a.stock;
+        case 'stock_asc': return a.stock - b.stock;
+        case 'name_asc': return a.name.localeCompare(b.name);
+        default: return b.out - a.out;
+      }
+    });
+
+    return result;
+  }, [processedData.tableData, searchQuery, stockStatusFilter, sortBy, activeTab]);
+
+  const totalItems = filteredTable.length;
+  const totalPages = Math.ceil(totalItems / perPage) || 1;
+  const paginatedTable = perPage >= totalItems ? filteredTable : filteredTable.slice((page - 1) * perPage, page * perPage);
 
   const exportExcel = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -428,27 +536,33 @@ export default function BarangClient({
       }],
       defaultLocale: 'id'
     },
-    colors: ["#c9a96c"],
+    colors: ["#EF4444", "#10B981"],
+    legend: {
+      show: true,
+      position: "top",
+      horizontalAlign: "right",
+      labels: { colors: theme === "dark" ? "#d1d5db" : "#374151" }
+    },
     plotOptions: {
       bar: { 
         horizontal: selectedProduct === "all", 
         borderRadius: 4, 
         dataLabels: { position: "top" },
-        barHeight: '65%'
+        barHeight: '70%'
       }
     },
     dataLabels: {
       enabled: selectedProduct === "all",
       style: { colors: [theme === 'dark' ? '#f3f4f6' : '#111827'], fontSize: '11px', fontWeight: 'bold' },
       offsetX: 25,
-      formatter: (val: any) => `${val} ${activeTab === "Bibit" || activeTab === "Pelarut" ? "ml" : "pcs"}`
+      formatter: (val: any) => val > 0 ? `${formatNumber(val)}` : ""
     },
-    stroke: { curve: "smooth", width: selectedProduct === "all" ? 0 : 3 },
+    stroke: { curve: "smooth", width: selectedProduct === "all" ? 0 : 2.5 },
     fill: {
       type: selectedProduct === "all" ? "solid" : "gradient",
       gradient: {
         shadeIntensity: 1,
-        opacityFrom: 0.4,
+        opacityFrom: 0.35,
         opacityTo: 0.05,
         stops: [0, 100]
       }
@@ -475,6 +589,8 @@ export default function BarangClient({
     theme: { mode: theme },
     tooltip: {
       theme: theme,
+      shared: true,
+      intersect: false,
       y: { formatter: (val) => `${formatNumber(val)} ${activeTab === "Bibit" || activeTab === "Pelarut" ? "ml" : "pcs"}` }
     }
   };
@@ -616,15 +732,18 @@ export default function BarangClient({
         borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)"
       }}>
         <h3 style={{ fontSize: "1.125rem", fontWeight: "600", marginBottom: "1rem" }}>
-          {selectedProduct === "all" ? `Barang Terlaris (${activeTab})` : `Pergerakan Stok: ${selectedProduct}`}
+          {selectedProduct === "all" ? `Perbandingan Barang Masuk & Keluar (${activeTab})` : `Pergerakan Stok Masuk & Keluar: ${selectedProduct}`}
         </h3>
-        <div style={{ height: selectedProduct === "all" ? `${Math.max(400, processedData.chartData.length * 40)}px` : "400px" }}>
+        <div style={{ height: selectedProduct === "all" ? `${Math.max(420, processedData.chartData.length * 48)}px` : "400px" }}>
           <Chart 
             key={`chart-${selectedProduct}-${activeTab}-${timeRange}-${selectedStore}-${theme}`}
             options={chartOptions} 
-            series={[{ name: "Jumlah", data: processedData.chartData.map(d => d.y) }]} 
+            series={[
+              { name: "Barang Keluar", data: processedData.chartData.map(d => d.out) },
+              { name: "Barang Masuk", data: processedData.chartData.map(d => d.in) }
+            ]} 
             type={selectedProduct === "all" ? "bar" : "area"} 
-            height="100%" 
+            height={selectedProduct === "all" ? `${Math.max(420, processedData.chartData.length * 48)}px` : "400px"} 
           />
         </div>
       </div>
@@ -634,21 +753,72 @@ export default function BarangClient({
         backgroundColor: "var(--c-surface-1)", padding: "1.5rem", 
         borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)"
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-          <h3 style={{ fontSize: "1.125rem", fontWeight: "600" }}>Rincian {activeTab}</h3>
-          <div style={{ position: "relative" }}>
-            <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-dim)" }} />
-            <input 
-              type="text" 
-              placeholder="Cari barang..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                padding: "0.5rem 1rem 0.5rem 2.25rem", borderRadius: "var(--r-full)",
-                backgroundColor: "var(--c-surface-2)", border: "1px solid var(--c-border)",
-                color: "var(--c-ink)", outline: "none", fontSize: "0.875rem"
-              }}
-            />
+        {/* Table Toolbar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <h3 style={{ fontSize: "1.125rem", fontWeight: "600", margin: 0 }}>Rincian {activeTab}</h3>
+            <span style={{ 
+              fontSize: "0.75rem", padding: "0.25rem 0.625rem", borderRadius: "var(--r-full)", 
+              backgroundColor: "var(--c-surface-2)", color: "var(--c-ink-dim)", border: "1px solid var(--c-border)",
+              fontWeight: 500
+            }}>
+              {totalItems} barang
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+            <div style={{ position: "relative" }}>
+              <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-dim)" }} />
+              <input 
+                type="text" 
+                placeholder="Cari barang..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  padding: "0.5rem 1rem 0.5rem 2.25rem", borderRadius: "var(--r-md)",
+                  backgroundColor: "var(--c-surface-2)", border: "1px solid var(--c-border)",
+                  color: "var(--c-ink)", outline: "none", fontSize: "0.875rem", minWidth: "180px"
+                }}
+              />
+            </div>
+
+            <div style={{ position: "relative" }}>
+              <Filter size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-dim)", pointerEvents: "none" }} />
+              <select
+                value={stockStatusFilter}
+                onChange={(e) => setStockStatusFilter(e.target.value as any)}
+                style={{
+                  padding: "0.5rem 1rem 0.5rem 2.25rem", borderRadius: "var(--r-md)",
+                  backgroundColor: "var(--c-surface-2)", border: "1px solid var(--c-border)",
+                  color: "var(--c-ink)", outline: "none", fontSize: "0.875rem", cursor: "pointer"
+                }}
+              >
+                <option value="all">Semua Status</option>
+                <option value="menipis">Stok Menipis</option>
+                <option value="aman">Stok Aman</option>
+                <option value="bergerak">Ada Pergerakan</option>
+                <option value="habis">Stok Habis</option>
+              </select>
+            </div>
+
+            <div style={{ position: "relative" }}>
+              <ArrowUpDown size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-dim)", pointerEvents: "none" }} />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                style={{
+                  padding: "0.5rem 1rem 0.5rem 2.25rem", borderRadius: "var(--r-md)",
+                  backgroundColor: "var(--c-surface-2)", border: "1px solid var(--c-border)",
+                  color: "var(--c-ink)", outline: "none", fontSize: "0.875rem", cursor: "pointer"
+                }}
+              >
+                <option value="out_desc">Paling Banyak Keluar</option>
+                <option value="in_desc">Paling Banyak Masuk</option>
+                <option value="stock_desc">Stok Tertinggi</option>
+                <option value="stock_asc">Stok Terendah</option>
+                <option value="name_asc">Nama (A-Z)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -663,13 +833,13 @@ export default function BarangClient({
               </tr>
             </thead>
             <tbody>
-              {filteredTable.length > 0 ? filteredTable.map((row, idx) => (
+              {paginatedTable.length > 0 ? paginatedTable.map((row, idx) => (
                 <tr key={idx} style={{ borderBottom: "1px solid var(--c-border)" }}>
                   <td style={{ padding: "1rem 0" }}>{row.name}</td>
                   <td style={{ padding: "1rem 0", textAlign: "right" }}>
                     {formatNumber(row.stock)} {activeTab === "Bibit" || activeTab === "Pelarut" ? "ml" : "pcs"}
                     {((activeTab === "Bibit" || activeTab === "Pelarut") && row.stock <= 500) || (!(activeTab === "Bibit" || activeTab === "Pelarut") && row.stock <= 5) ? 
-                      <span style={{ color: "var(--c-gold)", marginLeft: "0.5rem", fontSize: "0.75rem" }}>⚠️ Menipis</span> 
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", color: "var(--c-gold)", marginLeft: "0.5rem", fontSize: "0.75rem" }}><AlertCircle size={12} /> Menipis</span> 
                     : null}
                   </td>
                   <td style={{ padding: "1rem 0", textAlign: "right" }}>{formatNumber(row.out)}</td>
@@ -685,6 +855,75 @@ export default function BarangClient({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {totalItems > 0 && (
+          <div style={{ 
+            padding: "1rem 0 0.25rem 0", borderTop: "1px solid var(--c-border)", 
+            display: "flex", justifyContent: "space-between", alignItems: "center", 
+            flexWrap: "wrap", gap: "1rem", marginTop: "1rem" 
+          }}>
+            <div style={{ color: "var(--c-ink-dim)", fontSize: "0.875rem" }}>
+              Menampilkan {totalItems === 0 ? 0 : ((page - 1) * perPage) + 1} - {Math.min(page * perPage, totalItems)} dari {totalItems} data
+            </div>
+            
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", color: "var(--c-ink-dim)" }}>
+                Baris per halaman:
+                <select 
+                  value={perPage} 
+                  onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
+                  style={{ 
+                    padding: "0.25rem 0.5rem", borderRadius: "var(--r-sm)", 
+                    border: "1px solid var(--c-border)", backgroundColor: "var(--c-surface-2)", 
+                    color: "var(--c-ink)", cursor: "pointer" 
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={999999}>Semua</option>
+                </select>
+              </div>
+              
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <button 
+                  disabled={page === 1} 
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  style={{ 
+                    padding: "0.25rem", borderRadius: "var(--r-sm)", 
+                    border: "1px solid var(--c-border)", 
+                    backgroundColor: page === 1 ? "transparent" : "var(--c-surface-2)", 
+                    color: page === 1 ? "var(--c-border)" : "var(--c-ink)", 
+                    cursor: page === 1 ? "not-allowed" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span style={{ fontSize: "0.875rem", color: "var(--c-ink-dim)" }}>
+                  Halaman {page} dari {totalPages}
+                </span>
+                <button 
+                  disabled={page >= totalPages} 
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  style={{ 
+                    padding: "0.25rem", borderRadius: "var(--r-sm)", 
+                    border: "1px solid var(--c-border)", 
+                    backgroundColor: page >= totalPages ? "transparent" : "var(--c-surface-2)", 
+                    color: page >= totalPages ? "var(--c-border)" : "var(--c-ink)", 
+                    cursor: page >= totalPages ? "not-allowed" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

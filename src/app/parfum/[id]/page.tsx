@@ -28,6 +28,7 @@ import { getSupabase } from "@/lib/supabase";
 import {
   formatRupiah,
   getMinPrice,
+  getSizeStock,
   type Perfume,
   type PerfumeSize,
   type ScentFamily,
@@ -123,7 +124,8 @@ const MOCK_PERFUMES: (Perfume & { sizes: PerfumeSize[] })[] = [
 export default function PerfumeDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const slug = params.id as string;
+  const rawParam = Array.isArray(params?.id) ? params.id[0] : (params?.id as string) || "";
+  const decodedParam = decodeURIComponent(rawParam).trim();
   const { addItem, totalItems } = useCart();
 
   const [perfume, setPerfume] = useState<Perfume | null>(null);
@@ -137,11 +139,13 @@ export default function PerfumeDetailPage() {
 
   useEffect(() => {
     function loadFromMock() {
-      const mockPerfume = MOCK_PERFUMES.find((p) => p.slug === slug);
+      const mockPerfume = MOCK_PERFUMES.find(
+        (p) => p.slug === decodedParam || p.slug === decodedParam.replace(/_/g, "-")
+      );
       if (mockPerfume) {
         setPerfume(mockPerfume);
         setSizes(mockPerfume.sizes);
-        const default30 = mockPerfume.sizes.find((s) => s.size_ml === 30);
+        const default30 = mockPerfume.sizes.find((s) => s.size_ml === 30 && getSizeStock(s) > 0);
         setSelectedSize(default30 ?? mockPerfume.sizes[0]);
         const mockFamily = MOCK_FAMILIES.find((f) => f.id === mockPerfume.family_id);
         if (mockFamily) setFamily(mockFamily);
@@ -157,16 +161,28 @@ export default function PerfumeDetailPage() {
       try {
         const sb = getSupabase();
 
-        // Fetch perfume by slug
-        const { data: perfumeData } = await sb
+        const isNumeric = !isNaN(Number(decodedParam)) && Number(decodedParam) > 0;
+        const normalizedDash = decodedParam.replace(/_/g, "-");
+        const normalizedUnderscore = decodedParam.replace(/-/g, "_");
+
+        let perfumeQuery = sb
           .from("perfumes")
           .select("*")
-          .eq("slug", slug)
-          .eq("is_active", true)
-          .single();
+          .eq("is_active", true);
+
+        if (isNumeric) {
+          perfumeQuery = perfumeQuery.or(
+            `id.eq.${Number(decodedParam)},slug.eq.${decodedParam},slug.eq.${normalizedDash}`
+          );
+        } else {
+          perfumeQuery = perfumeQuery.or(
+            `slug.eq.${decodedParam},slug.eq.${normalizedDash},slug.eq.${normalizedUnderscore}`
+          );
+        }
+
+        const { data: perfumeData } = await perfumeQuery.limit(1).maybeSingle();
 
         if (!perfumeData) {
-          // Try mock data fallback
           loadFromMock();
           return;
         }
@@ -174,20 +190,37 @@ export default function PerfumeDetailPage() {
         const p = perfumeData as Perfume;
         setPerfume(p);
 
-        // Fetch sizes
-        const { data: sizeData } = await sb
-          .from("perfume_sizes")
-          .select("*")
-          .eq("perfume_id", p.id)
-          .eq("is_active", true)
-          .order("size_ml");
+        // Fetch sizes with product_stocks via API route to bypass RLS and aggregate multi-branch stock
+        let s: PerfumeSize[] = [];
+        try {
+          const res = await fetch(`/api/product-stocks?perfume_id=${p.id}`, { cache: "no-store" });
+          if (res.ok) {
+            const json = await res.json();
+            if (Array.isArray(json.data) && json.data.length > 0) {
+              s = json.data as PerfumeSize[];
+            }
+          }
+        } catch {
+          // fallback
+        }
 
-        const s = (sizeData ?? []) as PerfumeSize[];
+        if (s.length === 0) {
+          const { data: sizeData } = await sb
+            .from("perfume_sizes")
+            .select("*, product_stocks(store_id, stock_qty)")
+            .eq("perfume_id", p.id)
+            .eq("is_active", true)
+            .order("size_ml");
+          s = (sizeData ?? []) as PerfumeSize[];
+        }
+
         setSizes(s);
         if (s.length > 0) {
-          // Default to 30ml if available, else first
+          // Default to 30ml with stock, else first size with stock, else 30ml, else first
+          const default30InStock = s.find((sz) => sz.size_ml === 30 && getSizeStock(sz) > 0);
+          const firstInStock = s.find((sz) => getSizeStock(sz) > 0);
           const default30 = s.find((sz) => sz.size_ml === 30);
-          setSelectedSize(default30 ?? s[0]);
+          setSelectedSize(default30InStock ?? firstInStock ?? default30 ?? s[0]);
         }
 
         // Fetch family
@@ -232,8 +265,8 @@ export default function PerfumeDetailPage() {
       }
     }
 
-    if (slug) fetchPerfume();
-  }, [slug]);
+    if (decodedParam) fetchPerfume();
+  }, [decodedParam]);
 
   function handleAddToCart() {
     if (!perfume || !selectedSize) return;
@@ -367,7 +400,8 @@ export default function PerfumeDetailPage() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {sizes.map((s) => {
                   const isSelected = selectedSize?.id === s.id;
-                  const outOfStock = s.stock <= 0;
+                  const currentStock = getSizeStock(s);
+                  const outOfStock = currentStock <= 0;
 
                   return (
                     <button
@@ -396,7 +430,7 @@ export default function PerfumeDetailPage() {
                       )}
                       {!outOfStock && (
                         <div style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)", marginTop: 2 }}>
-                          Stok: {s.stock}
+                          Stok: {currentStock}
                         </div>
                       )}
                     </button>
@@ -425,48 +459,58 @@ export default function PerfumeDetailPage() {
             )}
 
             {/* Quantity + Add to cart */}
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 32 }}>
-              <div style={{
-                display: "flex", alignItems: "center", gap: 0,
-                border: "1px solid var(--c-border)", borderRadius: "var(--r-md)",
-                overflow: "hidden",
-              }}>
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="btn-icon"
-                  style={{ borderRadius: 0, width: 42, height: 42 }}
-                >
-                  <Minus size={16} />
-                </button>
-                <div style={{
-                  width: 48, height: 42, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 600, color: "var(--c-ink)", fontSize: "0.95rem",
-                  borderLeft: "1px solid var(--c-border)", borderRight: "1px solid var(--c-border)",
-                }}>
-                  {quantity}
-                </div>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="btn-icon"
-                  style={{ borderRadius: 0, width: 42, height: 42 }}
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
+            {(() => {
+              const currentAvailableStock = selectedSize ? getSizeStock(selectedSize) : 0;
+              const isOutOfStock = currentAvailableStock <= 0;
 
-              <button
-                className="btn btn-primary"
-                style={{ flex: 1, height: 42, fontSize: "0.9rem" }}
-                onClick={handleAddToCart}
-                disabled={!selectedSize || selectedSize.stock <= 0}
-              >
-                {addedToCart ? (
-                  <><Check size={17} /> Ditambahkan</>
-                ) : (
-                  <><ShoppingBag size={17} /> Tambah ke Keranjang</>
-                )}
-              </button>
-            </div>
+              return (
+                <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 32 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 0,
+                    border: "1px solid var(--c-border)", borderRadius: "var(--r-md)",
+                    overflow: "hidden",
+                    opacity: isOutOfStock ? 0.5 : 1,
+                  }}>
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="btn-icon"
+                      style={{ borderRadius: 0, width: 42, height: 42 }}
+                      disabled={isOutOfStock || quantity <= 1}
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <div style={{
+                      width: 48, height: 42, display: "flex", alignItems: "center", justifyContent: "center",
+                      fontWeight: 600, color: "var(--c-ink)", fontSize: "0.95rem",
+                      borderLeft: "1px solid var(--c-border)", borderRight: "1px solid var(--c-border)",
+                    }}>
+                      {isOutOfStock ? 0 : quantity}
+                    </div>
+                    <button
+                      onClick={() => setQuantity(Math.min(currentAvailableStock, quantity + 1))}
+                      className="btn-icon"
+                      style={{ borderRadius: 0, width: 42, height: 42 }}
+                      disabled={isOutOfStock || quantity >= currentAvailableStock}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, height: 42, fontSize: "0.9rem" }}
+                    onClick={handleAddToCart}
+                    disabled={!selectedSize || isOutOfStock}
+                  >
+                    {addedToCart ? (
+                      <><Check size={17} /> Ditambahkan</>
+                    ) : (
+                      <><ShoppingBag size={17} /> Tambah ke Keranjang</>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Full description */}
             {perfume.full_description && (

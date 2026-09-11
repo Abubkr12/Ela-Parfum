@@ -81,7 +81,7 @@ export async function getBottleStocks(storeId: number) {
 export async function updateProductStock(id: number, qty: number) {
   const { data: currentStock, error: fetchError } = await supabaseAdmin
     .from('product_stocks')
-    .select('stock_qty, store_id, perfume_sizes (size_label, perfumes (name))')
+    .select('stock_qty, store_id, perfume_size_id, perfume_sizes (size_label, perfumes (name))')
     .eq('id', id)
     .single();
     
@@ -94,6 +94,19 @@ export async function updateProductStock(id: number, qty: number) {
     .update({ stock_qty: qty, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw new Error(error.message);
+
+  // Sync aggregate stock to perfume_sizes.stock for backward compatibility
+  if (currentStock.perfume_size_id) {
+    const { data: allStocks } = await supabaseAdmin
+      .from('product_stocks')
+      .select('stock_qty')
+      .eq('perfume_size_id', currentStock.perfume_size_id);
+    const totalQty = (allStocks || []).reduce((sum, s) => sum + (s.stock_qty || 0), 0);
+    await supabaseAdmin
+      .from('perfume_sizes')
+      .update({ stock: totalQty })
+      .eq('id', currentStock.perfume_size_id);
+  }
   
   const _ps = Array.isArray(currentStock.perfume_sizes) ? currentStock.perfume_sizes[0] : (currentStock.perfume_sizes as any);
   const _pName = _ps ? (Array.isArray(_ps.perfumes) ? _ps.perfumes[0]?.name : _ps.perfumes?.name) : 'Unknown';
@@ -111,6 +124,7 @@ export async function updateProductStock(id: number, qty: number) {
   revalidatePath('/admin/stok');
   revalidatePath('/admin/produk');
   revalidatePath('/katalog');
+  revalidatePath('/parfum');
   
   return { success: true };
 }
