@@ -9,6 +9,10 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Verifikasi Google OAuth Branding (Ela Parfum):**
+  - [x] Resolusi mismatch nama aplikasi pada OAuth consent screen dengan menambahkan teks brand "Ela Parfum" & "Artisan Perfumery" secara eksplisit pada Navbar (desktop & mobile), Hero section kicker, dan Footer.
+  - [x] Sinkronisasi domain custom `elaparfum.web.id` pada Google Search Console, Google Cloud Console (Branding, Authorized Domains, OAuth Web Client), dan Supabase Auth.
+  - [x] Lolos verifikasi resmi Google Trust & Safety: Status hijau 🟢 *"Your branding has been verified and is being shown to users."*
 - [x] **Persiapan & Eksekusi Deployment Domain `elaparfum.web.id` ke Cloudflare Workers:**
   - [x] **Audit Build Produksi & Type-checking:** Lolos uji kompilasi `npm run build` (85 rute dinamis Next.js 16 lolos tanpa error).
   - [x] **Sanitasi Git & Cache:** Bersihkan cache build `.next`, perbarui `tsconfig.json` & `.gitignore` (abaikan scratch files & fix gitlink `.agent/skills`).
