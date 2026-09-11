@@ -3,10 +3,12 @@
 ## Aktif / In Progress
 - [ ] **Persiapan & Eksekusi Deployment Domain `elaparfum.web.id`:**
   - [x] **Audit Build Produksi & Type-checking:** Lolos uji kompilasi `npm run build` (68 rute dinamis lolos tanpa error).
-  - [x] **Sanitasi Git & Cache:** Bersihkan cache build `.next`, perbarui `tsconfig.json` & `.gitignore` (abaikan scratch files).
-  - [ ] **Commit & Push GitHub:** Push seluruh fitur terkini (multi-cabang, command center dashboard admin, sinkronisasi stok, routing rute jalan) ke repository `origin/main`.
-  - [ ] **Delegasi DNS DomaiNesia ke Cloudflare:** Tambahkan site di Cloudflare, ganti NS di MyDomaiNesia ke nameservers Cloudflare.
-  - [ ] **Konfigurasi Origin & Edge Security:** Hubungkan domain ke origin deployment, set SSL Full (Strict), matikan Rocket Loader & Auto Minify, amankan env secrets.
+  - [x] **Sanitasi Git & Cache:** Bersihkan cache build `.next`, perbarui `tsconfig.json` & `.gitignore` (abaikan scratch files & fix gitlink `.agent/skills`).
+  - [x] **Commit & Push GitHub:** Push seluruh fitur terkini (multi-cabang, command center dashboard admin, sinkronisasi stok, routing rute jalan) ke repository `origin/main`.
+  - [x] **Delegasi DNS DomaiNesia ke Cloudflare:** Nameserver aktif diarahkan ke `kolton` dan `monroe`.
+  - [x] **Build & Deploy Cloudflare Workers:** Sukses compile via `@opennextjs/cloudflare` di Cloudflare Build #2881b1ea (`ela-parfum`).
+  - [ ] **Sambungkan Custom Domain & SSL:** Tambahkan `elaparfum.web.id` di tab Domains Worker.
+  - [ ] **Lengkapi Environment Variables:** Sinkronisasi API keys (Gemini, Biteship, Mayar) di Settings > Variables.
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).

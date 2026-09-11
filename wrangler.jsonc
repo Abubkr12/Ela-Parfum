@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ela-parfum",
   "main": ".open-next/worker.js",
@@ -9,5 +9,9 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://sstduefzeufwmltjzknc.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzdGR1ZWZ6ZXVmd21sdGp6a25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MzM3NzIsImV4cCI6MjA5NjQwOTc3Mn0.iG8vBeSWTP_rFgX5nEHM5w-25BjopBXugv6i9bn3jFU"
   }
 }
