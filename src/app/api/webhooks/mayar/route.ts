@@ -414,6 +414,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'Ignored event' }, { status: 200 });
   } catch (err: any) {
     console.error("Webhook Error:", err);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', details: err?.message || String(err) }, { status: 500 });
   }
 }
