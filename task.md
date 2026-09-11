@@ -1,14 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- [ ] **Persiapan & Eksekusi Deployment Domain `elaparfum.web.id`:**
-  - [x] **Audit Build Produksi & Type-checking:** Lolos uji kompilasi `npm run build` (68 rute dinamis lolos tanpa error).
-  - [x] **Sanitasi Git & Cache:** Bersihkan cache build `.next`, perbarui `tsconfig.json` & `.gitignore` (abaikan scratch files & fix gitlink `.agent/skills`).
-  - [x] **Commit & Push GitHub:** Push seluruh fitur terkini (multi-cabang, command center dashboard admin, sinkronisasi stok, routing rute jalan) ke repository `origin/main`.
-  - [x] **Delegasi DNS DomaiNesia ke Cloudflare:** Nameserver aktif diarahkan ke `kolton` dan `monroe`.
-  - [x] **Build & Deploy Cloudflare Workers:** Sukses compile via `@opennextjs/cloudflare` di Cloudflare Build #2881b1ea (`ela-parfum`).
-  - [ ] **Sambungkan Custom Domain & SSL:** Tambahkan `elaparfum.web.id` di tab Domains Worker.
-  - [ ] **Lengkapi Environment Variables:** Sinkronisasi API keys (Gemini, Biteship, Mayar) di Settings > Variables.
+- (Saat ini antrian aktif kosong — deployment live production telah sukses)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -16,6 +9,15 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Persiapan & Eksekusi Deployment Domain `elaparfum.web.id` ke Cloudflare Workers:**
+  - [x] **Audit Build Produksi & Type-checking:** Lolos uji kompilasi `npm run build` (85 rute dinamis Next.js 16 lolos tanpa error).
+  - [x] **Sanitasi Git & Cache:** Bersihkan cache build `.next`, perbarui `tsconfig.json` & `.gitignore` (abaikan scratch files & fix gitlink `.agent/skills`).
+  - [x] **Commit & Push GitHub:** Push seluruh fitur terkini (multi-cabang, command center dashboard admin, sinkronisasi stok, routing rute jalan) ke repository `origin/main`.
+  - [x] **Delegasi DNS DomaiNesia ke Cloudflare:** Nameserver aktif diarahkan ke `kolton.ns.cloudflare.com` dan `monroe.ns.cloudflare.com`, DNSSEC dinonaktifkan.
+  - [x] **Build & Deploy Cloudflare Workers:** Sukses compile via `@opennextjs/cloudflare` di Cloudflare Build (`ela-parfum`).
+  - [x] **Sambungkan Custom Domain & SSL:** Hubungkan `elaparfum.web.id` dan `www.elaparfum.web.id` di tab Worker Domains (Active, SSL otomatis terbit).
+  - [x] **Lengkapi Environment Variables & Secrets:** Injeksi rahasia dan konfigurasi runtime via Cloudflare API (`SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `BITESHIP_API_KEY`, `MAYAR_API_KEY`, `MIDTRANS_SERVER_KEY`, dll).
+  - [x] **Verifikasi Live Production & Database Connection:** Homepage `https://elaparfum.web.id`, rute stok multi-cabang `/api/product-stocks`, dan detail produk `/parfum/1` terbukti 100% responsif (HTTP 200 OK).
 - [x] **Fix Sinkronisasi Stok Detail Produk (/parfum/[id]):**
   - [x] **Update Types Helper (`src/lib/types.ts`):** Tambah helper `getSizeStock(size: PerfumeSize)` yang menghitung agregasi riil dari relasi `product_stocks` across 3 cabang, serta selaraskan fungsi `getTotalStock`.
   - [x] **API Route Stok Produk (`src/app/api/product-stocks/route.ts`):** Tambah dukungan filter query `?perfume_id=...` dengan select `*, product_stocks(store_id, stock_qty)` diurutkan `size_ml` menggunakan Service Role client untuk mem-bypass batasan anon RLS.
