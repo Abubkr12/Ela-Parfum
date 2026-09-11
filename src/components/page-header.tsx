@@ -85,7 +85,11 @@ export function PageHeader() {
     <>
       <header className="topbar">
         <Link href="/" className="topbar__brand">
-          <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "40px", width: "auto" }} />
+          <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "36px", width: "auto" }} />
+          <div>
+            <div className="brand-name">Ela Parfum</div>
+            <div className="brand-sub">Artisan Perfumery</div>
+          </div>
         </Link>
 
         <div className="topbar__spacer" />
@@ -228,7 +232,10 @@ export function PageHeader() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "32px", width: "auto" }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "32px", width: "auto" }} />
+                  <span className="brand-name" style={{ fontSize: "1.15rem" }}>Ela Parfum</span>
+                </div>
                 <button className="btn-icon" onClick={() => setMobileOpen(false)}>
                   <X size={20} />
                 </button>

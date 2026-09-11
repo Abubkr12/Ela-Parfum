@@ -74,8 +74,12 @@ export function Footer() {
 
           {/* Brand column */}
           <div className="footer__brand-col">
-            <div className="footer__brand">
-              <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "48px", width: "auto" }} />
+            <div className="footer__brand" style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+              <img src="/assets/Ela Parfum.svg" alt="Ela Parfum Logo" style={{ height: "42px", width: "auto" }} />
+              <div>
+                <span className="brand-name" style={{ fontSize: "1.3rem" }}>Ela Parfum</span>
+                <div className="brand-sub">Artisan Perfumery</div>
+              </div>
             </div>
             <p className="footer__brand-desc">
               Toko parfum isi ulang Condet dengan AI yang membantu Anda menemukan aroma

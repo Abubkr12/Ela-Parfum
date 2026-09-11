@@ -226,7 +226,7 @@ export function CustomerExperience({ user, serverPerfumes = [], serverFamilies =
             <div className="hero__kicker">
               <span className="hero__kicker-line" />
               <span className="hero__kicker-text" style={{ fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.15em", color: "var(--c-blue)", textTransform: "uppercase" }}>
-                Spesialis Parfum Refill Custom
+                Ela Parfum • Spesialis Parfum Refill Custom
               </span>
               <span className="hero__kicker-line hero__kicker-line-right" />
             </div>
@@ -238,7 +238,7 @@ export function CustomerExperience({ user, serverPerfumes = [], serverFamilies =
             </h1>
 
             <p className="hero__desc">
-              Pilih dari ratusan bibit unggul kami atau biarkan AI Master Perfumer meracik formula refill khusus berdasarkan kepribadian dan referensi favoritmu.
+              Selamat datang di <strong>Ela Parfum</strong>. Pilih dari ratusan bibit unggul kami atau biarkan AI Master Perfumer meracik formula refill khusus berdasarkan kepribadian dan referensi favoritmu.
             </p>
 
             <div className="hero__actions">
