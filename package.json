@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:worker": "opennextjs-cloudflare build",
     "start": "next start",
     "qa:visual": "node ./scripts/visual-check.mjs"
   },
@@ -39,6 +40,7 @@
     "postcss": "^8.5.15"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.6",
     "@types/file-saver": "^2.0.7",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^22.10.2",
@@ -49,6 +51,7 @@
     "pg": "^8.22.0",
     "playwright": "^1.60.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "^4.131.0"
   }
 }
