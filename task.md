@@ -1,11 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- [ ] **Optimasi Resource & Eliminasi Error 1102 (Cloudflare Free Rp 0):**
-  - [x] **Sanitasi Folder & Pangkas Auth Ganda:** Bersihkan stray files di parent directory dan hilangkan blocking auth `getUser()` di `RootLayout` (`src/app/layout.tsx`).
-  - [x] **Migrasi Manajemen Stok (`/admin/stok`):** Buat route handler `/api/admin/stok` (streaming JSON langsung `no-store`) & hubungkan ke `stok/page.tsx` agar search tetap instan di memori browser dengan CPU server < 2ms.
-  - [x] **Migrasi Halaman Statistik (`/admin/statistik`):** Buat endpoint data `/api/admin/statistik/barang` dan `/api/admin/statistik/penjualan` dengan filter rentang waktu (default 30 hari & tetap support "Semua") berbasis client-side data fetching tanpa crash SSR.
-  - [ ] **Verifikasi & Deployment:** Uji `npx tsc --noEmit` (0 error), build produksi `npm run build` (70 rute sukses), commit & push GitHub, dan pantau live deploy Cloudflare.
+*(Tidak ada task aktif saat ini. Siap untuk instruksi atau fitur baru).*
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -13,6 +9,11 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Optimasi Resource & Eliminasi Error 1102 (Cloudflare Free Rp 0):**
+  - [x] **Sanitasi Folder & Pangkas Auth Ganda:** Bersihkan stray files di parent directory dan hilangkan blocking auth `getUser()` di `RootLayout` (`src/app/layout.tsx`).
+  - [x] **Migrasi Manajemen Stok (`/admin/stok`):** Buat route handler `/api/admin/stok` (streaming JSON langsung `no-store`) & hubungkan ke `stok/page.tsx` agar search tetap instan di memori browser dengan CPU server < 2ms.
+  - [x] **Migrasi Halaman Statistik (`/admin/statistik`):** Buat endpoint data `/api/admin/statistik/barang` dan `/api/admin/statistik/penjualan` dengan filter rentang waktu (default 30 hari & tetap support "Semua") berbasis client-side data fetching tanpa crash SSR.
+  - [x] **Verifikasi & Deployment:** Uji `npx tsc --noEmit` (0 error), build produksi `npm run build` (70 rute sukses), commit & push GitHub, dan pantau live deploy Cloudflare. Seluruh rute `/admin/stok`, `/admin/statistik/barang`, `/admin/statistik/penjualan` lolos uji live HTTP 200 tanpa Error 1102.
 - [x] **Resolusi Turbopack Error & Junction Point pasca Pindah Direktori:**
   - [x] Hentikan proses Node/Next dev server lama yang terkunci di background (membebaskan RAM 2GB+).
   - [x] Sanitasi atribut Read-Only pada folder dan file proyek yang terbawa dari OneDrive (`attrib -r`).
