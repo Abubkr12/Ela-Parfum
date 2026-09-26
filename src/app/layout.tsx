@@ -4,7 +4,6 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { CartProvider } from "@/lib/cart-context";
 import { Toaster } from "sonner";
 import Script from "next/script";
-import { createClient } from "@/lib/supabase/server";
 import { ChatWidget } from "@/components/chat-widget";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -39,14 +38,11 @@ export const viewport: Viewport = {
   themeColor: "#0a0c0b"
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
   return (
     <html lang="id" data-theme="dark" suppressHydrationWarning>
       <head>
@@ -71,7 +67,7 @@ export default async function RootLayout({
         <ThemeProvider>
           <CartProvider>
             {children}
-            {user && <ChatWidget userId={user.id} />}
+            <ChatWidget />
             <Toaster position="top-center" richColors />
             <Analytics />
           </CartProvider>

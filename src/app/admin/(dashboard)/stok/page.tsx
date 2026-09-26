@@ -4,15 +4,11 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Loader2, Save, MapPin, Archive, Search, ChevronLeft, ChevronRight, Edit2, X, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { 
-  getStores, 
-  getProductStocks, 
-  getBibitStocks, 
-  getBottleStocks,
   updateProductStock,
   updateBibitStock,
   updateBottleStock
 } from "./actions";
-import { getSolventStocks, updateSolventStock } from "./actions-solvent";
+import { updateSolventStock } from "./actions-solvent";
 
 function getPaginationItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -87,7 +83,9 @@ export default function StokPage() {
   useEffect(() => {
     async function init() {
       try {
-        const storeData = await getStores();
+        const res = await fetch("/api/admin/stok?type=stores", { cache: "no-store" });
+        const json = await res.json();
+        const storeData = json.data || [];
         setStores(storeData);
         if (storeData.length > 0) {
           setSelectedStore(storeData[0].id);
@@ -114,21 +112,21 @@ export default function StokPage() {
   const loadStocks = async (storeId: number) => {
     try {
       setLoading(true);
+      const res = await fetch(`/api/admin/stok?type=${activeTab}&store_id=${storeId}`, { cache: "no-store" });
+      const json = await res.json();
+      const data = json.data || [];
+
       if (activeTab === "produk") {
-        const data = await getProductStocks(storeId);
-        setProductStocks(data?.map(d => ({ ...d, _temp_qty: d.stock_qty })) || []);
+        setProductStocks(data.map((d: any) => ({ ...d, _temp_qty: d.stock_qty })));
       } else if (activeTab === "bibit") {
-        const data = await getBibitStocks(storeId);
-        setBibitStocks(data?.map(d => ({ 
+        setBibitStocks(data.map((d: any) => ({ 
           ...d, 
           _temp_qty: d.stock_ml ?? 3500
-        })) || []);
+        })));
       } else if (activeTab === "botol") {
-        const data = await getBottleStocks(storeId);
-        setBottleStocks(data?.map(d => ({ ...d, _temp_qty: d.stock_qty })) || []);
+        setBottleStocks(data.map((d: any) => ({ ...d, _temp_qty: d.stock_qty })));
       } else if (activeTab === "pelarut") {
-        const data = await getSolventStocks(storeId);
-        setSolventStocks(data?.map(d => ({ ...d, _temp_qty: d.stock_ml })) || []);
+        setSolventStocks(data.map((d: any) => ({ ...d, _temp_qty: d.stock_ml })));
       }
     } catch (err) {
       console.error("Gagal memuat data stok:", err);

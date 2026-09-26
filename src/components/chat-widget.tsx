@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, Sparkles, Bot, User as UserIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 interface Message {
   id: string;
@@ -10,7 +11,8 @@ interface Message {
   content: string;
 }
 
-export function ChatWidget({ userId }: { userId?: string }) {
+export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
+  const [userId, setUserId] = useState<string | undefined>(initialUserId);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -18,6 +20,21 @@ export function ChatWidget({ userId }: { userId?: string }) {
 
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (initialUserId) {
+      setUserId(initialUserId);
+      return;
+    }
+    if (!pathname.startsWith('/admin')) {
+      const supabase = createClient();
+      supabase.auth.getUser().then((res: any) => {
+        if (res?.data?.user?.id) {
+          setUserId(res.data.user.id);
+        }
+      });
+    }
+  }, [initialUserId, pathname]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
