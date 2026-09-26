@@ -46,81 +46,6 @@ const MOCK_FAMILIES: ScentFamily[] = [
   { id: 8, name: "musky" as const, label: "Musky", description: null, color: "#a855f7", sort_order: 8 },
 ];
 
-const MOCK_PERFUMES: (Perfume & { sizes: PerfumeSize[] })[] = [
-  {
-    id: 1, name: "Velvet Rose Musk", slug: "velvet-rose-musk", collection: "Signature Mix",
-    family_id: 2, mood: "Romantis, bersih, feminin", description: "Perpaduan rose dan white musk yang elegan.",
-    full_description: null, notes: ["Rose", "White musk", "Lychee", "Soft amber"],
-    strength: "Medium", longevity: "6-8 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: true, created_at: "", updated_at: "",
-    sizes: [
-      { id: 1, perfume_id: 1, size_ml: 10, size_label: "10ml", price: 15000, stock: 20, is_active: true },
-      { id: 2, perfume_id: 1, size_ml: 30, size_label: "30ml", price: 35000, stock: 42, is_active: true },
-      { id: 3, perfume_id: 1, size_ml: 50, size_label: "50ml", price: 52000, stock: 15, is_active: true },
-    ],
-  },
-  {
-    id: 2, name: "Citrus Neroli Clean", slug: "citrus-neroli-clean", collection: "Fresh Daily",
-    family_id: 4, mood: "Segar, rapi, ringan", description: "Kesegaran neroli dan bergamot untuk daily wear.",
-    full_description: null, notes: ["Bergamot", "Neroli", "Green tea", "Clean musk"],
-    strength: "Soft", longevity: "4-6 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: true, created_at: "", updated_at: "",
-    sizes: [
-      { id: 4, perfume_id: 2, size_ml: 10, size_label: "10ml", price: 14000, stock: 18, is_active: true },
-      { id: 5, perfume_id: 2, size_ml: 30, size_label: "30ml", price: 32000, stock: 35, is_active: true },
-      { id: 6, perfume_id: 2, size_ml: 50, size_label: "50ml", price: 48000, stock: 12, is_active: true },
-    ],
-  },
-  {
-    id: 3, name: "Noir Oud Reserve", slug: "noir-oud-reserve", collection: "Premium Blend",
-    family_id: 3, mood: "Mewah, bold, dewasa", description: "Karakter oud yang dalam dan patchouli yang kaya.",
-    full_description: null, notes: ["Oud", "Saffron", "Patchouli", "Dark vanilla"],
-    strength: "Strong", longevity: "8-10 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: false, created_at: "", updated_at: "",
-    sizes: [
-      { id: 7, perfume_id: 3, size_ml: 10, size_label: "10ml", price: 22000, stock: 10, is_active: true },
-      { id: 8, perfume_id: 3, size_ml: 30, size_label: "30ml", price: 58000, stock: 18, is_active: true },
-      { id: 9, perfume_id: 3, size_ml: 50, size_label: "50ml", price: 85000, stock: 8, is_active: true },
-    ],
-  },
-  {
-    id: 4, name: "Ocean Linen Mist", slug: "ocean-linen-mist", collection: "Clean Fresh",
-    family_id: 6, mood: "Sejuk, bersih, effortless", description: "Aroma linen segar dengan sentuhan laut.",
-    full_description: null, notes: ["Sea salt", "Linen", "Lavender", "Soft woods"],
-    strength: "Medium", longevity: "5-7 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: true, created_at: "", updated_at: "",
-    sizes: [
-      { id: 10, perfume_id: 4, size_ml: 10, size_label: "10ml", price: 14000, stock: 15, is_active: true },
-      { id: 11, perfume_id: 4, size_ml: 30, size_label: "30ml", price: 34000, stock: 28, is_active: true },
-      { id: 12, perfume_id: 4, size_ml: 50, size_label: "50ml", price: 50000, stock: 10, is_active: true },
-    ],
-  },
-  {
-    id: 5, name: "Vanilla Skin Glow", slug: "vanilla-skin-glow", collection: "Comfort Mix",
-    family_id: 5, mood: "Manis, hangat, dekat di kulit", description: "Vanilla gourmand yang warm dan nyaman.",
-    full_description: null, notes: ["Vanilla", "Caramel", "Milk accord", "Skin musk"],
-    strength: "Medium", longevity: "6-8 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: false, created_at: "", updated_at: "",
-    sizes: [
-      { id: 13, perfume_id: 5, size_ml: 10, size_label: "10ml", price: 16000, stock: 14, is_active: true },
-      { id: 14, perfume_id: 5, size_ml: 30, size_label: "30ml", price: 37000, stock: 31, is_active: true },
-      { id: 15, perfume_id: 5, size_ml: 50, size_label: "50ml", price: 55000, stock: 9, is_active: true },
-    ],
-  },
-  {
-    id: 6, name: "Spiced Amber Club", slug: "spiced-amber-club", collection: "Evening Mix",
-    family_id: 7, mood: "Hangat, percaya diri, maskulin", description: "Rempah hangat untuk malam yang berkesan.",
-    full_description: null, notes: ["Cardamom", "Amber", "Tonka", "Cedar"],
-    strength: "Strong", longevity: "7-9 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: false, created_at: "", updated_at: "",
-    sizes: [
-      { id: 16, perfume_id: 6, size_ml: 10, size_label: "10ml", price: 18000, stock: 12, is_active: true },
-      { id: 17, perfume_id: 6, size_ml: 30, size_label: "30ml", price: 45000, stock: 22, is_active: true },
-      { id: 18, perfume_id: 6, size_ml: 50, size_label: "50ml", price: 68000, stock: 7, is_active: true },
-    ],
-  },
-];
-
 export default function PerfumeDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -138,25 +63,6 @@ export default function PerfumeDetailPage() {
   const [relatedPerfumes, setRelatedPerfumes] = useState<(Perfume & { sizes: PerfumeSize[] })[]>([]);
 
   useEffect(() => {
-    function loadFromMock() {
-      const mockPerfume = MOCK_PERFUMES.find(
-        (p) => p.slug === decodedParam || p.slug === decodedParam.replace(/_/g, "-")
-      );
-      if (mockPerfume) {
-        setPerfume(mockPerfume);
-        setSizes(mockPerfume.sizes);
-        const default30 = mockPerfume.sizes.find((s) => s.size_ml === 30 && getSizeStock(s) > 0);
-        setSelectedSize(default30 ?? mockPerfume.sizes[0]);
-        const mockFamily = MOCK_FAMILIES.find((f) => f.id === mockPerfume.family_id);
-        if (mockFamily) setFamily(mockFamily);
-        const related = MOCK_PERFUMES.filter(
-          (p) => p.family_id === mockPerfume.family_id && p.id !== mockPerfume.id
-        ).slice(0, 4);
-        setRelatedPerfumes(related);
-      }
-      setLoading(false);
-    }
-
     async function fetchPerfume() {
       try {
         const sb = getSupabase();
@@ -183,7 +89,8 @@ export default function PerfumeDetailPage() {
         const { data: perfumeData } = await perfumeQuery.limit(1).maybeSingle();
 
         if (!perfumeData) {
-          loadFromMock();
+          setPerfume(null);
+          setLoading(false);
           return;
         }
 
@@ -258,10 +165,11 @@ export default function PerfumeDetailPage() {
           }
         }
 
+      } catch (err) {
+        console.error("Gagal mengambil data parfum:", err);
+        setPerfume(null);
+      } finally {
         setLoading(false);
-      } catch {
-        // Supabase unreachable — use mock data
-        loadFromMock();
       }
     }
 

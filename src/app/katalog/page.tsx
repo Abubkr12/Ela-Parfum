@@ -38,7 +38,7 @@ const sortLabels: Record<SortOption, string> = {
   name: "Nama A-Z",
 };
 
-// Fallback mock data when Supabase is empty
+// Fallback scent families in case network fails
 const MOCK_FAMILIES: ScentFamily[] = [
   { id: 1, name: "fresh" as const, label: "Fresh", description: null, color: "#4ade80", sort_order: 1 },
   { id: 2, name: "floral" as const, label: "Floral", description: null, color: "#f472b6", sort_order: 2 },
@@ -48,81 +48,6 @@ const MOCK_FAMILIES: ScentFamily[] = [
   { id: 6, name: "aquatic" as const, label: "Aquatic", description: null, color: "#38bdf8", sort_order: 6 },
   { id: 7, name: "spicy" as const, label: "Spicy", description: null, color: "#ef4444", sort_order: 7 },
   { id: 8, name: "musky" as const, label: "Musky", description: null, color: "#a855f7", sort_order: 8 },
-];
-
-const MOCK_PERFUMES: (Perfume & { sizes: PerfumeSize[] })[] = [
-  {
-    id: 1, name: "Velvet Rose Musk", slug: "velvet-rose-musk", collection: "Signature Mix",
-    family_id: 2, mood: "Romantis, bersih, feminin", description: "Perpaduan rose dan white musk yang elegan.",
-    full_description: null, notes: ["Rose", "White musk", "Lychee", "Soft amber"],
-    strength: "Medium", longevity: "6-8 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: true, created_at: "", updated_at: "",
-    sizes: [
-      { id: 1, perfume_id: 1, size_ml: 10, size_label: "10ml", price: 15000, stock: 20, is_active: true },
-      { id: 2, perfume_id: 1, size_ml: 30, size_label: "30ml", price: 35000, stock: 42, is_active: true },
-      { id: 3, perfume_id: 1, size_ml: 50, size_label: "50ml", price: 52000, stock: 15, is_active: true },
-    ],
-  },
-  {
-    id: 2, name: "Citrus Neroli Clean", slug: "citrus-neroli-clean", collection: "Fresh Daily",
-    family_id: 4, mood: "Segar, rapi, ringan", description: "Kesegaran neroli dan bergamot untuk daily wear.",
-    full_description: null, notes: ["Bergamot", "Neroli", "Green tea", "Clean musk"],
-    strength: "Soft", longevity: "4-6 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: true, created_at: "", updated_at: "",
-    sizes: [
-      { id: 4, perfume_id: 2, size_ml: 10, size_label: "10ml", price: 14000, stock: 18, is_active: true },
-      { id: 5, perfume_id: 2, size_ml: 30, size_label: "30ml", price: 32000, stock: 35, is_active: true },
-      { id: 6, perfume_id: 2, size_ml: 50, size_label: "50ml", price: 48000, stock: 12, is_active: true },
-    ],
-  },
-  {
-    id: 3, name: "Noir Oud Reserve", slug: "noir-oud-reserve", collection: "Premium Blend",
-    family_id: 3, mood: "Mewah, bold, dewasa", description: "Karakter oud yang dalam dan patchouli yang kaya.",
-    full_description: null, notes: ["Oud", "Saffron", "Patchouli", "Dark vanilla"],
-    strength: "Strong", longevity: "8-10 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: false, created_at: "", updated_at: "",
-    sizes: [
-      { id: 7, perfume_id: 3, size_ml: 10, size_label: "10ml", price: 22000, stock: 10, is_active: true },
-      { id: 8, perfume_id: 3, size_ml: 30, size_label: "30ml", price: 58000, stock: 18, is_active: true },
-      { id: 9, perfume_id: 3, size_ml: 50, size_label: "50ml", price: 85000, stock: 8, is_active: true },
-    ],
-  },
-  {
-    id: 4, name: "Ocean Linen Mist", slug: "ocean-linen-mist", collection: "Clean Fresh",
-    family_id: 6, mood: "Sejuk, bersih, effortless", description: "Aroma linen segar dengan sentuhan laut.",
-    full_description: null, notes: ["Sea salt", "Linen", "Lavender", "Soft woods"],
-    strength: "Medium", longevity: "5-7 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: true, created_at: "", updated_at: "",
-    sizes: [
-      { id: 10, perfume_id: 4, size_ml: 10, size_label: "10ml", price: 14000, stock: 15, is_active: true },
-      { id: 11, perfume_id: 4, size_ml: 30, size_label: "30ml", price: 34000, stock: 28, is_active: true },
-      { id: 12, perfume_id: 4, size_ml: 50, size_label: "50ml", price: 50000, stock: 10, is_active: true },
-    ],
-  },
-  {
-    id: 5, name: "Vanilla Skin Glow", slug: "vanilla-skin-glow", collection: "Comfort Mix",
-    family_id: 5, mood: "Manis, hangat, dekat di kulit", description: "Vanilla gourmand yang warm dan nyaman.",
-    full_description: null, notes: ["Vanilla", "Caramel", "Milk accord", "Skin musk"],
-    strength: "Medium", longevity: "6-8 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: false, created_at: "", updated_at: "",
-    sizes: [
-      { id: 13, perfume_id: 5, size_ml: 10, size_label: "10ml", price: 16000, stock: 14, is_active: true },
-      { id: 14, perfume_id: 5, size_ml: 30, size_label: "30ml", price: 37000, stock: 31, is_active: true },
-      { id: 15, perfume_id: 5, size_ml: 50, size_label: "50ml", price: 55000, stock: 9, is_active: true },
-    ],
-  },
-  {
-    id: 6, name: "Spiced Amber Club", slug: "spiced-amber-club", collection: "Evening Mix",
-    family_id: 7, mood: "Hangat, percaya diri, maskulin", description: "Rempah hangat untuk malam yang berkesan.",
-    full_description: null, notes: ["Cardamom", "Amber", "Tonka", "Cedar"],
-    strength: "Strong", longevity: "7-9 jam", usage_guide: null, image_url: null, images: [],
-    is_active: true, is_featured: false, created_at: "", updated_at: "",
-    sizes: [
-      { id: 16, perfume_id: 6, size_ml: 10, size_label: "10ml", price: 18000, stock: 12, is_active: true },
-      { id: 17, perfume_id: 6, size_ml: 30, size_label: "30ml", price: 45000, stock: 22, is_active: true },
-      { id: 18, perfume_id: 6, size_ml: 50, size_label: "50ml", price: 68000, stock: 7, is_active: true },
-    ],
-  },
 ];
 
 export default function KatalogPage() {
@@ -145,30 +70,24 @@ export default function KatalogPage() {
         const [perfumeRes, familyRes, sizesRes] = await Promise.all([
           sb.from("perfumes").select("*").eq("is_active", true).order("created_at", { ascending: false }),
           sb.from("scent_families").select("*").order("sort_order"),
-          fetch("/api/product-stocks", { cache: "no-store" }).then((res) => res.json()),
+          fetch("/api/product-stocks", { cache: "no-store" }).then((res) => res.json()).catch(() => ({ data: [] })),
         ]);
 
         const perfumeData = (perfumeRes.data ?? []) as Perfume[];
         const familyData = (familyRes.data ?? []) as ScentFamily[];
         const sizeData = (sizesRes.data ?? []) as PerfumeSize[];
 
-        // If Supabase has data, use it
-        if (perfumeData.length > 0) {
-          const merged = perfumeData.map((p) => ({
-            ...p,
-            sizes: sizeData.filter((s) => s.perfume_id === p.id),
-            family: familyData.find((f) => f.id === p.family_id),
-          }));
-          setPerfumes(merged);
-          setFamilies(familyData);
-        } else {
-          // Fallback to mock data
-          setPerfumes(MOCK_PERFUMES);
-          setFamilies(MOCK_FAMILIES);
-        }
-      } catch {
-        // Supabase unreachable — use mock data
-        setPerfumes(MOCK_PERFUMES);
+        const merged = perfumeData.map((p) => ({
+          ...p,
+          sizes: sizeData.filter((s) => s.perfume_id === p.id),
+          family: familyData.find((f) => f.id === p.family_id),
+        }));
+
+        setPerfumes(merged);
+        setFamilies(familyData.length > 0 ? familyData : MOCK_FAMILIES);
+      } catch (err) {
+        console.error("Gagal memuat katalog:", err);
+        setPerfumes([]);
         setFamilies(MOCK_FAMILIES);
       } finally {
         setLoading(false);
@@ -399,13 +318,24 @@ export default function KatalogPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: "80px 0", textAlign: "center" }}>
-            <Search size={48} style={{ color: "var(--c-ink-dim)", opacity: 0.4, marginBottom: 16 }} />
+            {perfumes.length === 0 ? (
+              <Package size={48} style={{ color: "var(--c-ink-dim)", opacity: 0.4, marginBottom: 16 }} />
+            ) : (
+              <Search size={48} style={{ color: "var(--c-ink-dim)", opacity: 0.4, marginBottom: 16 }} />
+            )}
             <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 400, color: "var(--c-ink-muted)", marginBottom: 8 }}>
-              Tidak ada parfum yang cocok
+              {perfumes.length === 0 ? "Belum ada produk di katalog" : "Tidak ada parfum yang cocok"}
             </h3>
-            <p style={{ color: "var(--c-ink-dim)", fontSize: "0.9rem" }}>
-              Coba kata kunci atau filter lain.
+            <p style={{ color: "var(--c-ink-dim)", fontSize: "0.9rem", maxWidth: 480, margin: "0 auto 24px", lineHeight: 1.6 }}>
+              {perfumes.length === 0
+                ? "Produk siap pakai saat ini sedang disiapkan. Anda tetap dapat memesan aroma favorit melalui layanan Racik Custom atau Refill."
+                : "Coba kata kunci atau filter lain."}
             </p>
+            {perfumes.length === 0 && (
+              <Link href="/refill" className="btn btn-primary" style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                <Sparkles size={16} /> Pesan Racik / Refill Sekarang
+              </Link>
+            )}
           </div>
         ) : (
           <div className="perfume-grid">

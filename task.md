@@ -9,6 +9,10 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Pembersihan Dummy/Mock Produk di Katalog & Halaman Detail:**
+  - [x] Hapus konstanta `MOCK_PERFUMES` dan fungsi `loadFromMock()` di `/katalog` dan `/parfum/[id]` yang menampilkan produk dummy (Velvet Rose Musk, dsb.) saat katalog produk di Supabase kosong.
+  - [x] Sediakan empty state informatif di `/katalog` dengan tombol ajakan langsung ke pesanan racik kustom (`/refill`).
+  - [x] Audit database Supabase: Memastikan data `perfumes`, `perfume_sizes`, dan `product_stocks` telah terhapus bersih (0 rows via cascade delete) tanpa menyisakan baris hantu, sedangkan `bibit_stocks` (2.220 baris) dan `bottle_stocks` (54 baris) tetap aman dan utuh.
 - [x] **Optimasi Resource & Eliminasi Error 1102 (Cloudflare Free Rp 0):**
   - [x] **Sanitasi Folder & Pangkas Auth Ganda:** Bersihkan stray files di parent directory dan hilangkan blocking auth `getUser()` di `RootLayout` (`src/app/layout.tsx`).
   - [x] **Migrasi Manajemen Stok (`/admin/stok`):** Buat route handler `/api/admin/stok` (streaming JSON langsung `no-store`) & hubungkan ke `stok/page.tsx` agar search tetap instan di memori browser dengan CPU server < 2ms.
