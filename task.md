@@ -9,6 +9,12 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Eliminasi Error 1102 Edit Botol & Sanitasi Server Actions (/admin/botol):**
+  - [x] **Root Cause:** Next.js Server Action (`saveBotol`) dengan multipart/form-data dan `revalidatePath` melebihi batas 10ms CPU Cloudflare Free saat memproses foto biner dan re-render SSR.
+  - [x] **Direct Client Upload:** Foto botol diunggah langsung dari browser ke Supabase Storage (0ms CPU Cloudflare) dengan fallback ke streaming route `/api/admin/botol/upload`.
+  - [x] **REST API Botol (`/api/admin/botol`):** Pemrosesan simpan/edit dan hapus data via JSON murni (< 1ms CPU).
+  - [x] **Sanitasi Supabase Admin & UI Dialog:** Perbaiki inisialisasi dinamis `createAdminClient()` di seluruh admin actions (`botol`, `bibit`, `produk`, `karyawan`), serta ganti semua browser `alert`/`confirm` dengan toast Sonner dan modal kustom.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` dan `npm run build` sukses 70 rute.
 - [x] **Pembersihan Dummy/Mock Produk di Katalog & Halaman Detail:**
   - [x] Hapus konstanta `MOCK_PERFUMES` dan fungsi `loadFromMock()` di `/katalog` dan `/parfum/[id]` yang menampilkan produk dummy (Velvet Rose Musk, dsb.) saat katalog produk di Supabase kosong.
   - [x] Sediakan empty state informatif di `/katalog` dengan tombol ajakan langsung ke pesanan racik kustom (`/refill`).

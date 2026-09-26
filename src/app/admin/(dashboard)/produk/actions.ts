@@ -1,16 +1,12 @@
 "use server";
 
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { slugify } from '@/lib/types';
 import { redirect } from 'next/navigation';
 
-const supabaseAdmin = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function saveProduct(formData: FormData) {
+  const supabaseAdmin = createAdminClient();
   const id = formData.get('id') as string;
   const name = formData.get('name') as string;
   const collection = formData.get('collection') as string;
@@ -134,6 +130,7 @@ export async function saveProduct(formData: FormData) {
 }
 
 export async function deleteProduct(id: number) {
+  const supabaseAdmin = createAdminClient();
   const { error: sizesError } = await supabaseAdmin.from('perfume_sizes').delete().eq('perfume_id', id);
   if (sizesError) throw new Error('Gagal menghapus ukuran: ' + sizesError.message);
 

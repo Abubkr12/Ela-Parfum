@@ -1,17 +1,11 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-
-// Kita bikin instance Supabase langsung menggunakan SERVICE ROLE KEY
-// Ini buat bypass RLS yang ngeblokir update di tabel bottles
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function saveBotol(formData: FormData) {
   try {
+    const supabaseAdmin = createAdminClient();
     const id = formData.get('id') as string;
     const name = formData.get('name') as string;
     const capacity_ml = Number(formData.get('capacity_ml'));
@@ -80,6 +74,7 @@ export async function saveBotol(formData: FormData) {
 
 export async function deleteBotol(id: string) {
   try {
+    const supabaseAdmin = createAdminClient();
     const { error } = await supabaseAdmin
       .from("bottles")
       .delete()

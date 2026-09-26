@@ -1,16 +1,11 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-
-// We must use the Service Role Key to create users without needing them to sign up manually
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function addEmployee(formData: FormData) {
   try {
+    const supabaseAdmin = createAdminClient();
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const fullName = formData.get("full_name") as string;
@@ -86,6 +81,7 @@ export async function addEmployee(formData: FormData) {
 
 export async function deleteEmployee(userId: string) {
   try {
+    const supabaseAdmin = createAdminClient();
     // 1. Delete from Auth (Cascade should handle the admin_users table, but we can do both)
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     

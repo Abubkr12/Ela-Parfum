@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Package, Search, Plus, Edit, Trash2, Loader2, Cylinder, X, Image as ImageIcon, Check } from 'lucide-react';
-import { saveBotol, deleteBotol } from './actions';
+import { toast } from 'sonner';
 import Cropper from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
 
@@ -16,6 +16,7 @@ export default function KatalogBotol() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     id: '',
     name: '',
@@ -25,6 +26,7 @@ export default function KatalogBotol() {
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cropper states
@@ -39,7 +41,7 @@ export default function KatalogBotol() {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
-        alert("File harus berupa gambar!");
+        toast.error("File harus berupa gambar!");
         return;
       }
       const url = URL.createObjectURL(file);
@@ -62,22 +64,17 @@ export default function KatalogBotol() {
         0,
         { horizontal: false, vertical: false },
         0.8,
-        1000
+        800
       );
       
       if (croppedFile) {
         const croppedUrl = URL.createObjectURL(croppedFile);
         setImagePreview(croppedUrl);
-        
-        if (fileInputRef.current) {
-          const dataTransfer = new DataTransfer();
-          dataTransfer.items.add(croppedFile);
-          fileInputRef.current.files = dataTransfer.files;
-        }
+        setCroppedBlob(croppedFile);
       }
     } catch (e) {
       console.error(e);
-      alert("Gagal memotong gambar");
+      toast.error("Gagal memotong gambar");
     } finally {
       setIsCropping(false);
     }
@@ -89,23 +86,27 @@ export default function KatalogBotol() {
 
   async function fetchBottles() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('bottles')
-      .select('*')
-      .order('capacity_ml', { ascending: true });
-      
-    if (error) {
-      console.error(error);
-    } else {
-      setBottles(data || []);
+    try {
+      const res = await fetch('/api/admin/botol', { cache: 'no-store' });
+      const json = await res.json();
+      if (json.success) {
+        setBottles(json.data || []);
+      } else {
+        toast.error('Gagal mengambil data botol: ' + (json.error || 'Terjadi kesalahan'));
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Koneksi terganggu saat mengambil data botol.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const openAddModal = () => {
     setModalMode('add');
     setFormData({ id: '', name: '', capacity_ml: 0, price: 0, image_url: '' });
     setImagePreview(null);
+    setCroppedBlob(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsModalOpen(true);
   };
@@ -114,17 +115,29 @@ export default function KatalogBotol() {
     setModalMode('edit');
     setFormData({ ...item, image_url: item.image_url || '' });
     setImagePreview(item.image_url || null);
+    setCroppedBlob(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Yakin ingin menghapus botol ini?')) {
-      const res = await deleteBotol(id);
-      if (!res.success) {
-        alert('Gagal menghapus botol: ' + res.error);
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/botol?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error || 'Gagal menghapus botol');
       }
+      toast.success(`Botol "${deleteTarget.name}" berhasil dihapus.`);
+      setDeleteTarget(null);
       fetchBottles();
+    } catch (err: any) {
+      toast.error('Gagal menghapus botol: ' + (err.message || String(err)));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -132,23 +145,72 @@ export default function KatalogBotol() {
     e.preventDefault();
     setLoading(true);
 
-    const formElement = e.target as HTMLFormElement;
-    const formPayload = new FormData(formElement);
-    formPayload.append('capacity_ml', formData.capacity_ml.toString());
-    formPayload.append('price', formData.price.toString());
-    if (modalMode === 'edit') formPayload.append('id', formData.id);
-    if (formData.image_url) formPayload.append('existing_image_url', formData.image_url);
+    try {
+      let finalImageUrl = formData.image_url;
 
-    const res = await saveBotol(formPayload);
-    
-    if (!res.success) {
-      alert('Gagal menyimpan botol: ' + res.error);
+      // Upload gambar baru jika ada gambar yang dipotong
+      if (croppedBlob) {
+        const fileExt = 'webp';
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        // Langkah 1: Coba upload langsung dari browser ke Supabase Storage (0 ms CPU di Cloudflare)
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(`bottles/${fileName}`, croppedBlob, {
+            contentType: 'image/webp',
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('products')
+            .getPublicUrl(`bottles/${fileName}`);
+          finalImageUrl = publicUrl;
+        } else {
+          // Langkah 2: Fallback ke streaming endpoint upload terisolasi
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', croppedBlob, fileName);
+          const uploadRes = await fetch('/api/admin/botol/upload', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+          const uploadJson = await uploadRes.json();
+          if (!uploadJson.success) {
+            throw new Error(uploadJson.error || 'Gagal mengunggah foto botol');
+          }
+          finalImageUrl = uploadJson.url;
+        }
+      }
+
+      // Langkah 3: Simpan data botol via REST API route murni (JSON kecil, < 1ms CPU)
+      const saveRes = await fetch('/api/admin/botol', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: modalMode === 'edit' ? formData.id : undefined,
+          name: formData.name,
+          capacity_ml: formData.capacity_ml,
+          price: formData.price,
+          image_url: finalImageUrl,
+        }),
+      });
+
+      const saveJson = await saveRes.json();
+      if (!saveJson.success) {
+        throw new Error(saveJson.error || 'Gagal menyimpan data botol');
+      }
+
+      toast.success(modalMode === 'edit' ? 'Botol berhasil diperbarui!' : 'Botol baru berhasil ditambahkan!');
+      setIsModalOpen(false);
+      setCroppedBlob(null);
+      fetchBottles();
+    } catch (err: any) {
+      console.error('Error save botol:', err);
+      toast.error('Gagal menyimpan botol: ' + (err.message || String(err)));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setIsModalOpen(false);
-    fetchBottles();
   };
 
   const filteredBottles = bottles.filter(b => b.name.toLowerCase().includes(search.toLowerCase()));
@@ -239,10 +301,10 @@ export default function KatalogBotol() {
                   </td>
                   <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                      <button onClick={() => openEditModal(item)} style={{ padding: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--c-ink-dim)' }}>
+                      <button onClick={() => openEditModal(item)} style={{ padding: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--c-ink-dim)' }} title="Edit Botol">
                         <Edit size={16} />
                       </button>
-                      <button onClick={() => handleDelete(item.id)} style={{ padding: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: 'red' }}>
+                      <button onClick={() => setDeleteTarget(item)} style={{ padding: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: 'red' }} title="Hapus Botol">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -334,6 +396,34 @@ export default function KatalogBotol() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'var(--c-surface-1)', width: '100%', maxWidth: 420, borderRadius: 'var(--r-lg)', overflow: 'hidden', border: '1px solid var(--c-border)', padding: 24, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--c-ink)', marginBottom: 8 }}>Hapus Botol?</h3>
+            <p style={{ color: 'var(--c-ink-dim)', fontSize: '0.9rem', marginBottom: 24, lineHeight: 1.6 }}>
+              Apakah Anda yakin ingin menghapus botol <strong>{deleteTarget.name}</strong>? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button 
+                type="button" 
+                onClick={() => setDeleteTarget(null)} 
+                style={{ padding: '10px 18px', borderRadius: 'var(--r-sm)', border: '1px solid var(--c-border)', background: 'transparent', color: 'var(--c-ink)', cursor: 'pointer', fontWeight: 500 }}
+              >
+                Batal
+              </button>
+              <button 
+                type="button" 
+                onClick={confirmDelete} 
+                disabled={loading}
+                style={{ padding: '10px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--c-rose, #ef4444)', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? 'Menghapus...' : 'Hapus Botol'}
+              </button>
+            </div>
           </div>
         </div>
       )}
