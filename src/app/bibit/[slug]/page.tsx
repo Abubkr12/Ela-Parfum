@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  Gem,
   ShoppingBag,
   Sliders,
   Store,
@@ -28,6 +29,12 @@ import { Footer } from "@/components/footer";
 import { useCart } from "@/lib/cart-context";
 import { BibitData, BottleData } from "@/components/refill/types";
 import { CartItem, formatRupiah } from "@/lib/types";
+import { 
+  BottleSeriesType, 
+  getBottleSeries, 
+  getBottleSeriesBadge, 
+  sortBottlesLogically 
+} from "@/lib/bottles";
 
 const GALLERY_IMAGES = [
   { url: "/images/bottles/preview/bottle-1.jpg", label: "Botol Casa — Silinder Amber Mewah" },
@@ -65,8 +72,32 @@ export default function BibitDetailPage() {
   const [useOwnBottle, setUseOwnBottle] = useState(false);
   const [ownBottleVolumeMl, setOwnBottleVolumeMl] = useState(30);
   const [selectedBottle, setSelectedBottle] = useState<BottleData | null>(null);
+  const [selectedSeries, setSelectedSeries] = useState<"all" | BottleSeriesType>("all");
   const [quantity, setQuantity] = useState(1);
   const [submittingDirect, setSubmittingDirect] = useState(false);
+
+  // Logical bottle sorting & series grouping
+  const sortedBottles = useMemo(() => {
+    return sortBottlesLogically(bottles);
+  }, [bottles]);
+
+  const seriesCounts = useMemo(() => {
+    let luxury = 0;
+    let spray = 0;
+    let tola = 0;
+    sortedBottles.forEach((b) => {
+      const s = getBottleSeries(b.name);
+      if (s === "luxury") luxury++;
+      else if (s === "spray") spray++;
+      else if (s === "tola") tola++;
+    });
+    return { all: sortedBottles.length, luxury, spray, tola };
+  }, [sortedBottles]);
+
+  const displayBottles = useMemo(() => {
+    if (selectedSeries === "all") return sortedBottles;
+    return sortedBottles.filter((b) => getBottleSeries(b.name) === selectedSeries);
+  }, [sortedBottles, selectedSeries]);
 
   useEffect(() => {
     async function loadData() {
@@ -74,7 +105,7 @@ export default function BibitDetailPage() {
         const res = await fetch("/api/bibits");
         const data = await res.json();
         const allBibits: BibitData[] = data.bibits || [];
-        const allBottles: BottleData[] = data.bottles || [];
+        const allBottles: BottleData[] = sortBottlesLogically(data.bottles || []);
 
         setBottles(allBottles);
         if (allBottles.length > 0) {
@@ -510,36 +541,179 @@ export default function BibitDetailPage() {
                 </div>
 
                 {!useOwnBottle ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
-                    {bottles.map((b) => {
-                      const isSelected = selectedBottle?.id === b.id;
-                      return (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => setSelectedBottle(b)}
-                          style={{
-                            padding: "10px 8px",
-                            borderRadius: "var(--r-md)",
-                            border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
-                            background: isSelected ? "var(--glass-bg)" : "var(--c-surface-1)",
-                            textAlign: "center",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                        >
-                          <div style={{ fontSize: "0.85rem", fontWeight: 700, color: isSelected ? "var(--c-gold)" : "var(--c-ink)" }}>
-                            {b.capacity_ml}ml
-                          </div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", margin: "2px 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {b.name}
-                          </div>
-                          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--c-ink)" }}>
-                            {formatRupiah(b.price)}
-                          </div>
-                        </button>
-                      );
-                    })}
+                  <div>
+                    {/* Series Filter Tabs */}
+                    <div style={{ 
+                      display: "flex", 
+                      gap: 6, 
+                      marginBottom: 12, 
+                      overflowX: "auto", 
+                      paddingBottom: 4,
+                      scrollbarWidth: "none"
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSeries("all")}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "100px",
+                          border: selectedSeries === "all" ? "1px solid var(--c-gold)" : "1px solid var(--c-border)",
+                          background: selectedSeries === "all" ? "rgba(217, 119, 6, 0.15)" : "var(--c-surface-1)",
+                          color: selectedSeries === "all" ? "var(--c-gold)" : "var(--c-ink-dim)",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          whiteSpace: "nowrap",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <Sparkles size={13} />
+                        <span>Semua ({seriesCounts.all})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSeries("luxury")}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "100px",
+                          border: selectedSeries === "luxury" ? "1px solid var(--c-gold)" : "1px solid var(--c-border)",
+                          background: selectedSeries === "luxury" ? "rgba(217, 119, 6, 0.15)" : "var(--c-surface-1)",
+                          color: selectedSeries === "luxury" ? "var(--c-gold)" : "var(--c-ink-dim)",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          whiteSpace: "nowrap",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <Gem size={13} />
+                        <span>Luxury Glass ({seriesCounts.luxury})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSeries("spray")}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "100px",
+                          border: selectedSeries === "spray" ? "1px solid #38bdf8" : "1px solid var(--c-border)",
+                          background: selectedSeries === "spray" ? "rgba(56, 189, 248, 0.15)" : "var(--c-surface-1)",
+                          color: selectedSeries === "spray" ? "#38bdf8" : "var(--c-ink-dim)",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          whiteSpace: "nowrap",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <Wind size={13} />
+                        <span>Spray Reguler ({seriesCounts.spray})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSeries("tola")}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "100px",
+                          border: selectedSeries === "tola" ? "1px solid #a855f7" : "1px solid var(--c-border)",
+                          background: selectedSeries === "tola" ? "rgba(168, 85, 247, 0.15)" : "var(--c-surface-1)",
+                          color: selectedSeries === "tola" ? "#a855f7" : "var(--c-ink-dim)",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          whiteSpace: "nowrap",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <Droplets size={13} />
+                        <span>Tola & Oles ({seriesCounts.tola})</span>
+                      </button>
+                    </div>
+
+                    {/* Bottle Grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 8 }}>
+                      {displayBottles.map((b) => {
+                        const isSelected = selectedBottle?.id === b.id;
+                        const series = getBottleSeries(b.name);
+                        const badge = getBottleSeriesBadge(series);
+
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => setSelectedBottle(b)}
+                            style={{
+                              padding: "10px 8px",
+                              borderRadius: "var(--r-md)",
+                              border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
+                              background: isSelected ? "var(--glass-bg)" : "var(--c-surface-1)",
+                              textAlign: "center",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                              minHeight: 88,
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                <span style={{ 
+                                  fontSize: "0.65rem", 
+                                  fontWeight: 700, 
+                                  padding: "1px 5px", 
+                                  borderRadius: 4, 
+                                  background: badge.bg, 
+                                  color: badge.color, 
+                                  border: `1px solid ${badge.border}` 
+                                }}>
+                                  {badge.label}
+                                </span>
+                                <span style={{ fontSize: "0.82rem", fontWeight: 800, color: isSelected ? "var(--c-gold)" : "var(--c-ink)" }}>
+                                  {b.capacity_ml}ml
+                                </span>
+                              </div>
+                              <div style={{ 
+                                fontSize: "0.74rem", 
+                                color: "var(--c-ink)", 
+                                fontWeight: 500,
+                                margin: "2px 0 6px", 
+                                lineHeight: 1.25,
+                                textAlign: "left",
+                                wordBreak: "break-word"
+                              }}>
+                                {b.name}
+                              </div>
+                            </div>
+                            
+                            <div style={{ 
+                              fontSize: "0.78rem", 
+                              fontWeight: 700, 
+                              color: isSelected ? "var(--c-gold)" : "var(--c-ink-dim)",
+                              textAlign: "left",
+                              borderTop: "1px solid rgba(255,255,255,0.06)",
+                              paddingTop: 4
+                            }}>
+                              {formatRupiah(b.price)}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : (
                   /* Slider Botol Sendiri */

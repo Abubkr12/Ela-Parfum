@@ -6,15 +6,37 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    const { data: bottles, error } = await supabase
       .from('bottles')
-      .select('*')
-      .order('capacity_ml', { ascending: true });
+      .select(`
+        *,
+        bottle_stocks (
+          id,
+          store_id,
+          stock_qty
+        )
+      `)
+      .order('capacity_ml', { ascending: true })
+      .order('name', { ascending: true });
 
     if (error) throw error;
 
+    const formatted = (bottles || []).map((b: any) => {
+      const bStocks = Array.isArray(b.bottle_stocks) ? b.bottle_stocks : [];
+      const totalStock = bStocks.reduce((sum: number, s: any) => sum + (Number(s.stock_qty) || 0), 0);
+      const stocksByStore: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
+      bStocks.forEach((s: any) => {
+        stocksByStore[s.store_id] = Number(s.stock_qty) || 0;
+      });
+      return {
+        ...b,
+        stock: totalStock,
+        stocks_by_store: stocksByStore,
+      };
+    });
+
     return NextResponse.json(
-      { success: true, data: data || [] },
+      { success: true, data: formatted },
       {
         status: 200,
         headers: {
@@ -66,6 +88,17 @@ export async function POST(request: Request) {
         .single();
 
       if (error) throw error;
+
+      // Auto-create bottle_stocks for all 3 branches: Condet (1), Rawabelong (2), Tangerang (3)
+      if (data && data.id) {
+        const storeStocksPayload = [1, 2, 3].map((storeId) => ({
+          bottle_id: data.id,
+          store_id: storeId,
+          stock_qty: 0,
+        }));
+        await supabase.from('bottle_stocks').insert(storeStocksPayload);
+      }
+
       return NextResponse.json({ success: true, data });
     }
   } catch (err: any) {

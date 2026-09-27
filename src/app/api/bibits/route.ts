@@ -16,6 +16,7 @@ export async function GET(request: Request) {
         .select("id, name, capacity_ml, price, image_url, is_active")
         .eq("is_active", true)
         .order("capacity_ml", { ascending: true })
+        .order("name", { ascending: true })
     ]);
 
     if (bibitsRes.error) {

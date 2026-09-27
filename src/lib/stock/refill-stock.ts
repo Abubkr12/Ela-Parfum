@@ -141,6 +141,17 @@ export async function deductRefillStock(orderId: number, preferredStoreId?: numb
             .update({ stock_qty: newQty, updated_at: new Date().toISOString() })
             .eq('id', bottleStock.id);
 
+          // Sync aggregate stock in bottles table
+          const { data: allBStocks } = await supabase
+            .from('bottle_stocks')
+            .select('stock_qty')
+            .eq('bottle_id', bottleObj.id);
+          const totalBottleQty = (allBStocks || []).reduce((sum: number, s: any) => sum + (s.stock_qty || 0), 0);
+          await supabase
+            .from('bottles')
+            .update({ stock: totalBottleQty, updated_at: new Date().toISOString() })
+            .eq('id', bottleObj.id);
+
           await supabase.from('stock_changelog').insert({
             entity_type: 'bottle',
             entity_id: bottleStock.id,

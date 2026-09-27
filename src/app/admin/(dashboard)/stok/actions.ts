@@ -132,7 +132,7 @@ export async function updateProductStock(id: number, qty: number) {
 export async function updateBottleStock(id: number, qty: number) {
   const { data: currentStock, error: fetchError } = await supabaseAdmin
     .from('bottle_stocks')
-    .select('stock_qty, store_id, bottles (name)')
+    .select('bottle_id, stock_qty, store_id, bottles (id, name)')
     .eq('id', id)
     .single();
     
@@ -145,6 +145,20 @@ export async function updateBottleStock(id: number, qty: number) {
     .update({ stock_qty: qty, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw new Error(error.message);
+
+  // Sync aggregate stock to bottles.stock for cross-branch catalog consistency
+  const bottleId = currentStock.bottle_id || (Array.isArray(currentStock.bottles) ? currentStock.bottles[0]?.id : (currentStock.bottles as any)?.id);
+  if (bottleId) {
+    const { data: allStocks } = await supabaseAdmin
+      .from('bottle_stocks')
+      .select('stock_qty')
+      .eq('bottle_id', bottleId);
+    const totalQty = (allStocks || []).reduce((sum, s) => sum + (s.stock_qty || 0), 0);
+    await supabaseAdmin
+      .from('bottles')
+      .update({ stock: totalQty, updated_at: new Date().toISOString() })
+      .eq('id', bottleId);
+  }
   
   await supabaseAdmin.from('stock_changelog').insert({
     entity_type: 'bottle',

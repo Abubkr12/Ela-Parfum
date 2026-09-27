@@ -288,16 +288,25 @@ export default function KatalogBotol() {
                   <td style={{ padding: '16px 24px', color: 'var(--c-ink-dim)' }}>{item.capacity_ml} ml</td>
                   <td style={{ padding: '16px 24px', color: 'var(--c-ink-dim)' }}>Rp {item.price.toLocaleString('id-ID')}</td>
                   <td style={{ padding: '16px 24px' }}>
-                    <span style={{ 
-                      padding: '4px 8px', 
-                      borderRadius: 999, 
-                      fontSize: '0.75rem', 
-                      fontWeight: 600,
-                      background: item.stock > 10 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
-                      color: item.stock > 10 ? '#34d399' : '#f87171'
-                    }}>
-                      {item.stock} pcs
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ 
+                        display: 'inline-block',
+                        width: 'fit-content',
+                        padding: '4px 10px', 
+                        borderRadius: 999, 
+                        fontSize: '0.75rem', 
+                        fontWeight: 700,
+                        background: (item.stock || 0) > 10 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
+                        color: (item.stock || 0) > 10 ? '#34d399' : '#f87171'
+                      }}>
+                        {item.stock ?? 0} pcs (Total)
+                      </span>
+                      {item.stocks_by_store && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--c-ink-dim)', lineHeight: 1.2 }}>
+                          Condet: {item.stocks_by_store[1] ?? 0} · Rawa: {item.stocks_by_store[2] ?? 0} · Tgr: {item.stocks_by_store[3] ?? 0}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

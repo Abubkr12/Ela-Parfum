@@ -2,12 +2,30 @@
 
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ShoppingBag, Store, Sliders, Check, Plus, Minus, Sparkles, Layers } from "lucide-react";
+import { 
+  X, 
+  ShoppingBag, 
+  Store, 
+  Sliders, 
+  Check, 
+  Plus, 
+  Minus, 
+  Sparkles, 
+  Gem, 
+  Wind, 
+  Droplets 
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { BibitData, BottleData } from "@/components/refill/types";
 import { CartItem, formatRupiah } from "@/lib/types";
+import { 
+  BottleSeriesType, 
+  getBottleSeries, 
+  getBottleSeriesBadge, 
+  sortBottlesLogically 
+} from "@/lib/bottles";
 
 interface BibitVariantModalProps {
   bibit: BibitData | null;
@@ -31,14 +49,40 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
   const [useOwnBottle, setUseOwnBottle] = useState(false);
   const [ownBottleVolumeMl, setOwnBottleVolumeMl] = useState(30);
   const [selectedBottle, setSelectedBottle] = useState<BottleData | null>(bottles[0] || null);
+  const [selectedSeries, setSelectedSeries] = useState<"all" | BottleSeriesType>("all");
   const [quantity, setQuantity] = useState(1);
+
+  // Sort bottles logically: Luxury Glass first, then Spray Reguler, then Tola & Roll-on
+  const sortedBottles = useMemo(() => {
+    return sortBottlesLogically(bottles);
+  }, [bottles]);
 
   // Update selected bottle when bottles prop loads
   React.useEffect(() => {
-    if (bottles.length > 0 && !selectedBottle) {
-      setSelectedBottle(bottles[0]);
+    if (sortedBottles.length > 0 && !selectedBottle) {
+      setSelectedBottle(sortedBottles[0]);
     }
-  }, [bottles, selectedBottle]);
+  }, [sortedBottles, selectedBottle]);
+
+  // Series count
+  const seriesCounts = useMemo(() => {
+    let luxury = 0;
+    let spray = 0;
+    let tola = 0;
+    sortedBottles.forEach((b) => {
+      const s = getBottleSeries(b.name);
+      if (s === "luxury") luxury++;
+      else if (s === "spray") spray++;
+      else if (s === "tola") tola++;
+    });
+    return { all: sortedBottles.length, luxury, spray, tola };
+  }, [sortedBottles]);
+
+  // Filtered bottles by active series tab
+  const displayBottles = useMemo(() => {
+    if (selectedSeries === "all") return sortedBottles;
+    return sortedBottles.filter((b) => getBottleSeries(b.name) === selectedSeries);
+  }, [sortedBottles, selectedSeries]);
 
   const ratioInfo = useMemo(() => RATIOS.find(r => r.id === ratio) || RATIOS[1], [ratio]);
   const capacityMl = useOwnBottle ? ownBottleVolumeMl : (selectedBottle?.capacity_ml || 30);
@@ -133,19 +177,28 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
           transition={{ duration: 0.2 }}
           style={{
             width: "100%",
-            maxWidth: "560px",
+            maxWidth: "580px",
             maxHeight: "90vh",
-            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden", // Eliminasi overflow siku / buntut
             background: "var(--c-surface-1)",
             border: "1px solid var(--c-border)",
             borderRadius: "var(--r-xl, 20px)",
-            boxShadow: "0 24px 48px rgba(0, 0, 0, 0.25)",
-            padding: "24px",
+            boxShadow: "0 24px 48px rgba(0, 0, 0, 0.35)",
             position: "relative",
           }}
         >
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          {/* Header - Fixed top */}
+          <div style={{ 
+            padding: "20px 24px 16px", 
+            borderBottom: "1px solid var(--c-border)", 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "flex-start",
+            background: "var(--c-surface-1)",
+            flexShrink: 0
+          }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: 100, background: "rgba(217, 119, 6, 0.15)", color: "var(--c-gold)", fontWeight: 600 }}>
@@ -155,7 +208,7 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
                   {bibit.intensity} · {bibit.main_accord}
                 </span>
               </div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.4rem", fontWeight: 700, color: "var(--c-ink)", margin: 0 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.35rem", fontWeight: 700, color: "var(--c-ink)", margin: 0 }}>
                 {bibit.name}
               </h2>
             </div>
@@ -165,222 +218,396 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
                 background: "var(--c-surface-2)",
                 border: "none",
                 borderRadius: "50%",
-                width: 36,
-                height: 36,
+                width: 34,
+                height: 34,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
                 color: "var(--c-ink-dim)",
+                transition: "all 0.15s ease",
               }}
+              title="Tutup"
             >
               <X size={18} />
             </button>
           </div>
 
-          {/* 1. Pilih Rasio Konsentrasi */}
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
-              1. Pilih Rasio Konsentrasi
-            </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {RATIOS.map((r) => {
-                const isSelected = ratio === r.id;
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => setRatio(r.id)}
-                    style={{
-                      padding: "12px",
-                      borderRadius: "var(--r-md)",
-                      border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
-                      background: isSelected ? "var(--glass-bg)" : "var(--c-surface-2)",
-                      textAlign: "left",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: "0.9rem", fontWeight: 600, color: isSelected ? "var(--c-gold)" : "var(--c-ink)" }}>
-                        {r.id === "50/50" ? "EDP (1:1)" : r.id === "70/30" ? "Extrait (1:3)" : r.id === "100/0" ? "Elixir (Murni)" : "EDT (3:7)"}
-                      </span>
-                      {isSelected && <Check size={14} style={{ color: "var(--c-gold)" }} />}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", lineHeight: 1.3 }}>
-                      {r.id === "50/50" ? "50% Bibit : 50% Pelarut" : r.id === "70/30" ? "70% Bibit : 30% Pelarut" : r.id === "100/0" ? "100% Murni Konsentrat" : "30% Bibit : 70% Pelarut"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 2. Pilih Botol Kemasan */}
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
-              2. Pilihan Botol
-            </label>
-            
-            {/* Toggle Ours vs Own */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-              <button
-                type="button"
-                onClick={() => setUseOwnBottle(false)}
-                style={{
-                  padding: "10px",
-                  borderRadius: "var(--r-md)",
-                  border: !useOwnBottle ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
-                  background: !useOwnBottle ? "var(--glass-bg)" : "var(--c-surface-2)",
-                  color: !useOwnBottle ? "var(--c-gold)" : "var(--c-ink-dim)",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  cursor: "pointer",
-                }}
-              >
-                Gunakan Botol Ela
-              </button>
-              <button
-                type="button"
-                onClick={() => setUseOwnBottle(true)}
-                style={{
-                  padding: "10px",
-                  borderRadius: "var(--r-md)",
-                  border: useOwnBottle ? "1.5px solid #a855f7" : "1px solid var(--c-border)",
-                  background: useOwnBottle ? "rgba(168, 85, 247, 0.1)" : "var(--c-surface-2)",
-                  color: useOwnBottle ? "#a855f7" : "var(--c-ink-dim)",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  cursor: "pointer",
-                }}
-              >
-                Bawa Botol Sendiri
-              </button>
-            </div>
-
-            {/* List Botol Ela */}
-            {!useOwnBottle ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
-                {bottles.map((b) => {
-                  const isSelected = selectedBottle?.id === b.id;
+          {/* Body - Scrollable with smooth rounded scrollbar */}
+          <div 
+            className="variant-modal-scroll"
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "20px 24px",
+              scrollbarWidth: "thin",
+              scrollbarColor: "rgba(217, 119, 6, 0.25) transparent",
+            }}
+          >
+            {/* 1. Pilih Rasio Konsentrasi */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 700, color: "var(--c-ink)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                1. Pilih Rasio Konsentrasi
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {RATIOS.map((r) => {
+                  const isSelected = ratio === r.id;
                   return (
                     <button
-                      key={b.id}
+                      key={r.id}
                       type="button"
-                      onClick={() => setSelectedBottle(b)}
+                      onClick={() => setRatio(r.id)}
                       style={{
-                        padding: "10px 8px",
+                        padding: "12px",
                         borderRadius: "var(--r-md)",
                         border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
                         background: isSelected ? "var(--glass-bg)" : "var(--c-surface-2)",
-                        textAlign: "center",
+                        textAlign: "left",
                         cursor: "pointer",
                         transition: "all 0.15s ease",
                       }}
                     >
-                      <div style={{ fontSize: "0.85rem", fontWeight: 700, color: isSelected ? "var(--c-gold)" : "var(--c-ink)" }}>
-                        {b.capacity_ml}ml
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ fontSize: "0.88rem", fontWeight: 700, color: isSelected ? "var(--c-gold)" : "var(--c-ink)" }}>
+                          {r.id === "50/50" ? "EDP (1:1)" : r.id === "70/30" ? "Extrait (1:3)" : r.id === "100/0" ? "Elixir (Murni)" : "EDT (3:7)"}
+                        </span>
+                        {isSelected && <Check size={14} style={{ color: "var(--c-gold)" }} />}
                       </div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", margin: "2px 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {b.name}
-                      </div>
-                      <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--c-ink)" }}>
-                        {formatRupiah(b.price)}
+                      <div style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", lineHeight: 1.3 }}>
+                        {r.id === "50/50" ? "50% Bibit : 50% Pelarut" : r.id === "70/30" ? "70% Bibit : 30% Pelarut" : r.id === "100/0" ? "100% Murni Konsentrat" : "30% Bibit : 70% Pelarut"}
                       </div>
                     </button>
                   );
                 })}
               </div>
-            ) : (
-              /* Slider Botol Sendiri (1 - 1000ml) */
-              <div style={{ background: "rgba(168, 85, 247, 0.05)", border: "1px solid rgba(168, 85, 247, 0.25)", padding: "16px", borderRadius: "var(--r-md)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color: "#a855f7" }}>
-                    <Sliders size={16} />
-                    <span>Kapasitas Botol Anda</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={ownBottleVolumeMl}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!isNaN(val)) {
-                          setOwnBottleVolumeMl(Math.max(1, Math.min(1000, val)));
-                        }
-                      }}
-                      style={{
-                        width: 70,
-                        padding: "4px 8px",
-                        textAlign: "center",
-                        borderRadius: "var(--r-sm)",
-                        border: "1px solid rgba(168, 85, 247, 0.4)",
-                        background: "var(--c-surface-1)",
-                        color: "var(--c-ink)",
-                        fontWeight: 700,
-                        fontSize: "0.95rem",
-                      }}
-                    />
-                    <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)", fontWeight: 600 }}>ml</span>
-                  </div>
-                </div>
+            </div>
 
-                <input
-                  type="range"
-                  min={1}
-                  max={1000}
-                  step={1}
-                  value={ownBottleVolumeMl}
-                  onChange={(e) => setOwnBottleVolumeMl(parseInt(e.target.value, 10))}
-                  style={{ width: "100%", accentColor: "#a855f7", cursor: "pointer", marginBottom: 12 }}
-                />
-
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 8 }}>
-                  <span>1 ml</span>
-                  <span>50 ml</span>
-                  <span>100 ml</span>
-                  <span>250 ml</span>
-                  <span>500 ml</span>
-                  <span>1000 ml</span>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem", color: "#a855f7" }}>
-                  <Store size={14} style={{ flexShrink: 0 }} />
-                  <span>Wajib diambil di toko agar botol fisik dapat diserahkan ke kasir.</span>
-                </div>
+            {/* 2. Pilih Botol Kemasan */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--c-ink)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  2. Pilihan Kemasan Botol
+                </label>
+                {!useOwnBottle && (
+                  <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)" }}>
+                    {displayBottles.length} Varian Botol
+                  </span>
+                )}
               </div>
-            )}
+              
+              {/* Toggle Ours vs Own */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setUseOwnBottle(false)}
+                  style={{
+                    padding: "10px",
+                    borderRadius: "var(--r-md)",
+                    border: !useOwnBottle ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
+                    background: !useOwnBottle ? "var(--glass-bg)" : "var(--c-surface-2)",
+                    color: !useOwnBottle ? "var(--c-gold)" : "var(--c-ink-dim)",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Gunakan Botol Ela
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUseOwnBottle(true)}
+                  style={{
+                    padding: "10px",
+                    borderRadius: "var(--r-md)",
+                    border: useOwnBottle ? "1.5px solid #a855f7" : "1px solid var(--c-border)",
+                    background: useOwnBottle ? "rgba(168, 85, 247, 0.1)" : "var(--c-surface-2)",
+                    color: useOwnBottle ? "#a855f7" : "var(--c-ink-dim)",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Bawa Botol Sendiri
+                </button>
+              </div>
+
+              {/* Botol Ela: Series Tabs Filter */}
+              {!useOwnBottle ? (
+                <div>
+                  <div style={{ 
+                    display: "flex", 
+                    gap: 6, 
+                    marginBottom: 12, 
+                    overflowX: "auto", 
+                    paddingBottom: 4,
+                    scrollbarWidth: "none"
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSeries("all")}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "100px",
+                        border: selectedSeries === "all" ? "1px solid var(--c-gold)" : "1px solid var(--c-border)",
+                        background: selectedSeries === "all" ? "rgba(217, 119, 6, 0.15)" : "var(--c-surface-2)",
+                        color: selectedSeries === "all" ? "var(--c-gold)" : "var(--c-ink-dim)",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Sparkles size={13} />
+                      <span>Semua ({seriesCounts.all})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSeries("luxury")}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "100px",
+                        border: selectedSeries === "luxury" ? "1px solid var(--c-gold)" : "1px solid var(--c-border)",
+                        background: selectedSeries === "luxury" ? "rgba(217, 119, 6, 0.15)" : "var(--c-surface-2)",
+                        color: selectedSeries === "luxury" ? "var(--c-gold)" : "var(--c-ink-dim)",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Gem size={13} />
+                      <span>Luxury Glass ({seriesCounts.luxury})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSeries("spray")}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "100px",
+                        border: selectedSeries === "spray" ? "1px solid #38bdf8" : "1px solid var(--c-border)",
+                        background: selectedSeries === "spray" ? "rgba(56, 189, 248, 0.15)" : "var(--c-surface-2)",
+                        color: selectedSeries === "spray" ? "#38bdf8" : "var(--c-ink-dim)",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Wind size={13} />
+                      <span>Spray Reguler ({seriesCounts.spray})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSeries("tola")}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "100px",
+                        border: selectedSeries === "tola" ? "1px solid #a855f7" : "1px solid var(--c-border)",
+                        background: selectedSeries === "tola" ? "rgba(168, 85, 247, 0.15)" : "var(--c-surface-2)",
+                        color: selectedSeries === "tola" ? "#a855f7" : "var(--c-ink-dim)",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Droplets size={13} />
+                      <span>Tola & Oles ({seriesCounts.tola})</span>
+                    </button>
+                  </div>
+
+                  {/* List Botol Ela Grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 8 }}>
+                    {displayBottles.map((b) => {
+                      const isSelected = selectedBottle?.id === b.id;
+                      const series = getBottleSeries(b.name);
+                      const badge = getBottleSeriesBadge(series);
+
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setSelectedBottle(b)}
+                          style={{
+                            padding: "10px 8px",
+                            borderRadius: "var(--r-md)",
+                            border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
+                            background: isSelected ? "var(--glass-bg)" : "var(--c-surface-2)",
+                            textAlign: "center",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            minHeight: 88,
+                            position: "relative",
+                          }}
+                        >
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                              <span style={{ 
+                                fontSize: "0.65rem", 
+                                fontWeight: 700, 
+                                padding: "1px 5px", 
+                                borderRadius: 4, 
+                                background: badge.bg, 
+                                color: badge.color, 
+                                border: `1px solid ${badge.border}` 
+                              }}>
+                                {badge.label}
+                              </span>
+                              <span style={{ fontSize: "0.82rem", fontWeight: 800, color: isSelected ? "var(--c-gold)" : "var(--c-ink)" }}>
+                                {b.capacity_ml}ml
+                              </span>
+                            </div>
+                            <div style={{ 
+                              fontSize: "0.74rem", 
+                              color: "var(--c-ink)", 
+                              fontWeight: 500,
+                              margin: "2px 0 6px", 
+                              lineHeight: 1.25,
+                              textAlign: "left",
+                              wordBreak: "break-word"
+                            }}>
+                              {b.name}
+                            </div>
+                          </div>
+                          
+                          <div style={{ 
+                            fontSize: "0.78rem", 
+                            fontWeight: 700, 
+                            color: isSelected ? "var(--c-gold)" : "var(--c-ink-dim)",
+                            textAlign: "left",
+                            borderTop: "1px solid rgba(255,255,255,0.06)",
+                            paddingTop: 4
+                          }}>
+                            {formatRupiah(b.price)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* Slider Botol Sendiri (1 - 1000ml) */
+                <div style={{ background: "rgba(168, 85, 247, 0.05)", border: "1px solid rgba(168, 85, 247, 0.25)", padding: "16px", borderRadius: "var(--r-md)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color: "#a855f7" }}>
+                      <Sliders size={16} />
+                      <span>Kapasitas Botol Anda</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        value={ownBottleVolumeMl}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (!isNaN(val)) {
+                            setOwnBottleVolumeMl(Math.max(1, Math.min(1000, val)));
+                          }
+                        }}
+                        style={{
+                          width: 70,
+                          padding: "4px 8px",
+                          textAlign: "center",
+                          borderRadius: "var(--r-sm)",
+                          border: "1px solid rgba(168, 85, 247, 0.4)",
+                          background: "var(--c-surface-1)",
+                          color: "var(--c-ink)",
+                          fontWeight: 700,
+                          fontSize: "0.95rem",
+                        }}
+                      />
+                      <span style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)", fontWeight: 600 }}>ml</span>
+                    </div>
+                  </div>
+
+                  <input
+                    type="range"
+                    min={1}
+                    max={1000}
+                    step={1}
+                    value={ownBottleVolumeMl}
+                    onChange={(e) => setOwnBottleVolumeMl(parseInt(e.target.value, 10))}
+                    style={{ width: "100%", accentColor: "#a855f7", cursor: "pointer", marginBottom: 12 }}
+                  />
+
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 8 }}>
+                    <span>1 ml</span>
+                    <span>50 ml</span>
+                    <span>100 ml</span>
+                    <span>250 ml</span>
+                    <span>500 ml</span>
+                    <span>1000 ml</span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem", color: "#a855f7" }}>
+                    <Store size={14} style={{ flexShrink: 0 }} />
+                    <span>Wajib diambil di toko agar botol fisik dapat diserahkan ke kasir.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Rincian Komposisi & Harga */}
+            <div style={{ background: "var(--c-surface-2)", padding: "16px", borderRadius: "var(--r-md)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 6 }}>
+                <span>Bibit ({bibitVolume.toFixed(1)}ml @{formatRupiah(pricePerMl)}/ml)</span>
+                <span style={{ fontWeight: 600, color: "var(--c-ink)" }}>{formatRupiah(bibitPrice)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 6 }}>
+                <span>Pelarut Absolute ({solventVolume.toFixed(1)}ml)</span>
+                <span style={{ fontWeight: 600, color: "var(--c-teal)" }}>Gratis</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 10 }}>
+                <span>{useOwnBottle ? "Botol Sendiri" : `Botol ${selectedBottle?.name || 'Ela'}`}</span>
+                <span style={{ fontWeight: 600, color: useOwnBottle ? "var(--c-teal)" : "var(--c-ink)" }}>
+                  {useOwnBottle ? "Gratis" : formatRupiah(bottlePrice)}
+                </span>
+              </div>
+
+              <div style={{ height: 1, background: "var(--c-border)", margin: "10px 0" }} />
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--c-ink)" }}>Harga Satuan</span>
+                <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--c-gold)" }}>{formatRupiah(unitPrice)}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Rincian Komposisi & Harga */}
-          <div style={{ background: "var(--c-surface-2)", padding: "16px", borderRadius: "var(--r-md)", marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 6 }}>
-              <span>Bibit ({bibitVolume.toFixed(1)}ml @{formatRupiah(pricePerMl)}/ml)</span>
-              <span style={{ fontWeight: 600, color: "var(--c-ink)" }}>{formatRupiah(bibitPrice)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 6 }}>
-              <span>Pelarut Absolute ({solventVolume.toFixed(1)}ml)</span>
-              <span style={{ fontWeight: 600, color: "var(--c-teal)" }}>Gratis</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-dim)", marginBottom: 10 }}>
-              <span>{useOwnBottle ? "Botol Sendiri" : `Botol ${selectedBottle?.name || 'Ela'}`}</span>
-              <span style={{ fontWeight: 600, color: useOwnBottle ? "var(--c-teal)" : "var(--c-ink)" }}>
-                {useOwnBottle ? "Gratis" : formatRupiah(bottlePrice)}
-              </span>
-            </div>
-
-            <div style={{ height: 1, background: "var(--c-border)", margin: "10px 0" }} />
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--c-ink)" }}>Harga Satuan</span>
-              <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--c-gold)" }}>{formatRupiah(unitPrice)}</span>
-            </div>
-          </div>
-
-          {/* Stepper Quantity & Add to Cart Button */}
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {/* Footer - Fixed bottom */}
+          <div style={{ 
+            padding: "16px 24px", 
+            borderTop: "1px solid var(--c-border)", 
+            background: "var(--c-surface-1)", 
+            display: "flex", 
+            gap: 12, 
+            alignItems: "center",
+            flexShrink: 0
+          }}>
             {/* Stepper */}
             <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--c-border)", borderRadius: "var(--r-md)", background: "var(--c-surface-2)", padding: 4 }}>
               <button
@@ -388,8 +615,8 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
                 onClick={() => setQuantity(q => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
                 style={{
-                  width: 34,
-                  height: 34,
+                  width: 36,
+                  height: 36,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -409,8 +636,8 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
                 type="button"
                 onClick={() => setQuantity(q => q + 1)}
                 style={{
-                  width: 34,
-                  height: 34,
+                  width: 36,
+                  height: 36,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -434,7 +661,7 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
                 padding: "14px 20px",
                 borderRadius: "var(--r-md)",
                 background: "var(--c-gold)",
-                color: "#ffffff",
+                color: "#000000",
                 border: "none",
                 fontWeight: 700,
                 fontSize: "1rem",
@@ -451,6 +678,22 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
             </button>
           </div>
 
+          <style jsx>{`
+            .variant-modal-scroll::-webkit-scrollbar {
+              width: 6px;
+            }
+            .variant-modal-scroll::-webkit-scrollbar-track {
+              background: transparent;
+              margin: 8px 0;
+            }
+            .variant-modal-scroll::-webkit-scrollbar-thumb {
+              background: rgba(217, 119, 6, 0.25);
+              border-radius: 999px;
+            }
+            .variant-modal-scroll::-webkit-scrollbar-thumb:hover {
+              background: var(--c-gold);
+            }
+          `}</style>
         </motion.div>
       </div>
     </AnimatePresence>

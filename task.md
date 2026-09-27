@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Tidak ada task aktif saat ini — seluruh fitur katalog bibit tanpa gambar, proteksi botol sendiri, dan deploy live Cloudflare selesai)
+- (Tidak ada task aktif saat ini — seluruh perbaikan sinkronisasi stok botol dan revamping UI varian botol selesai)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,27 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Sinkronisasi Stok Botol Admin & Database Multi-Cabang serta Revamp UI Varian Botol:**
+  - [x] **Sinkronisasi Stok Botol Multi-Cabang:**
+    - Backfill database Supabase: Seluruh 19 botol di-update dengan akumulasi riil 3 cabang (Condet, Rawabelong, Tangerang). Lacoste 30ml (120+120+120 = 360 pcs), Lacoste 50ml (360 pcs), dan botol lainnya 339-340 pcs.
+    - API `/api/admin/botol`: GET secara dinamis menghitung agregasi sum dari relasi `bottle_stocks`, menyediakan breakdown per cabang (`stocks_by_store: { 1, 2, 3 }`), dan diurutkan secara logis (`capacity_ml asc, name asc`).
+    - POST `/api/admin/botol`: Otomatis inisialisasi baris `bottle_stocks` untuk ketiga cabang (Condet, Rawabelong, Tangerang) dengan `stock_qty: 0` saat botol baru ditambahkan.
+    - Sinkronisasi Otomatis Database: `updateBottleStock` di `/admin/stok` dan `deductRefillStock` saat transaksi langsung memperbarui `bottles.stock` secara konsisten.
+    - Admin UI `/admin/botol`: Menampilkan total stok multi-cabang (misal `360 pcs (Total)`) dan rincian cabang (`Condet: 120 · Rawa: 120 · Tgr: 120`).
+  - [x] **Perbaikan Urutan Series Botol & Eliminasi "Buntut" UI:**
+    - Pembagian Series Botol (`src/lib/bottles.ts`):
+      1. *Series Luxury Glass* (Casa 20/30/50ml, Lacoste 30/50ml, Le Labo 30ml, D'Hermes 30ml, XX/Pot 50ml, Kotak Bintik 100ml)
+      2. *Series Spray Reguler* (Spray 20ml, 25ml, 40ml, 60ml, 100ml)
+      3. *Series Tola & Roll-on* (Tola 3/6/12ml, Wajik 7ml, Ulir 10ml)
+    - Modal Varian (`BibitVariantModal.tsx`):
+      - Eliminasi visual artifact "buntut": Kontainer modal menggunakan `overflow: hidden`, header tetap di atas, footer checkout tetap di bawah, dan isi form scrollable dengan custom thin rounded scrollbar. Scrollbar Windows tidak lagi menembus `border-radius: 20px`.
+      - Series Filter Tabs: Segmented pills (`Semua`, `Luxury Glass`, `Spray Reguler`, `Tola & Oles`) dengan counter jumlah varian dan icon Lucide (`Sparkles`, `Gem`, `Wind`, `Droplets`).
+      - Kartu botol proporsional: Menampilkan badge series, kapasitas ml, nama lengkap tanpa terpotong kasar ("1..."), dan harga.
+    - Halaman Detail Bibit (`/bibit/[slug]`): Terapkan sistem filter tabs series dan kartu botol yang sama persis.
+  - [x] **Verifikasi & Build Produksi:**
+    - TypeScript compilation (`npx tsc --noEmit`) 0 error.
+    - Next.js Turbopack build (`npm run build`) sukses 69 rute dinamis.
+    - OpenNext Cloudflare Worker build (`npm run build:worker`) sukses 100% tersimpan di `.open-next\worker.js`.
 - [x] **Katalog Bibit Swatch Spesifikasi & Proteksi Wajib Ambil di Toko (Bawa Botol Sendiri):**
   - [x] **Hapus Gambar Botol di List Katalog (`/katalog`):** Tampilan kartu bibit murni berbasis teks/swatch spesifikasi mewah (badge koleksi & intensitas, main accord, notes chips, harga per ml, tombol "+ Keranjang", link "Detail Aroma").
   - [x] **Galeri 5 Botol Mockup Eksklusif di Detail (`/bibit/[slug]`):** Mockup studio 5 botol Ela Parfum tetap tampil tajam di galeri interaktif halaman detail bibit.
