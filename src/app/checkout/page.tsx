@@ -26,6 +26,7 @@ import { formatRupiah } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { processCheckout, validateVoucher } from "./actions";
 import { ELA_STORES } from "@/lib/stores";
+import { resolveBestCoordinates } from "@/lib/geolocation";
 
 interface StoreOption {
   storeId: number;
@@ -174,63 +175,41 @@ export default function CheckoutPage() {
     }
   }, [cart.items, fetchRates]);
 
-  const requestGpsLocation = useCallback((fallbackLat?: number, fallbackLng?: number) => {
-    setDetectingGps(true);
+  const requestGpsLocation = useCallback(
+    async (fallbackLat?: number, fallbackLng?: number, addressLabel?: string) => {
+      setDetectingGps(true);
 
-    const applyCoords = (lat: number, lng: number, label: string) => {
-      evaluateStores(lat, lng, true);
-      setDetectingGps(false);
-      toast.success(`Lokasi Anda (${label}) berhasil dideteksi!`);
-    };
-
-    const fallbackEdgeOrAddress = async () => {
-      // 1. Coba koordinat alamat tersimpan jika ada dan valid
-      if (fallbackLat && fallbackLng && (fallbackLat !== -6.2088 || fallbackLng !== 106.8456)) {
-        evaluateStores(fallbackLat, fallbackLng, false);
-        setDetectingGps(false);
-        toast.info("Menggunakan koordinat alamat tersimpan Anda.");
-        return;
-      }
-
-      // 2. Coba Cloudflare Edge Geo IP
       try {
-        const res = await fetch("/api/geo/my-location");
-        const geo = await res.json();
-        if (geo?.latitude && geo?.longitude && (geo.latitude !== -6.2088 || geo.longitude !== 106.8456)) {
-          applyCoords(geo.latitude, geo.longitude, geo.city || "Jaringan");
-          return;
+        const loc = await resolveBestCoordinates({
+          fallbackLat,
+          fallbackLng,
+          savedAddressLabel: addressLabel,
+        });
+
+        const isRealtime = loc.source === "gps_high" || loc.source === "wifi_network";
+        evaluateStores(loc.latitude, loc.longitude, isRealtime);
+
+        if (loc.source === "gps_high") {
+          toast.success(`Lokasi GPS akurat terdeteksi (${loc.label})!`);
+        } else if (loc.source === "wifi_network") {
+          toast.success(`Lokasi terdeteksi via ${loc.label}!`);
+        } else if (loc.source === "edge_ip") {
+          toast.info(`Lokasi terdeteksi via ${loc.label}.`);
+        } else if (loc.source === "saved_address") {
+          toast.info(`Menggunakan koordinat ${loc.label}.`);
+        } else {
+          toast.info("Pilih cabang toko pengambilan yang diinginkan di bawah.");
         }
-      } catch {
-        // Fallback
+      } catch (err) {
+        console.warn("Location resolution error:", err);
+        evaluateStores(-6.2088, 106.8456, false);
+        toast.info("Pilih cabang toko pengambilan yang diinginkan di bawah.");
+      } finally {
+        setDetectingGps(false);
       }
-
-      // 3. Fallback default
-      evaluateStores(-6.2088, 106.8456, false);
-      setDetectingGps(false);
-      toast.info("Pilih cabang toko pengambilan yang diinginkan di bawah.");
-    };
-
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      fallbackEdgeOrAddress();
-      return;
-    }
-
-    // Gunakan enableHighAccuracy: false agar instan via Wi-Fi/IP dan tidak hang di PC/laptop Windows
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        applyCoords(pos.coords.latitude, pos.coords.longitude, "Perangkat");
-      },
-      (err) => {
-        console.warn("Browser geolocation fallback:", err);
-        fallbackEdgeOrAddress();
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 6000,
-        maximumAge: 300000,
-      }
-    );
-  }, [evaluateStores]);
+    },
+    [evaluateStores]
+  );
 
   // Auth & Alamat Init
   useEffect(() => {
@@ -280,7 +259,7 @@ export default function CheckoutPage() {
 
     if (type === "pickup") {
       // Ambil di Toko -> Dapatkan GPS Real-time Customer
-      requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude);
+      requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude, selectedAddress?.label);
       setShippingCost(0);
       setSelectedCourier({
         courier_name: "Toko Ela Parfum",
@@ -596,7 +575,7 @@ export default function CheckoutPage() {
                       {fulfillmentType === "pickup" && (
                         <button
                           type="button"
-                          onClick={() => requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude)}
+                          onClick={() => requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude, selectedAddress?.label)}
                           disabled={detectingGps || loadingStores}
                           style={{
                             display: "inline-flex",
@@ -612,10 +591,10 @@ export default function CheckoutPage() {
                             cursor: (detectingGps || loadingStores) ? "not-allowed" : "pointer",
                             transition: "all 0.2s ease"
                           }}
-                          title="Klik untuk mendeteksi atau memperbarui koordinat GPS Anda"
+                          title="Klik untuk mendeteksi atau memperbarui titik lokasi Anda (GPS / Wi-Fi)"
                         >
                           <LocateFixed size={14} className={detectingGps ? "animate-spin" : ""} />
-                          {detectingGps ? "Mencari GPS..." : isRealtimeGps ? "Perbarui Titik GPS" : "Gunakan Titik GPS"}
+                          {detectingGps ? "Mendeteksi..." : isRealtimeGps ? "Perbarui Titik Lokasi" : "Gunakan Titik Lokasi"}
                         </button>
                       )}
 

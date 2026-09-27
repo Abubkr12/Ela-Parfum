@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Saat ini antrian aktif kosong — perbaikan Error 1102 Refill & sinkronisasi UX jarak checkout selesai diuji dan siap deploy)
+- (Saat ini antrian aktif kosong — arsitektur deteksi lokasi bertingkat GPS & non-GPS telah selesai diuji dan siap deploy)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,21 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Arsitektur Deteksi Lokasi Bertingkat (GPS Mobile vs Non-GPS Laptop/PC):**
+  - [x] **Analisis Perbedaan Hardware:**
+    - Perangkat ponsel (Android/iOS) memiliki modul GPS hardware, membutuhkan `enableHighAccuracy: true` untuk mengunci titik satelit secara presisi (< 30m).
+    - Laptop/PC desktop umumnya tidak memiliki sensor GPS hardware. Pemanggilan `enableHighAccuracy: true` memicu timeout/hang di Windows Location Service. Sebaliknya, `enableHighAccuracy: false` memanfaatkan pemindaian BSSID Wi-Fi yang merespons instan (< 400ms) dengan akurasi lingkungan lokal (20–50m).
+  - [x] **Modul Progressive Geolocation Resolver (`src/lib/geolocation.ts`):**
+    - **Ponsel (Mobile):** Prioritas 1 GPS Akurasi Tinggi (timeout 3.5s) -> Prioritas 2 Jaringan/Wi-Fi (timeout 3.0s) jika di dalam ruangan -> Prioritas 3 Cloudflare Edge IP -> Prioritas 4 Alamat Profil -> Prioritas 5 Default Jakarta.
+    - **Laptop/PC (Non-GPS):** Prioritas 1 Wi-Fi BSSID Triangulation (timeout 3.0s, respon instan < 400ms) -> Prioritas 2 Sensor internal (timeout 2.0s) -> Prioritas 3 Cloudflare Edge / IP lookup -> Prioritas 4 Alamat Profil -> Prioritas 5 Default Jakarta.
+    - **Penanganan Permission Denied:** Jika pengguna menolak izin lokasi (error code 1), sistem langsung melompat ke Cloudflare Edge IP / Alamat tersimpan tanpa perulangan error.
+  - [x] **Penyempurnaan Endpoint `/api/geo/my-location`:**
+    - Di Cloudflare Workers produksi: Membaca header `cf.latitude` & `cf.longitude` langsung (0ms latency).
+    - Di lingkungan Local Development / Non-CF: Menjalankan lookup IP publik instan via `ip-api.com` (timeout 1.5s) untuk mengembalikan titik kota riil ISP developer/pengguna, bukan sekadar koordinat statis Monas.
+  - [x] **Integrasi UI Checkout Reguler & Kustom (`/checkout` & `/checkout/custom/[id]`):**
+    - Mengganti teks tombol menjadi "Perbarui Titik Lokasi" / "Gunakan Titik Lokasi" dengan status loading "Mendeteksi...".
+    - Memberikan feedback toast sonner yang informatif: "Lokasi GPS akurat terdeteksi", "Lokasi terdeteksi via Wi-Fi / Laptop", atau "Lokasi terdeteksi via Jaringan IP".
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi produksi `npm run build` (68 rute dinamis lolos).
 - [x] **Eliminasi Error 1102 Refill Wizard & Sinkronisasi UX Jarak Cabang Checkout:**
   - [x] **Root Cause Error 1102 pada Refill Wizard (`/refill/wizard` & `/api/refill-analyze`):**
     - Halaman `/refill/wizard` melakukan SSR query 740 bibit dan serialisasi payload besar ke HTML flight stream, melampaui limit CPU 10ms Cloudflare Free.
