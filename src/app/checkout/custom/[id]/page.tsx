@@ -43,6 +43,7 @@ interface StoreOption {
   outOfStockItems: string[];
   latitude?: number;
   longitude?: number;
+  mapsUrl?: string;
 }
 
 export default function CustomCheckoutPage() {
@@ -737,9 +738,10 @@ export default function CustomCheckoutPage() {
                                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
                                   <a
                                     href={
-                                      st.latitude && st.longitude
+                                      st.mapsUrl ||
+                                      (st.latitude && st.longitude
                                         ? `https://www.google.com/maps/search/?api=1&query=${st.latitude},${st.longitude}`
-                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(st.name + " " + st.address)}`
+                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(st.name + " " + st.address)}`)
                                     }
                                     target="_blank"
                                     rel="noopener noreferrer"

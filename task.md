@@ -9,6 +9,15 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Koreksi Titik Presisi Koordinat & Direct Link Google Maps Toko Terdaftar:**
+  - [x] **Pembaruan Koordinat Riil & Link Profil Toko Google Maps (`src/lib/stores.ts`, `src/lib/biteship.ts`, `src/app/api/webhooks/mayar/route.ts`):**
+    1. **Condet:** Koordinat `-6.263216121945289, 106.86483496323179` | Link: `https://maps.app.goo.gl/NeXJRAJkhEcBjo7ZA`
+    2. **Rawa Belong:** Koordinat `-6.202979537456524, 106.7829307530255` | Link: `https://maps.app.goo.gl/VL9L2EzQErwJFVhW6` (Profil Resmi "E & V Parfum")
+    3. **Tangerang:** Koordinat `-6.244421216053853, 106.69871051069751` | Link: `https://maps.app.goo.gl/SE7NPjjYjBPCeTz38`
+  - [x] **Integrasi Direct Maps URL pada Tombol "Lihat Peta":**
+    - `src/app/api/stores/distances/route.ts` mengembalikan properti `mapsUrl` langsung dari data cabang.
+    - Tombol "Lihat Peta" di `/checkout` dan `/checkout/custom/[id]` memprioritaskan link Google Maps terdaftar toko (`st.mapsUrl`), sehingga saat diklik tidak hanya memunculkan pin koordinat mentah, melainkan membuka profil bisnis resmi toko lengkap dengan foto, ulasan, nama tempat, dan navigasi rute Google Maps.
+  - [x] **Verifikasi:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi produksi `npm run build` (68 rute dinamis lolos).
 - [x] **Pemberantasan Tuntas Infinite Loop Dev Server & Tombol Navigasi Google Maps ("Lihat Peta"):**
   - [x] **Root Cause Infinite Loop (Biteship 'Test Rates API limit reached'):**
     - Di `src/app/checkout/custom/[id]/page.tsx`, `useParams()` mengembalikan objek baru pada render cycle Next.js. Referensi `initializedIdRef.current === id` gagal menghentikan effect karena array param reference re-evaluation dan keberadaan `evaluateStores` di dependency array effect.

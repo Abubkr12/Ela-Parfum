@@ -10,24 +10,24 @@ export const STORE_LOCATIONS: Record<string, { name: string; address: string; po
     name: 'Condet',
     address: 'Jl. Raya Condet No.1, RT.1/RW.15, Cililitan, Kec. Kramat jati, Kota Jakarta Timur, Daerah Khusus Ibukota Jakarta 13640',
     postalCode: 13640,
-    latitude: -6.263281646322936,
-    longitude: 106.86484090895478
+    latitude: -6.263216121945289,
+    longitude: 106.86483496323179
   },
   // Rawa Belong
   'IDNP6IDNC146IDND825': {
     name: 'Rawa Belong',
     address: 'Jl. Raya Kb. Jeruk No.57B, RT.8/RW.15, Palmerah, Kec. Palmerah, Kota Jakarta Barat, Daerah Khusus Ibukota Jakarta 11530',
     postalCode: 11530,
-    latitude: -6.202968871424059,
-    longitude: 106.78298439693361
+    latitude: -6.202979537456524,
+    longitude: 106.7829307530255
   },
   // Tangerang
   'IDNP3IDNC446IDND5630': {
     name: 'Tangerang',
     address: 'Jl. Pd. Kacang No.36, RT.002/RW.005, Parung Serab, Kec. Ciledug, Kota Tangerang, Banten 15226',
     postalCode: 15226,
-    latitude: -6.244325229406331,
-    longitude: 106.69862467974234
+    latitude: -6.244421216053853,
+    longitude: 106.69871051069751
   }
 };
 

@@ -25,6 +25,7 @@ export async function POST(request: Request) {
         isRoadNetwork: roadRes.isRoadNetwork,
         latitude: store.latitude,
         longitude: store.longitude,
+        mapsUrl: store.mapsUrl,
       };
     });
 
