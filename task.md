@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Saat ini antrian aktif kosong — koreksi prioritas alamat profil vs ISP Ancol selesai dan siap deploy)
+- (Saat ini antrian aktif kosong — seluruh perbaikan infinite loop dan koreksi presisi lokasi selesai dan terverifikasi)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,20 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Eliminasi Infinite Loop Checkout & Presisi Geolocation Laptop vs Mobile (Anti-Ancol):**
+  - [x] **Root Cause 1 (Looping Tanpa Henti "Mendeteksi Lokasi" & "Menghitung Ongkir"):**
+    - Di `src/app/checkout/page.tsx` dan `src/app/checkout/custom/[id]/page.tsx`, `const supabase = createClient()` dieksekusi langsung di tubuh komponen tanpa memoization.
+    - Setiap re-render menghasilkan referensi objek `supabase` baru, memicu `useEffect` yang memiliki dependency `supabase` untuk mengeksekusi `loadData()` / `checkUser()` berulang kali tanpa henti.
+    - Panggilan `evaluateStores()` memicu `fetchRates()`, yang mengubah state ongkir dan kurir, memicu re-render baru dan siklus loop tak terbatas (menghabiskan request API).
+    - **Solusi:** Bungkus Supabase dengan `useMemo(() => createClient(), [])`, pasang guard `initializedRef` / `initializedIdRef` agar `loadData()` hanya berjalan 1 kali saat mount, dan jadikan `cartItemsRef` terpisah agar `evaluateStores` tidak berubah referensi.
+  - [x] **Root Cause 2 (Jomplang ke Ancol 17–30 km di Laptop Tanpa GPS):**
+    - Laptop Windows tidak memiliki chip GPS satelit fisik. Saat izin lokasi diberikan di Chrome, Windows Location Service mengembalikan koordinat IP gateway Indosat di Ancol dengan akurasi kasar (1.000m – 15.000m).
+    - Geolocation resolver sebelumnya menganggap semua hasil browser sebagai `wifi_network` yang akurat, sehingga menimpa alamat tersimpan pengguna di Kebon Jeruk.
+    - **Solusi:** `src/lib/geolocation.ts` sekarang memvalidasi `coords.accuracy`. Jika akurasi > 250m di desktop atau > 500m di mobile dan pengguna memiliki alamat tersimpan yang valid (Kebon Jeruk), sistem **otomatis memprioritaskan alamat tersimpan** pengguna (1.4 km ke Rawa Belong) dan menolak titik kasar Ancol.
+  - [x] **Optimasi UX Mode Ambil di Toko (Pickup):**
+    - Saat beralih ke tab "Ambil Langsung di Toko", sistem langsung menghitung jarak instan dari alamat profil tersimpan pengguna (< 100ms) tanpa menunggu timeout GPS.
+    - Tombol "Gunakan Titik Lokasi" / "Perbarui Titik Lokasi" hanya memperbarui ke GPS fisik jika perangkat benar-benar memberikan koordinat presisi (< 150m mobile / < 250m Wi-Fi).
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi produksi `npm run build` (68/68 rute dinamis lolos).
 - [x] **Koreksi Presisi Geolocation: Eliminasi Nyasar ISP Ancol & Prioritas Alamat Profil:**
   - [x] **Root Cause Nyasar ke Ancol (17–30 km):**
     - Di Windows laptop, pemanggilan `enableHighAccuracy: false` tidak memicu pemindaian Wi-Fi access point, dan timeout singkat (2s) pada fallback langsung beralih ke endpoint IP Geolocation.

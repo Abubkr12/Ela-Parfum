@@ -33,84 +33,99 @@ function getPositionPromise(options: PositionOptions): Promise<GeolocationPositi
   });
 }
 
+function isValidSavedCoordinate(lat?: number, lng?: number): boolean {
+  if (typeof lat !== "number" || typeof lng !== "number") return false;
+  if (isNaN(lat) || isNaN(lng)) return false;
+  // Jika koordinat sama persis dengan default fallback Jakarta (-6.2088, 106.8456)
+  if (Math.abs(lat - -6.2088) < 0.001 && Math.abs(lng - 106.8456) < 0.001) return false;
+  return true;
+}
+
 /**
  * Resolves the best available coordinates:
- * 1. Primary: Browser Geolocation with high accuracy (GPS on mobile, Wi-Fi BSSID scan on Windows/laptop)
- * 2. Secondary: Fast fallback to low accuracy if high accuracy times out
- * 3. Saved Profile Address: If browser location is blocked or unavailable, use user's saved address in DB!
- * 4. Edge IP / ISP Geolocation: Only for new guests without a saved address
- * 5. Default Fallback
+ * 1. Physical High Accuracy:
+ *    - Mobile phone: Hardware GPS sensor (< 150m accuracy)
+ *    - Laptop/PC: Wi-Fi BSSID AP triangulation (< 250m accuracy)
+ * 2. Saved Profile Address (Priority over Coarse ISP!):
+ *    - If browser location is coarse (accuracy > 250m on laptop or > 500m on mobile)
+ *      or permission is denied / unavailable:
+ *      USE SAVED ADDRESS! Because user's saved home/shop address in DB is 100x more
+ *      accurate than ISP cellular gateway (e.g. Indosat tower in Ancol 15-30km away).
+ * 3. Coarse Geolocation (Only for guests without saved address):
+ *    - Wi-Fi / Cellular / Edge IP location
+ * 4. Default Fallback: Central Jakarta (-6.2088, 106.8456)
  */
 export async function resolveBestCoordinates(
   options: ResolveLocationOptions = {}
 ): Promise<ResolvedLocation> {
   const isMobile = isMobileDevice();
+  const hasSavedAddress = isValidSavedCoordinate(options.fallbackLat, options.fallbackLng);
 
   // -----------------------------------------------------------------
-  // TIER 1: BROWSER GEOLOCATION (HIGH ACCURACY)
-  // HP: Menggunakan sensor GPS satelit fisik (< 20m)
-  // Laptop/PC Windows/Mac: Menggunakan pemindaian Wi-Fi BSSID Google/Microsoft (20-50m)
+  // TIER 1: BROWSER GEOLOCATION
   // -----------------------------------------------------------------
   if (typeof window !== "undefined" && navigator.geolocation) {
     try {
-      options.onStatusUpdate?.("Mendeteksi lokasi perangkat...");
+      options.onStatusUpdate?.("Mendeteksi sinyal lokasi perangkat...");
+      // Mobile: beri waktu hingga 6 detik untuk satelit GPS lock
+      // Laptop/PC: 3.5 detik untuk Wi-Fi BSSID scan
       const pos = await getPositionPromise({
         enableHighAccuracy: true,
-        timeout: 8000,
+        timeout: isMobile ? 6000 : 3500,
         maximumAge: 60000,
       });
 
       const acc = Math.round(pos.coords.accuracy || 0);
+      const isHighAccuracy = isMobile ? acc <= 150 : acc <= 250;
+
+      if (isHighAccuracy) {
+        return {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: acc,
+          source: isMobile ? "gps_high" : "wifi_network",
+          label: isMobile
+            ? (acc <= 50 ? "GPS Akurat" : "GPS Ponsel")
+            : "Wi-Fi Terdekat",
+          isAccurate: true,
+        };
+      }
+
+      // Jika akurasi kasar (misal ISP Ancol 1.000m - 15.000m) dan pengguna memiliki alamat tersimpan yang valid:
+      // PRIORITASKAN ALAMAT TERSIMPAN! Jangan biarkan nyasar ke ISP Ancol.
+      if (hasSavedAddress) {
+        return {
+          latitude: options.fallbackLat!,
+          longitude: options.fallbackLng!,
+          accuracy: 10,
+          source: "saved_address",
+          label: options.savedAddressLabel ? `Alamat (${options.savedAddressLabel})` : "Alamat Profil",
+          isAccurate: true,
+        };
+      }
+
+      // Jika tidak ada alamat tersimpan, gunakan perkiraan browser ini
       return {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
         accuracy: acc,
-        source: isMobile ? "gps_high" : "wifi_network",
-        label: isMobile
-          ? (acc <= 50 ? "GPS Akurat" : "GPS Ponsel")
-          : "Wi-Fi Perangkat",
-        isAccurate: true,
+        source: "wifi_network",
+        label: "Jaringan Perangkat",
+        isAccurate: false,
       };
-    } catch (err: any) {
-      // Jika izin ditolak (code 1), jangan tanya lagi, langsung ke fallback alamat profil
-      if (err?.code !== 1) {
-        // Coba sekali lagi dengan low accuracy jika timeout
-        try {
-          options.onStatusUpdate?.("Mengecek sinyal jaringan...");
-          const pos = await getPositionPromise({
-            enableHighAccuracy: false,
-            timeout: 3500,
-            maximumAge: 300000,
-          });
-
-          return {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy: Math.round(pos.coords.accuracy || 0),
-            source: "wifi_network",
-            label: "Jaringan Perangkat",
-            isAccurate: false,
-          };
-        } catch {
-          // Lanjut ke fallback alamat tersimpan
-        }
-      }
+    } catch {
+      // Browser geolocation gagal, timeout, atau izin ditolak
     }
   }
 
   // -----------------------------------------------------------------
-  // TIER 2: ALAMAT TERSIMPAN CUSTOMER (PRIORITAS TINGGI JIKA ADA DI DB)
-  // Jika GPS browser gagal / ditolak, gunakan alamat rumah tersimpan
-  // (misal: Kebon Jeruk, Jakarta Barat) agar TIDAK nyasar ke ISP Ancol
+  // TIER 2: ALAMAT TERSIMPAN CUSTOMER (PRIORITAS JIKA ADA DI DB)
   // -----------------------------------------------------------------
-  if (
-    typeof options.fallbackLat === "number" &&
-    typeof options.fallbackLng === "number" &&
-    !(Math.abs(options.fallbackLat - -6.2088) < 0.001 && Math.abs(options.fallbackLng - 106.8456) < 0.001)
-  ) {
+  if (hasSavedAddress) {
     return {
-      latitude: options.fallbackLat,
-      longitude: options.fallbackLng,
+      latitude: options.fallbackLat!,
+      longitude: options.fallbackLng!,
+      accuracy: 10,
       source: "saved_address",
       label: options.savedAddressLabel ? `Alamat (${options.savedAddressLabel})` : "Alamat Profil",
       isAccurate: true,
@@ -118,12 +133,12 @@ export async function resolveBestCoordinates(
   }
 
   // -----------------------------------------------------------------
-  // TIER 3: CLOUDFLARE EDGE & IP GEOLOCATION (HANYA JIKA TIDAK ADA ALAMAT)
+  // TIER 3: CLOUDFLARE EDGE & IP GEOLOCATION (HANYA UNTUK TAMU TANPA ALAMAT)
   // -----------------------------------------------------------------
   try {
     options.onStatusUpdate?.("Mengecek lokasi IP...");
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
     const res = await fetch("/api/geo/my-location", { signal: controller.signal });
     clearTimeout(timeoutId);

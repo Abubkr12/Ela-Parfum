@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
@@ -45,8 +45,14 @@ interface StoreOption {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { cart, subtotal, clearCart } = useCart();
+  const initializedRef = useRef(false);
+  const cartItemsRef = useRef(cart.items);
+
+  useEffect(() => {
+    cartItemsRef.current = cart.items;
+  }, [cart.items]);
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -134,7 +140,7 @@ export default function CheckoutPage() {
       const distData = await distRes.json();
 
       // 2. Ambil ketersediaan stok produk per cabang
-      const cartItemsPayload = cart.items.map((it) => ({
+      const cartItemsPayload = (cartItemsRef.current || []).map((it) => ({
         sizeId: it.sizeId,
         quantity: it.quantity,
         name: it.perfumeName
@@ -173,7 +179,7 @@ export default function CheckoutPage() {
     } finally {
       setLoadingStores(false);
     }
-  }, [cart.items, fetchRates]);
+  }, [fetchRates]);
 
   const requestGpsLocation = useCallback(
     async (fallbackLat?: number, fallbackLng?: number, addressLabel?: string) => {
@@ -190,11 +196,11 @@ export default function CheckoutPage() {
         evaluateStores(loc.latitude, loc.longitude, isRealtime);
 
         if (loc.source === "gps_high") {
-          toast.success(`Lokasi GPS akurat terdeteksi (${loc.label})!`);
+          toast.success(`Lokasi GPS akurat ponsel terdeteksi (${loc.label})!`);
         } else if (loc.source === "wifi_network") {
-          toast.success(`Lokasi terdeteksi via ${loc.label}!`);
+          toast.success(`Lokasi terdeteksi presisi via ${loc.label}!`);
         } else if (loc.source === "saved_address") {
-          toast.info(`Menggunakan koordinat ${loc.label}.`);
+          toast.info(`Menggunakan titik ${loc.label} agar jarak presisi.`);
         } else if (loc.source === "edge_ip") {
           toast.info(`Lokasi terdeteksi via ${loc.label}.`);
         } else {
@@ -213,6 +219,9 @@ export default function CheckoutPage() {
 
   // Auth & Alamat Init
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     async function checkUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -258,8 +267,6 @@ export default function CheckoutPage() {
     setError("");
 
     if (type === "pickup") {
-      // Ambil di Toko -> Dapatkan GPS Real-time Customer
-      requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude, selectedAddress?.label);
       setShippingCost(0);
       setSelectedCourier({
         courier_name: "Toko Ela Parfum",
@@ -267,6 +274,10 @@ export default function CheckoutPage() {
         courier_service_code: "pickup",
         price: 0
       });
+      // Evaluasi toko instan berdasarkan alamat tersimpan customer
+      const lat = selectedAddress?.maps_latitude || -6.2088;
+      const lng = selectedAddress?.maps_longitude || 106.8456;
+      evaluateStores(lat, lng, false);
     } else {
       // Mode Kurir -> Gunakan koordinat Alamat Penerima
       if (selectedAddress) {
@@ -564,7 +575,9 @@ export default function CheckoutPage() {
                         {fulfillmentType === "pickup"
                           ? isRealtimeGps 
                             ? "Jarak dihitung dari posisi GPS/perangkat Anda saat ini via jaringan jalan."
-                            : "Pilih cabang pengambilan terdekat atau gunakan tombol GPS di samping."
+                            : selectedAddress
+                              ? `Jarak dihitung dari Alamat Tersimpan Anda (${selectedAddress.label || "Utama"}) via jaringan jalan.`
+                              : "Pilih cabang pengambilan terdekat atau gunakan tombol GPS di samping."
                           : selectedAddress
                             ? "Sistem memilih cabang terdekat dari alamat pengiriman Anda dengan stok tersedia."
                             : "Cabang pengirim akan disesuaikan otomatis setelah alamat pengiriman dipilih."}
