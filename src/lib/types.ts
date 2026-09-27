@@ -231,16 +231,33 @@ export interface HomepageSlider {
 //  CART (client-side, localStorage)
 // ─────────────────────────────────────────
 
+export interface RefillCartData {
+  mode: 'ai' | 'gambar' | 'custom' | 'manual';
+  customName: string;
+  ratio: '30/70' | '50/50' | '70/30' | '100/0';
+  volumeMl: number;
+  bottle: { id?: number | null; name: string; capacity_ml: number; price: number; image_url?: string | null };
+  useOwnBottle: boolean;
+  ownBottleVolumeMl?: number;
+  bibits: { id: number; name: string; volumeMl: number; pricePerMl: number }[];
+  technicalRecipe?: string;
+  adminRecipe?: string;
+  intensity?: string;
+}
+
 export interface CartItem {
-  perfumeId: number;
-  sizeId: number;
+  id?: string; // unique item id: e.g. "regular-12" or "refill-172744..."
+  itemType?: 'regular' | 'refill';
+  perfumeId?: number;
+  sizeId?: number;
   perfumeName: string;
-  perfumeSlug: string;
+  perfumeSlug?: string;
   sizeLabel: string;
   price: number;
   quantity: number;
-  imageUrl: string | null;
-  familyName: string;
+  imageUrl?: string | null;
+  familyName?: string;
+  refillData?: RefillCartData;
 }
 
 export interface Cart {

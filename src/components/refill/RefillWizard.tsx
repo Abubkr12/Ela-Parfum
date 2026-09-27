@@ -6,6 +6,8 @@ import { ArrowLeft, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useCart } from "@/lib/cart-context";
+import { CartItem } from "@/lib/types";
 
 import { RefillMode, WizardStep, BibitData, BottleData, WizardState, AiAnalysis } from "./types";
 import { WizardProgress } from "./WizardProgress";
@@ -27,6 +29,7 @@ interface RefillWizardProps {
 
 export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps) {
   const router = useRouter();
+  const { addItem } = useCart();
   const wizardRef = useRef<HTMLDivElement>(null);
   
   const [state, setState] = useState<WizardState>({
@@ -255,6 +258,116 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
     }
   };
 
+  const handleAddToCart = () => {
+    try {
+      const activeBibits = state.mode === "custom" 
+        ? state.selectedBibits 
+        : (state.recommendedBibit ? [state.recommendedBibit] : []);
+
+      if (activeBibits.length === 0) {
+        toast.error("Pilih aroma bibit terlebih dahulu");
+        return;
+      }
+
+      const ratioPercent = state.ratio === "100/0" ? 1.0 : state.ratio === "70/30" ? 0.7 : state.ratio === "50/50" ? 0.5 : 0.3;
+      const capacityMl = state.useOwnBottle ? state.ownBottleVolumeMl : (state.selectedBottle?.capacity_ml || 0);
+      const totalBibitVolume = capacityMl * ratioPercent;
+      const volumePerBibit = totalBibitVolume / (activeBibits.length || 1);
+
+      const pricePerfume = Math.round(
+        activeBibits.reduce((sum, b) => {
+          const pPerMl = b.price_per_ml || 1500;
+          return sum + (volumePerBibit * pPerMl);
+        }, 0)
+      );
+
+      const priceBottle = state.useOwnBottle ? 0 : (state.selectedBottle?.price || 0);
+      const totalPrice = pricePerfume + priceBottle;
+      const baseNoteStr = state.recommendedBibit?.name || state.selectedBibits.map(b => b.name).join(" + ");
+      
+      const totalSolventVolume = capacityMl - totalBibitVolume;
+      const ratioName = state.ratio === "100/0" ? "Elixir (Murni)" : state.ratio === "70/30" ? "Extrait de Parfum (1:3)" : state.ratio === "50/50" ? "Eau De Parfum (1:1)" : "Eau De Toilette (3:7)";
+      
+      let admin_recipe = "";
+      if (state.mode === "custom" && activeBibits.length > 1 && state.analysis?.technical_recipe) {
+        let recipeContent = "";
+        const parsedBibits = activeBibits.map(b => {
+          const escapedName = b.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex1 = new RegExp(`${escapedName}[^0-9]*(\\d{1,3})\\s*%`, 'i');
+          const regex2 = new RegExp(`(\\d{1,3})\\s*%[^,]*${escapedName}`, 'i');
+          
+          let match = state.analysis!.technical_recipe!.match(regex1) || state.analysis!.technical_recipe!.match(regex2);
+          let pct = 0;
+          if (match && match[1]) {
+            pct = parseInt(match[1]);
+          }
+          return { bibit: b, percent: pct };
+        });
+
+        const totalPct = parsedBibits.reduce((acc, curr) => acc + curr.percent, 0);
+        parsedBibits.forEach(({ bibit, percent }) => {
+          let finalPct = percent;
+          if (totalPct < 90 || totalPct > 110 || percent === 0) {
+            finalPct = Math.round(100 / activeBibits.length);
+          }
+          const bibitMl = totalBibitVolume * (finalPct / 100);
+          recipeContent += `Bibit ${bibit.name} (${finalPct}%) : ${bibitMl.toFixed(1)} ml\n`;
+        });
+        
+        admin_recipe = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRACIKAN PARFUM — ${capacityMl}ml (${ratioName})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${recipeContent}Pelarut Absolute : ${totalSolventVolume.toFixed(1)} ml\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTotal Volume : ${capacityMl.toFixed(1)} ml`;
+      } else {
+        admin_recipe = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRACIKAN PARFUM — ${capacityMl}ml (${ratioName})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBibit ${activeBibits[0]?.name || 'Unknown'} (100%) : ${totalBibitVolume.toFixed(1)} ml\nPelarut Absolute : ${totalSolventVolume.toFixed(1)} ml\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTotal Volume : ${capacityMl.toFixed(1)} ml`;
+      }
+
+      const uniqueId = `refill-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const cartItem: CartItem = {
+        id: uniqueId,
+        itemType: "refill",
+        perfumeName: state.analysis?.custom_name || `Racikan Refill (${baseNoteStr})`,
+        sizeLabel: `${capacityMl}ml · ${ratioName}`,
+        price: totalPrice,
+        quantity: 1,
+        imageUrl: state.useOwnBottle ? "/images/bottles/preview/bottle-1.jpg" : (state.selectedBottle?.image_url || "/images/bottles/preview/bottle-1.jpg"),
+        familyName: activeBibits[0]?.collection || "Refill Custom",
+        refillData: {
+          mode: state.mode || "custom",
+          customName: state.analysis?.custom_name || baseNoteStr,
+          ratio: state.ratio!,
+          volumeMl: capacityMl,
+          bottle: {
+            id: state.useOwnBottle ? null : state.selectedBottle?.id,
+            name: state.useOwnBottle ? `Botol Sendiri (${state.ownBottleVolumeMl}ml)` : (state.selectedBottle?.name || "Botol Ela"),
+            capacity_ml: capacityMl,
+            price: priceBottle,
+            image_url: state.selectedBottle?.image_url,
+          },
+          useOwnBottle: state.useOwnBottle,
+          ownBottleVolumeMl: state.useOwnBottle ? state.ownBottleVolumeMl : undefined,
+          bibits: activeBibits.map(b => ({
+            id: b.id,
+            name: b.name,
+            volumeMl: volumePerBibit,
+            pricePerMl: b.price_per_ml || 1500,
+          })),
+          technicalRecipe: state.analysis?.technical_recipe,
+          adminRecipe: admin_recipe,
+          intensity: state.analysis?.predicted_intensity || undefined,
+        }
+      };
+
+      addItem(cartItem);
+      toast.success("Racikan berhasil ditambahkan ke keranjang!", {
+        description: `${cartItem.perfumeName} (${cartItem.sizeLabel})`,
+        action: {
+          label: "Lihat Keranjang",
+          onClick: () => router.push("/keranjang"),
+        },
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menambahkan ke keranjang");
+    }
+  };
+
   const handleRetry = () => {
     scrollToTop();
     router.push("/refill");
@@ -442,6 +555,7 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
                 bottle={state.selectedBottle}
                 useOwnBottle={state.useOwnBottle}
                 ownBottleVolumeMl={state.ownBottleVolumeMl}
+                onAddToCart={handleAddToCart}
                 onCheckout={handleCheckout}
                 onRetry={handleRetry}
                 loading={state.loading}

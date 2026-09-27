@@ -43,6 +43,14 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
     }
   }
 
+  let refillCartItems: any[] = [];
+  const refillCartMatch = order.notes?.match(/RefillCartItems:\s*(\[.+?\])(?:\s*\||$)/);
+  if (refillCartMatch && refillCartMatch[1]) {
+    try {
+      refillCartItems = JSON.parse(refillCartMatch[1]);
+    } catch(e) {}
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       <div>
@@ -162,6 +170,55 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                   Resep teknikal tidak tersedia atau gagal digenerate.
                 </div>
               )}
+            </div>
+          )}
+
+          {refillCartItems.length > 0 && (
+            <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+              {refillCartItems.map((rf: any, rfIdx: number) => (
+                <div key={rfIdx} style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)", position: "relative", overflow: "hidden", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                    <div>
+                      <span style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Resep Racikan Refill ({rf.quantity} Botol):</span>
+                      <p style={{ fontSize: "1.2rem", fontFamily: "var(--font-display)", color: "var(--c-gold)", lineHeight: 1.2, marginTop: 4 }}>{rf.customName}</p>
+                    </div>
+                    <span style={{ fontSize: "0.85rem", padding: "4px 10px", borderRadius: 100, background: "rgba(217, 119, 6, 0.15)", color: "var(--c-gold)", fontWeight: 600 }}>
+                      {rf.volumeMl}ml · {rf.ratio}
+                    </span>
+                  </div>
+
+                  {rf.adminRecipe ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {rf.adminRecipe.split('\n').map((line: string, i: number) => {
+                        const isSeparator = line.includes('━━━') || line.includes('===');
+                        if (isSeparator || !line.trim()) return null;
+                        const isHeader = line.includes('RACIKAN PARFUM');
+                        const isTotal = line.includes('Total Volume');
+                        return (
+                          <div key={i} style={{ 
+                            display: "flex", 
+                            justifyContent: "space-between", 
+                            alignItems: "center",
+                            padding: isHeader || isTotal ? "10px 14px" : "6px 14px",
+                            background: isHeader || isTotal ? "var(--c-surface-2)" : "rgba(0,0,0,0.02)",
+                            borderRadius: "var(--r-md)",
+                            border: "1px solid var(--c-border)",
+                            fontWeight: isHeader || isTotal ? 600 : 500,
+                            color: isHeader ? "var(--c-gold)" : "var(--c-ink)",
+                            fontSize: "0.9rem"
+                          }}>
+                            <span>{line}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ padding: "12px", background: "var(--c-surface-2)", borderRadius: "var(--r-md)", border: "1px dashed var(--c-border)", color: "var(--c-ink-dim)", fontSize: "0.85rem", textAlign: "center" }}>
+                      Resep racikan: {rf.bibits?.map((b: any) => `${b.name} (${b.volumeMl?.toFixed(1) || ''}ml)`).join(', ') || 'Standar Refill'}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

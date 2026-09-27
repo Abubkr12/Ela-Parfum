@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Check, RotateCcw, ShoppingBag } from "lucide-react";
+import { Check, RotateCcw, ShoppingBag, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 import { BibitData, AiAnalysis, RefillMode, BottleData } from "./types";
 
@@ -14,6 +14,7 @@ interface StepPriceSummaryProps {
   bottle: BottleData | null;
   useOwnBottle: boolean;
   ownBottleVolumeMl: number;
+  onAddToCart?: () => void;
   onCheckout: () => void;
   onRetry: () => void;
   loading: boolean;
@@ -23,7 +24,7 @@ const formatRupiah = (price: number) => {
   return `Rp${price.toLocaleString("id-ID")}`;
 };
 
-export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analysis, ratio, bottle, useOwnBottle, ownBottleVolumeMl, onCheckout, onRetry, loading }: StepPriceSummaryProps) {
+export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analysis, ratio, bottle, useOwnBottle, ownBottleVolumeMl, onAddToCart, onCheckout, onRetry, loading }: StepPriceSummaryProps) {
   
   const isCustom = mode === "custom";
   const activeBibits = isCustom ? selectedBibits : (recommendedBibit ? [recommendedBibit] : []);
@@ -162,6 +163,45 @@ export function StepPriceSummary({ mode, recommendedBibit, selectedBibits, analy
 
       {/* Actions */}
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        {onAddToCart && (
+          <button
+            type="button"
+            onClick={onAddToCart}
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "16px",
+              borderRadius: "var(--r-md)",
+              background: "transparent",
+              color: "var(--c-gold)",
+              border: "1.5px solid var(--c-gold)",
+              fontSize: "1.05rem",
+              fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.background = "var(--c-gold)";
+                e.currentTarget.style.color = "#ffffff";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "var(--c-gold)";
+              }
+            }}
+          >
+            <ShoppingCart size={20} />
+            + Tambah ke Keranjang
+          </button>
+        )}
+
         <button
           onClick={onCheckout}
           disabled={loading}

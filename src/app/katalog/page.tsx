@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
   Bot,
   ChevronDown,
   Filter,
+  FlaskConical,
   Grid3X3,
   List,
   Package,
@@ -15,6 +17,11 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+
+const BibitCatalogGrid = dynamic(
+  () => import("@/components/katalog/BibitCatalogGrid").then((mod) => mod.BibitCatalogGrid),
+  { ssr: false }
+);
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PageHeader } from "@/components/page-header";
 import { Footer } from "@/components/footer";
@@ -55,6 +62,7 @@ export default function KatalogPage() {
   const [perfumes, setPerfumes] = useState<(Perfume & { sizes: PerfumeSize[] })[]>([]);
   const [families, setFamilies] = useState<ScentFamily[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"parfum" | "bibit">("bibit");
   const [query, setQuery] = useState("");
   const [activeFamily, setActiveFamily] = useState<string>("all");
   const [activeStrength, setActiveStrength] = useState<string>("all");
@@ -85,10 +93,16 @@ export default function KatalogPage() {
 
         setPerfumes(merged);
         setFamilies(familyData.length > 0 ? familyData : MOCK_FAMILIES);
+        if (merged.length > 0) {
+          setActiveTab("parfum");
+        } else {
+          setActiveTab("bibit");
+        }
       } catch (err) {
         console.error("Gagal memuat katalog:", err);
         setPerfumes([]);
         setFamilies(MOCK_FAMILIES);
+        setActiveTab("bibit");
       } finally {
         setLoading(false);
       }
@@ -154,12 +168,14 @@ export default function KatalogPage() {
 
       {/* Page Hero */}
       <section style={{
-        padding: "100px 0 48px",
+        padding: "100px 0 36px",
         background: "linear-gradient(180deg, var(--c-surface-1) 0%, var(--c-bg) 100%)",
         textAlign: "center",
       }}>
         <div style={{ width: "min(900px, calc(100% - 32px))", margin: "0 auto" }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>Koleksi Lengkap</div>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            {activeTab === "bibit" ? "740+ Varian Premium" : "Koleksi Lengkap"}
+          </div>
           <h1 style={{
             fontFamily: "var(--font-display)",
             fontSize: "clamp(2.4rem, 6vw, 3.4rem)",
@@ -167,17 +183,75 @@ export default function KatalogPage() {
             color: "var(--c-ink)",
             marginBottom: 12,
           }}>
-            Katalog <em>Parfum</em>
+            {activeTab === "bibit" ? (
+              <>Katalog <em>Bibit Parfum</em></>
+            ) : (
+              <>Katalog <em>Parfum Jadi</em></>
+            )}
           </h1>
-          <p style={{ color: "var(--c-ink-muted)", fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
-            Jelajahi seluruh koleksi parfum isi ulang kami — filter berdasarkan aroma, urutkan sesuai selera.
+          <p style={{ color: "var(--c-ink-muted)", fontSize: "1rem", maxWidth: 540, margin: "0 auto 24px" }}>
+            {activeTab === "bibit"
+              ? "Jelajahi lebih dari 740 pilihan bibit parfum artisan. Racik langsung dengan botol pilihan Anda atau botol sendiri."
+              : "Jelajahi seluruh koleksi parfum siap pakai kami — filter berdasarkan aroma, urutkan sesuai selera."}
           </p>
+
+          {/* Tab Switcher - only show if perfumes exist */}
+          {perfumes.length > 0 && (
+            <div style={{ display: "inline-flex", background: "var(--c-surface-2)", padding: 6, borderRadius: "var(--r-xl, 100px)", border: "1px solid var(--c-border)", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab("parfum")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 20px",
+                  borderRadius: "var(--r-lg, 100px)",
+                  border: "none",
+                  background: activeTab === "parfum" ? "var(--c-gold)" : "transparent",
+                  color: activeTab === "parfum" ? "#ffffff" : "var(--c-ink-dim)",
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <Package size={16} />
+                Katalog Parfum ({perfumes.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("bibit")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 20px",
+                  borderRadius: "var(--r-lg, 100px)",
+                  border: "none",
+                  background: activeTab === "bibit" ? "var(--c-gold)" : "transparent",
+                  color: activeTab === "bibit" ? "#ffffff" : "var(--c-ink-dim)",
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <FlaskConical size={16} />
+                Katalog Bibit (740+)
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
       {/* Filters + Grid */}
-      <div style={{ width: "min(1200px, calc(100% - 32px))", margin: "0 auto", padding: "32px 0 64px" }}>
-        {/* Search + Controls */}
+      <div style={{ width: "min(1200px, calc(100% - 32px))", margin: "0 auto", padding: "24px 0 64px" }}>
+        {activeTab === "bibit" ? (
+          <BibitCatalogGrid />
+        ) : (
+          <>
+            {/* Search + Controls */}
         <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
           <label className="search-wrapper" style={{ flex: 1, minWidth: 240 }}>
             <Search size={16} />
@@ -383,6 +457,8 @@ export default function KatalogPage() {
               );
             })}
           </div>
+        )}
+          </>
         )}
       </div>
 

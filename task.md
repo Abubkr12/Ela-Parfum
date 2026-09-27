@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-(Tidak ada task aktif saat ini)
+- (Tidak ada task aktif saat ini)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,16 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Unified Refill Cart & Katalog Bibit (Refill Manual):**
+  - [x] **Task 1: Generate 5 Universal Bottle Preview Mockups:** 5 foto preview kemasan botol studio berlatar putih bersih (#FFFFFF) berlogo Ela Parfum (Casa, Lacoste, Dhermes, POT, dan Male Spray Action) di `public/images/bottles/preview/`.
+  - [x] **Task 2: Polymorphic Cart Structure & Refill Support:** Perluasan antarmuka `CartItem` di `types.ts` & `CartContext` dengan composite ID unik, `itemType: 'regular' | 'refill'`, dan payload `refillData` (resep teknis, botol, rasio, bibit, kuantitas).
+  - [x] **Task 3: Halaman Keranjang Refill Card UI:** Rincian racikan, botol, rasio, thumbnail mockup, stepper kuantitas, dan kalkulasi harga proporsional di `/keranjang`.
+  - [x] **Task 4: Integrasi "Tambah ke Keranjang" pada Refill Wizard:** Tombol "+ Tambah ke Keranjang" di `StepPriceSummary.tsx` & `RefillWizard.tsx` yang memformat racikan ke `CartItem`, memicu toast notifikasi, tanpa mengganggu alur "Bayar Sekarang" langsung (zero regression).
+  - [x] **Task 5: Unified Checkout Processing for Refill Items:** Dukungan pesanan campuran (regular + refill) di `actions.ts`, serialisasi `RefillCartItems` ke `order.notes`, insert ke `order_items`, auto-switch & lock pickup jika bawa botol sendiri, pemotongan stok otomatis `bibit_stocks` & `bottle_stocks` via `deductRefillStock` untuk Tunai & Webhook Mayar QRIS, serta tampilan resep lengkap untuk kasir di Admin Pesanan Detail.
+  - [x] **Task 6: Tab Selector & Bibit Catalog Grid di /katalog:** Endpoint ringan `/api/bibits` dengan HTTP CDN cache, deteksi cerdas jika parfum kosong (0 produk) langsung menampilkan Katalog Bibit 740+ varian, tab switcher jika parfum terisi, live search, filter koleksi & intensitas, serta pagination 24 item/halaman.
+  - [x] **Task 7: Quick-Buy Variant Modal Bibit:** Modal/Drawer `BibitVariantModal.tsx` dengan pilihan rasio (EDT, EDP, Extrait, Elixir Murni), botol Ela Parfum atau Bawa Botol Sendiri (slider 1-1000ml + input angka langsung), auto-kalkulasi harga real-time, stepper kuantitas, dan langsung masuk keranjang.
+  - [x] **Task 8: Halaman Detail Bibit (/bibit/[slug]):** Halaman detail lengkap dengan galeri klik 5 mockup botol Ela Parfum, piramida notes (Top, Heart, Base), konfigurasi varian racikan, tombol "+ Tambah ke Keranjang" & "Beli Sekarang", serta rekomendasi bibit serupa.
+  - [x] **Verifikasi Build & Cloudflare Safety:** Lolos pengecekan `npx tsc --noEmit` 0 error dan sukses build produksi `npm run build` (71 rute lolos kompilasi Turbopack tanpa Error 1102).
 - [x] **Rombak Auto-Fit & Dynamic Row Height Export Excel Statistik Penjualan & Barang:**
   - [x] **Root Cause:** Properti `row.height = 20;` yang ter-hardcode memicu flag XML `customHeight="1"` pada OpenXML/ExcelJS sehingga Excel mengunci tinggi baris dan menolak auto-expand saat teks wrap ke baris 2 atau 3, menyebabkan teks terpotong vertikal dan user terpaksa double-click manual.
   - [x] **Perlebar Kolom Basis:** Kode Pesanan (min width 26, cukup untuk 17 karakter seperti `MW-MSBPWGPG-2XQ0`), Pelanggan (min width 26), Produk (min width 38), Biaya Tambahan (min width 18), dan Total Pesanan (min width 18).

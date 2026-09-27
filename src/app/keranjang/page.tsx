@@ -4,18 +4,20 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ChevronRight,
+  FlaskConical,
   Grid3X3,
   Minus,
   Package,
   Plus,
   ShoppingBag,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PageHeader } from "@/components/page-header";
 import { Footer } from "@/components/footer";
-import { useCart } from "@/lib/cart-context";
+import { useCart, getItemKey } from "@/lib/cart-context";
 import { formatRupiah } from "@/lib/types";
 
 export default function KeranjangPage() {
@@ -93,95 +95,201 @@ export default function KeranjangPage() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {cart.items.map((item) => (
-                  <div
-                    key={item.sizeId}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "60px 1fr auto auto auto",
-                      gap: 16,
-                      alignItems: "center",
-                      padding: 16,
-                      background: "var(--c-surface-1)",
-                      border: "1px solid var(--c-border)",
-                      borderRadius: "var(--r-md)",
-                    }}
-                  >
-                    {/* Thumbnail */}
-                    <Link
-                      href={`/parfum/${item.perfumeSlug}`}
+                {cart.items.map((item) => {
+                  const itemKey = getItemKey(item);
+                  const isRefill = item.itemType === "refill" || !!item.refillData;
+
+                  return (
+                    <div
+                      key={itemKey}
                       style={{
-                        width: 60, height: 60,
-                        borderRadius: "var(--r-sm)",
-                        background: `linear-gradient(135deg, var(--c-surface-3), var(--c-surface-2))`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
+                        display: "grid",
+                        gridTemplateColumns: "70px 1fr auto auto auto",
+                        gap: 16,
+                        alignItems: "center",
+                        padding: 16,
+                        background: "var(--c-surface-1)",
+                        border: isRefill ? "1px solid rgba(234, 179, 8, 0.3)" : "1px solid var(--c-border)",
+                        borderRadius: "var(--r-md)",
+                        position: "relative",
                       }}
                     >
-                      <Package size={24} style={{ color: "var(--c-ink-dim)", opacity: 0.4 }} />
-                    </Link>
+                      {/* Thumbnail */}
+                      {item.imageUrl ? (
+                        <div
+                          style={{
+                            width: 70,
+                            height: 70,
+                            borderRadius: "var(--r-sm)",
+                            overflow: "hidden",
+                            background: "var(--c-surface-2)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid var(--c-border)",
+                          }}
+                        >
+                          <img
+                            src={item.imageUrl}
+                            alt={item.perfumeName}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        </div>
+                      ) : isRefill ? (
+                        <div
+                          style={{
+                            width: 70,
+                            height: 70,
+                            borderRadius: "var(--r-sm)",
+                            background: "rgba(234, 179, 8, 0.1)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid rgba(234, 179, 8, 0.2)",
+                            color: "var(--c-gold)",
+                          }}
+                        >
+                          <FlaskConical size={28} />
+                        </div>
+                      ) : (
+                        <Link
+                          href={`/parfum/${item.perfumeSlug || ""}`}
+                          style={{
+                            width: 70,
+                            height: 70,
+                            borderRadius: "var(--r-sm)",
+                            background: `linear-gradient(135deg, var(--c-surface-3), var(--c-surface-2))`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Package size={24} style={{ color: "var(--c-ink-dim)", opacity: 0.4 }} />
+                        </Link>
+                      )}
 
-                    {/* Info */}
-                    <div style={{ minWidth: 0 }}>
-                      <Link
-                        href={`/parfum/${item.perfumeSlug}`}
+                      {/* Info */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
+                          {isRefill ? (
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                fontSize: "0.95rem",
+                                color: "var(--c-ink)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <Sparkles size={14} style={{ color: "var(--c-gold)" }} />
+                              {item.perfumeName}
+                            </span>
+                          ) : (
+                            <Link
+                              href={`/parfum/${item.perfumeSlug || ""}`}
+                              style={{
+                                fontWeight: 600,
+                                fontSize: "0.95rem",
+                                color: "var(--c-ink)",
+                                textDecoration: "none",
+                              }}
+                            >
+                              {item.perfumeName}
+                            </Link>
+                          )}
+
+                          {isRefill && (
+                            <span
+                              style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                padding: "2px 8px",
+                                borderRadius: 100,
+                                background: "rgba(234, 179, 8, 0.15)",
+                                color: "var(--c-gold)",
+                                border: "1px solid rgba(234, 179, 8, 0.3)",
+                              }}
+                            >
+                              Racikan Refill
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", marginTop: 2 }}>
+                          {item.sizeLabel} · <strong style={{ color: "var(--c-ink)" }}>{formatRupiah(item.price)}</strong> / botol
+                        </div>
+
+                        {/* Refill Composition preview if any */}
+                        {item.refillData?.bibits && item.refillData.bibits.length > 0 && (
+                          <div style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", marginTop: 4, lineHeight: 1.4 }}>
+                            Komposisi: {item.refillData.bibits.map((b) => `${b.name} (${b.volumeMl?.toFixed(1) || 0}ml)`).join(", ")}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quantity Stepper */}
+                      <div
                         style={{
-                          fontWeight: 600, fontSize: "0.92rem", color: "var(--c-ink)",
-                          textDecoration: "none", display: "block",
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0,
+                          border: "1px solid var(--c-border)",
+                          borderRadius: "var(--r-sm)",
+                          overflow: "hidden",
                         }}
                       >
-                        {item.perfumeName}
-                      </Link>
-                      <div style={{ fontSize: "0.78rem", color: "var(--c-ink-dim)", marginTop: 2 }}>
-                        {item.sizeLabel} · {formatRupiah(item.price)}
+                        <button
+                          onClick={() => updateQuantity(itemKey, item.quantity - 1)}
+                          className="btn-icon"
+                          style={{ borderRadius: 0, width: 32, height: 32, fontSize: "0.8rem" }}
+                          aria-label="Kurangi jumlah"
+                        >
+                          <Minus size={13} />
+                        </button>
+                        <div
+                          style={{
+                            width: 36,
+                            height: 32,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 600,
+                            fontSize: "0.82rem",
+                            color: "var(--c-ink)",
+                            borderLeft: "1px solid var(--c-border)",
+                            borderRight: "1px solid var(--c-border)",
+                          }}
+                        >
+                          {item.quantity}
+                        </div>
+                        <button
+                          onClick={() => updateQuantity(itemKey, item.quantity + 1)}
+                          className="btn-icon"
+                          style={{ borderRadius: 0, width: 32, height: 32, fontSize: "0.8rem" }}
+                          aria-label="Tambah jumlah"
+                        >
+                          <Plus size={13} />
+                        </button>
                       </div>
-                    </div>
 
-                    {/* Quantity */}
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 0,
-                      border: "1px solid var(--c-border)", borderRadius: "var(--r-sm)",
-                      overflow: "hidden",
-                    }}>
-                      <button
-                        onClick={() => updateQuantity(item.sizeId, item.quantity - 1)}
-                        className="btn-icon"
-                        style={{ borderRadius: 0, width: 32, height: 32, fontSize: "0.8rem" }}
-                      >
-                        <Minus size={13} />
-                      </button>
-                      <div style={{
-                        width: 36, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
-                        fontWeight: 600, fontSize: "0.82rem", color: "var(--c-ink)",
-                        borderLeft: "1px solid var(--c-border)", borderRight: "1px solid var(--c-border)",
-                      }}>
-                        {item.quantity}
+                      {/* Subtotal */}
+                      <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--c-gold)", whiteSpace: "nowrap" }}>
+                        {formatRupiah(item.price * item.quantity)}
                       </div>
+
+                      {/* Delete */}
                       <button
-                        onClick={() => updateQuantity(item.sizeId, item.quantity + 1)}
-                        className="btn-icon"
-                        style={{ borderRadius: 0, width: 32, height: 32, fontSize: "0.8rem" }}
+                        onClick={() => removeItem(itemKey)}
+                        className="btn-icon btn-icon-sm"
+                        style={{ color: "var(--c-ink-dim)" }}
+                        aria-label={`Hapus ${item.perfumeName}`}
                       >
-                        <Plus size={13} />
+                        <X size={16} />
                       </button>
                     </div>
-
-                    {/* Subtotal */}
-                    <div style={{ fontWeight: 600, fontSize: "0.92rem", color: "var(--c-ink)", whiteSpace: "nowrap" }}>
-                      {formatRupiah(item.price * item.quantity)}
-                    </div>
-
-                    {/* Delete */}
-                    <button
-                      onClick={() => removeItem(item.sizeId)}
-                      className="btn-icon btn-icon-sm"
-                      style={{ color: "var(--c-ink-dim)" }}
-                      aria-label={`Hapus ${item.perfumeName}`}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

@@ -7,25 +7,64 @@ export async function POST(request: Request) {
     const body = await request.json();
     const supabase = createAdminClient();
 
-    // 1. Cek stok untuk keranjang produk reguler
+    // 1. Cek stok untuk keranjang produk (reguler & refill)
     if (body.type === "regular" && Array.isArray(body.items)) {
-      const items: { sizeId: number; quantity: number; name?: string }[] = body.items;
-      const sizeIds = items.map((it) => it.sizeId);
+      const items: any[] = body.items;
+      const regularItems = items.filter((it) => it.sizeId);
+      const refillItems = items.filter((it) => it.itemType === "refill" && it.refillData);
 
-      const { data: stocks, error } = await supabase
-        .from("product_stocks")
-        .select("store_id, perfume_size_id, stock_qty")
-        .in("perfume_size_id", sizeIds);
+      let stocks: any[] = [];
+      if (regularItems.length > 0) {
+        const sizeIds = regularItems.map((it) => it.sizeId);
+        const { data: pStocks, error } = await supabase
+          .from("product_stocks")
+          .select("store_id, perfume_size_id, stock_qty")
+          .in("perfume_size_id", sizeIds);
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+        stocks = pStocks || [];
+      }
+
+      // Collect all bibitIds and bottleIds needed for refill items
+      const allBibitIds = new Set<number>();
+      const allBottleIds = new Set<number>();
+      for (const rf of refillItems) {
+        if (rf.refillData?.bibits) {
+          rf.refillData.bibits.forEach((b: any) => {
+            if (b.id) allBibitIds.add(b.id);
+          });
+        }
+        if (!rf.refillData?.useOwnBottle && rf.refillData?.bottle?.id) {
+          allBottleIds.add(rf.refillData.bottle.id);
+        }
+      }
+
+      let bibitStocks: any[] = [];
+      if (allBibitIds.size > 0) {
+        const { data: bStocks } = await supabase
+          .from("bibit_stocks")
+          .select("store_id, bibit_id, stock_ml")
+          .in("bibit_id", Array.from(allBibitIds));
+        bibitStocks = bStocks || [];
+      }
+
+      let bottleStocks: any[] = [];
+      if (allBottleIds.size > 0) {
+        const { data: botStocks } = await supabase
+          .from("bottle_stocks")
+          .select("store_id, bottle_id, stock_qty")
+          .in("bottle_id", Array.from(allBottleIds));
+        bottleStocks = botStocks || [];
       }
 
       const storeStatuses = ELA_STORES.map((store) => {
         const outOfStockItems: string[] = [];
 
-        for (const item of items) {
-          const matching = (stocks || []).find(
+        // Check regular items
+        for (const item of regularItems) {
+          const matching = stocks.find(
             (s) => s.store_id === store.id && s.perfume_size_id === item.sizeId
           );
           const currentQty = matching?.stock_qty || 0;
@@ -34,6 +73,43 @@ export async function POST(request: Request) {
             outOfStockItems.push(
               `${item.name || "Produk"} (Tersisa: ${currentQty}, Dibutuhkan: ${item.quantity})`
             );
+          }
+        }
+
+        // Check refill items
+        for (const rf of refillItems) {
+          const data = rf.refillData;
+          const qty = rf.quantity || 1;
+          const ratioStr = data.ratio || "50/50";
+          const ratioPercent = ratioStr === "100/0" ? 1.0 : ratioStr === "70/30" ? 0.7 : ratioStr === "50/50" ? 0.5 : 0.3;
+          const capacityMl = Number(data.volumeMl || 30);
+          const totalBibitMl = capacityMl * ratioPercent * qty;
+          const mlPerBibit = totalBibitMl / ((data.bibits && data.bibits.length) || 1);
+
+          if (data.bibits) {
+            for (const b of data.bibits) {
+              const bMatch = bibitStocks.find(
+                (bs) => bs.store_id === store.id && bs.bibit_id === b.id
+              );
+              const curMl = bMatch?.stock_ml || 0;
+              if (curMl < mlPerBibit) {
+                outOfStockItems.push(
+                  `Bibit ${b.name || "Bibit"} (Tersisa: ${curMl.toFixed(1)}ml, Dibutuhkan: ${mlPerBibit.toFixed(1)}ml)`
+                );
+              }
+            }
+          }
+
+          if (!data.useOwnBottle && data.bottle?.id) {
+            const botMatch = bottleStocks.find(
+              (bts) => bts.store_id === store.id && bts.bottle_id === data.bottle.id
+            );
+            const curQty = botMatch?.stock_qty || 0;
+            if (curQty < qty) {
+              outOfStockItems.push(
+                `Botol ${data.bottle.name || "Botol"} (Tersisa: ${curQty}, Dibutuhkan: ${qty})`
+              );
+            }
           }
         }
 

@@ -16,10 +16,12 @@ import {
   Store, 
   Sparkles, 
   AlertCircle, 
-  Navigation 
+  Navigation,
+  LocateFixed
 } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
-import { useCart } from "@/lib/cart-context";
+import { useCart, getItemKey } from "@/lib/cart-context";
 import { formatRupiah } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { processCheckout, validateVoucher } from "./actions";
@@ -62,6 +64,7 @@ export default function CheckoutPage() {
   const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null);
   const [loadingStores, setLoadingStores] = useState(false);
   const [isRealtimeGps, setIsRealtimeGps] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
 
   // Kurir Biteship (Untuk Delivery)
   const [rates, setRates] = useState<any[]>([]);
@@ -133,7 +136,9 @@ export default function CheckoutPage() {
       const cartItemsPayload = cart.items.map((it) => ({
         sizeId: it.sizeId,
         quantity: it.quantity,
-        name: it.perfumeName
+        name: it.perfumeName,
+        itemType: it.itemType || 'regular',
+        refillData: it.refillData
       }));
 
       const stockRes = await fetch("/api/stores/check-stock", {
@@ -211,6 +216,17 @@ export default function CheckoutPage() {
       router.push("/keranjang");
     }
   }, [loading, submitting, cart, router]);
+
+  const hasOwnBottle = cart.items.some(
+    (it) => it.itemType === "refill" && it.refillData?.useOwnBottle
+  );
+
+  useEffect(() => {
+    if (hasOwnBottle && fulfillmentType !== "pickup") {
+      setFulfillmentType("pickup");
+      handleFulfillmentChange("pickup");
+    }
+  }, [hasOwnBottle, fulfillmentType]);
 
   // Handle Switch Mode Pengiriman
   const handleFulfillmentChange = (type: "delivery" | "pickup") => {
@@ -410,11 +426,26 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        {/* Banner Botol Sendiri jika ada di keranjang */}
+        {hasOwnBottle && (
+          <div style={{ background: "rgba(168, 85, 247, 0.1)", border: "1px solid rgba(168, 85, 247, 0.3)", borderRadius: "var(--r-md)", padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, color: "var(--c-ink)", fontSize: "0.9rem" }}>
+            <Store size={18} style={{ color: "#a855f7", flexShrink: 0 }} />
+            <span>Pesanan Anda memiliki racikan dengan <strong>Botol Sendiri</strong>. Metode pengiriman otomatis dialihkan ke <strong>Ambil Langsung di Toko</strong> agar botol fisik dapat diserahkan ke kasir untuk diisi.</span>
+          </div>
+        )}
+
         {/* METODE PEMENUHAN (PILIH: KURIR vs AMBIL DI TOKO) */}
         <div style={{ background: "var(--c-surface-1)", padding: "6px", borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)", marginBottom: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <button
             type="button"
-            onClick={() => handleFulfillmentChange("delivery")}
+            onClick={() => {
+              if (hasOwnBottle) {
+                toast.error("Pesanan dengan botol sendiri wajib diambil langsung di toko.");
+                return;
+              }
+              handleFulfillmentChange("delivery");
+            }}
+            disabled={hasOwnBottle}
             style={{
               display: "flex",
               alignItems: "center",
@@ -428,7 +459,8 @@ export default function CheckoutPage() {
               boxShadow: fulfillmentType === "delivery" ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
               fontWeight: 600,
               fontSize: "0.95rem",
-              cursor: "pointer",
+              cursor: hasOwnBottle ? "not-allowed" : "pointer",
+              opacity: hasOwnBottle ? 0.4 : 1,
               transition: "all 0.2s ease"
             }}
           >
@@ -764,9 +796,14 @@ export default function CheckoutPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
                 {cart.items.map((item) => (
-                  <div key={item.sizeId} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                  <div key={getItemKey(item)} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
                     <div style={{ color: "var(--c-ink)", maxWidth: "70%" }}>
                       <span style={{ fontWeight: 600 }}>{item.quantity}x</span> {item.perfumeName} <span style={{ color: "var(--c-ink-dim)" }}>({item.sizeLabel})</span>
+                      {item.itemType === "refill" && (
+                        <span style={{ marginLeft: 6, fontSize: "0.72rem", padding: "1px 6px", borderRadius: 4, background: "rgba(217, 119, 6, 0.15)", color: "var(--c-gold)", fontWeight: 600 }}>
+                          Refill
+                        </span>
+                      )}
                     </div>
                     <span style={{ color: "var(--c-ink)", fontWeight: 500 }}>{formatRupiah(item.price * item.quantity)}</span>
                   </div>

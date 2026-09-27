@@ -16,8 +16,10 @@ import {
   Beaker, 
   Wine, 
   Store,
-  AlertCircle 
+  AlertCircle,
+  LocateFixed
 } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { Footer } from "@/components/footer";
 import { formatRupiah } from "@/lib/types";
@@ -65,6 +67,7 @@ export default function CustomCheckoutPage() {
   const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null);
   const [loadingStores, setLoadingStores] = useState(false);
   const [isRealtimeGps, setIsRealtimeGps] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
 
   const [rates, setRates] = useState<any[]>([]);
   const [loadingRates, setLoadingRates] = useState(false);
@@ -159,6 +162,37 @@ export default function CustomCheckoutPage() {
     }
   }, [id, fetchRates]);
 
+  const requestGpsLocation = useCallback((fallbackLat?: number, fallbackLng?: number) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Browser tidak mendukung deteksi lokasi GPS.");
+      return;
+    }
+
+    setDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        evaluateStores(lat, lng, true);
+        setDetectingGps(false);
+        toast.success("Titik GPS Anda berhasil terdeteksi!");
+      },
+      (err) => {
+        console.warn("GPS detection warning:", err);
+        setDetectingGps(false);
+        const fLat = fallbackLat || selectedAddress?.maps_latitude || -6.2088;
+        const fLng = fallbackLng || selectedAddress?.maps_longitude || 106.8456;
+        evaluateStores(fLat, fLng, false);
+        if (err.code === 1) {
+          toast.error("Izin akses lokasi belum diaktifkan di browser.");
+        } else {
+          toast.info("Gagal membaca GPS real-time, menggunakan alamat utama.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }, [evaluateStores, selectedAddress]);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -199,8 +233,8 @@ export default function CustomCheckoutPage() {
         }
         setSubtotal(calcSubtotal);
 
-        // Jika bawa botol sendiri, otomatis paksa ke 'pickup'
-        if (parsedRecipe?.own_bottle === true) {
+        const isSelfPickup = parsedRecipe?.own_bottle === true;
+        if (isSelfPickup) {
           setFulfillmentType("pickup");
         }
 
@@ -212,16 +246,20 @@ export default function CustomCheckoutPage() {
           .order("is_default", { ascending: false })
           .order("created_at", { ascending: false });
 
+        let defaultAddr = null;
         if (addrs && addrs.length > 0) {
           setAddresses(addrs);
-          const defaultAddr = addrs[0];
+          defaultAddr = addrs[0];
           setSelectedAddress(defaultAddr);
+        }
 
-          const lat = defaultAddr.maps_latitude || -6.2088;
-          const lng = defaultAddr.maps_longitude || 106.8456;
-          evaluateStores(lat, lng, false, parsedRecipe?.own_bottle ? "" : defaultAddr.region_code);
+        const lat = defaultAddr?.maps_latitude || -6.2088;
+        const lng = defaultAddr?.maps_longitude || 106.8456;
+
+        if (isSelfPickup) {
+          requestGpsLocation(lat, lng);
         } else {
-          evaluateStores(-6.2088, 106.8456, false);
+          evaluateStores(lat, lng, false, defaultAddr?.region_code);
         }
       } catch (err: any) {
         setError(err.message || "Gagal memuat data checkout.");
@@ -231,7 +269,7 @@ export default function CustomCheckoutPage() {
     }
 
     loadData();
-  }, [id, router, supabase, evaluateStores]);
+  }, [id, router, supabase, evaluateStores, requestGpsLocation]);
 
   const handleFulfillmentChange = (type: "delivery" | "pickup") => {
     if (isOwnBottle && type === "delivery") return;
@@ -239,21 +277,7 @@ export default function CustomCheckoutPage() {
     setError("");
 
     if (type === "pickup") {
-      if (typeof navigator !== "undefined" && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            evaluateStores(lat, lng, true);
-          },
-          () => {
-            if (selectedAddress?.maps_latitude && selectedAddress?.maps_longitude) {
-              evaluateStores(selectedAddress.maps_latitude, selectedAddress.maps_longitude, false);
-            }
-          },
-          { timeout: 5000 }
-        );
-      }
+      requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude);
       setShippingCost(0);
       setSelectedCourier({
         courier_name: "Toko Ela Parfum",
@@ -581,7 +605,7 @@ export default function CustomCheckoutPage() {
 
             {/* PILIHAN CABANG TOKO & JARAK */}
             <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
                 <div>
                   <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>
                     <Store size={18} style={{ color: "var(--c-gold)" }} />
@@ -590,17 +614,45 @@ export default function CustomCheckoutPage() {
                   <p style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", margin: 0 }}>
                     {fulfillmentType === "pickup"
                       ? isRealtimeGps 
-                        ? "📍 Jarak dihitung dari posisi GPS Anda saat ini via jaringan jalan raya."
+                        ? "🟢 Jarak dihitung dari posisi GPS Anda saat ini via jaringan jalan raya."
                         : "📍 Jarak dihitung dari alamat utama Anda via jaringan jalan raya."
                       : "📍 Sistem memeriksa stok bibit & botol pada tiap cabang untuk peracikan optimal."}
                   </p>
                 </div>
 
-                {loadingStores && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--c-gold)" }}>
-                    <Loader2 size={14} className="animate-spin" /> Menghitung rute...
-                  </div>
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {fulfillmentType === "pickup" && (
+                    <button
+                      type="button"
+                      onClick={() => requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude)}
+                      disabled={detectingGps || loadingStores}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        borderRadius: "var(--r-md)",
+                        border: "1px solid var(--c-gold)",
+                        background: isRealtimeGps ? "rgba(201, 169, 108, 0.15)" : "var(--c-surface-2)",
+                        color: "var(--c-gold)",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 0.2s"
+                      }}
+                      title="Klik untuk mendeteksi atau memperbarui posisi koordinat GPS Anda"
+                    >
+                      <LocateFixed size={14} className={detectingGps ? "animate-spin" : ""} />
+                      {detectingGps ? "Mencari GPS..." : isRealtimeGps ? "Perbarui GPS" : "Gunakan Lokasi GPS"}
+                    </button>
+                  )}
+
+                  {loadingStores && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--c-gold)" }}>
+                      <Loader2 size={14} className="animate-spin" /> Menghitung rute...
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
