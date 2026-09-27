@@ -1,11 +1,27 @@
 "use server";
 
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Cart } from '@/lib/types';
 import { deductRefillStock } from '@/lib/stock/refill-stock';
 
 const supabaseAdmin = createAdminClient();
+
+async function getBaseUrl(): Promise<string> {
+  try {
+    const headersList = await headers();
+    const host = headersList.get('x-forwarded-host') || headersList.get('host');
+    if (host) {
+      const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+      const proto = headersList.get('x-forwarded-proto') || (isLocal ? 'http' : 'https');
+      return `${proto}://${host}`;
+    }
+  } catch (e) {
+    // fallback if headers() fails in non-request context
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL || 'https://elaparfum.web.id';
+}
 
 function generateOrderCode() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -248,6 +264,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
       const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
       const mayarUrl = isSandbox ? 'https://api.mayar.io/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
       
+      const baseUrl = await getBaseUrl();
       const invoiceData = {
         name: fullName,
         email: user.email || 'customer@elaparfum.com',
@@ -255,8 +272,8 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         mobile: cleanPhone,
         description: `Pesanan ${orderCode}`,
         referenceId: orderData.order_code,
-        redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
-        successUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
+        redirectUrl: `${baseUrl}/checkout/success?id=${orderData.id}`,
+        successUrl: `${baseUrl}/checkout/success?id=${orderData.id}`,
         items: [
             { name: `Total Pesanan ${orderCode}`, description: `Checkout Ela Parfum: ${orderCode}`, quantity: 1, rate: total }
         ]
@@ -528,6 +545,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
       const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
       const mayarUrl = isSandbox ? 'https://api.mayar.io/hl/v1/invoice/create' : 'https://api.mayar.id/hl/v1/invoice/create';
 
+      const baseUrl = await getBaseUrl();
       const invoiceData = {
         name: fullName,
         email: user.email || 'customer@elaparfum.com',
@@ -535,8 +553,8 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         mobile: cleanPhone,
         description: `Pesanan Custom Refill ${orderCode}`,
         referenceId: orderData.order_code,
-        redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
-        successUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
+        redirectUrl: `${baseUrl}/checkout/success?id=${orderData.id}`,
+        successUrl: `${baseUrl}/checkout/success?id=${orderData.id}`,
         items: [
           { name: `Pesanan Custom Refill (${orderCode})`, description: request.base_note, quantity: 1, rate: total }
         ]
