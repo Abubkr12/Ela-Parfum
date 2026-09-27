@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Saat ini antrian aktif kosong — perbaikan crash render StepAiResult & rotasi model Gemini telah selesai dan siap deploy)
+- (Saat ini antrian aktif kosong — koreksi prioritas alamat profil vs ISP Ancol selesai dan siap deploy)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,16 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Koreksi Presisi Geolocation: Eliminasi Nyasar ISP Ancol & Prioritas Alamat Profil:**
+  - [x] **Root Cause Nyasar ke Ancol (17–30 km):**
+    - Di Windows laptop, pemanggilan `enableHighAccuracy: false` tidak memicu pemindaian Wi-Fi access point, dan timeout singkat (2s) pada fallback langsung beralih ke endpoint IP Geolocation.
+    - ISP seluler/broadband (Indosat) mendaftarkan gateway IP publiknya di **Ancol, Jakarta Utara** (-6.1142, 106.8619), sehingga koordinat melompat 20–30 km dari lokasi riil pengguna di Kebon Jeruk.
+    - Geolocation resolver sebelumnya mengecek endpoint IP *sebelum* memeriksa alamat tersimpan pengguna.
+  - [x] **Solusi & Rekonfigurasi Geolocation (`src/lib/geolocation.ts`):**
+    - **Prioritas 1 (Sensor Fisik / Wi-Fi Presisi):** Berikan waktu 8 detik dengan `enableHighAccuracy: true` agar laptop Windows/Mac dapat menyelesaikan pemindaian BSSID Wi-Fi secara presisi ke tingkat jalan/rumah.
+    - **Prioritas 2 (Alamat Profil Tersimpan):** Jika izin browser ditolak atau GPS gagal, sistem **WAJIB** menggunakan alamat profil pengguna di database (misal: Kebon Jeruk, Jakarta Barat, ~1.1 km ke Cabang Rawa Belong) sebelum mencoba IP publik.
+    - **Prioritas 3 (IP Geolocation):** Hanya digunakan sebagai opsi terakhir bagi pengguna tamu (guest) yang belum memiliki alamat profil tersimpan di akunnya.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses build produksi (`npm run build`).
 - [x] **Eliminasi Crash "This page couldn't load" & Error 1102 pada Custom Refill:**
   - [x] **Root Cause 1 (Fatal React Rendering Crash):**
     - Pada bibit di database Supabase, `top_notes`, `middle_notes`, dan `base_notes` disimpan sebagai array objek JSON (`[{ name: "Lilac", intensity: "Strong" }, ...]`).

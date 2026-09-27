@@ -181,10 +181,10 @@ export default function CustomCheckoutPage() {
           toast.success(`Lokasi GPS akurat terdeteksi (${loc.label})!`);
         } else if (loc.source === "wifi_network") {
           toast.success(`Lokasi terdeteksi via ${loc.label}!`);
-        } else if (loc.source === "edge_ip") {
-          toast.info(`Lokasi terdeteksi via ${loc.label}.`);
         } else if (loc.source === "saved_address") {
           toast.info(`Menggunakan koordinat ${loc.label}.`);
+        } else if (loc.source === "edge_ip") {
+          toast.info(`Lokasi terdeteksi via ${loc.label}.`);
         } else {
           toast.info("Pilih cabang toko pengambilan yang diinginkan di bawah.");
         }
