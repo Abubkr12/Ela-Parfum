@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { 
   Search, 
@@ -21,14 +20,6 @@ import { formatRupiah } from "@/lib/types";
 import { BibitVariantModal } from "./BibitVariantModal";
 
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
-
-const PREVIEW_IMAGES = [
-  "/images/bottles/preview/bottle-1.jpg",
-  "/images/bottles/preview/bottle-2.jpg",
-  "/images/bottles/preview/bottle-3.jpg",
-  "/images/bottles/preview/bottle-4.jpg",
-  "/images/bottles/preview/bottle-5.jpg",
-];
 
 const ITEMS_PER_PAGE = 24;
 
@@ -257,12 +248,37 @@ export function BibitCatalogGrid() {
       {loading ? (
         <div className="perfume-grid">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="perfume-card" style={{ opacity: 0.35, animation: "pulse 1.5s infinite" }}>
-              <div className="perfume-card__thumb" style={{ background: "var(--c-surface-2)" }} />
-              <div className="perfume-card__body">
-                <div style={{ height: 14, width: "50%", background: "var(--c-surface-3)", borderRadius: 4, marginBottom: 8 }} />
-                <div style={{ height: 20, width: "80%", background: "var(--c-surface-3)", borderRadius: 4, marginBottom: 8 }} />
-                <div style={{ height: 14, width: "60%", background: "var(--c-surface-3)", borderRadius: 4 }} />
+            <div 
+              key={i} 
+              className="perfume-card" 
+              style={{ 
+                opacity: 0.35, 
+                animation: "pulse 1.5s infinite", 
+                padding: "20px", 
+                display: "flex", 
+                flexDirection: "column", 
+                justifyContent: "space-between",
+                minHeight: 280,
+                background: "var(--c-surface-1)",
+                border: "1px solid var(--c-border)",
+                borderRadius: "var(--r-lg)"
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                  <div style={{ height: 16, width: "40%", background: "var(--c-surface-3)", borderRadius: 100 }} />
+                  <div style={{ height: 16, width: "25%", background: "var(--c-surface-3)", borderRadius: 100 }} />
+                </div>
+                <div style={{ height: 12, width: "35%", background: "var(--c-surface-3)", borderRadius: 4, marginBottom: 10 }} />
+                <div style={{ height: 24, width: "80%", background: "var(--c-surface-3)", borderRadius: 4, marginBottom: 16 }} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ height: 18, width: 60, background: "var(--c-surface-3)", borderRadius: 4 }} />
+                  <div style={{ height: 18, width: 70, background: "var(--c-surface-3)", borderRadius: 4 }} />
+                </div>
+              </div>
+              <div style={{ marginTop: 20 }}>
+                <div style={{ height: 16, width: "50%", background: "var(--c-surface-3)", borderRadius: 4, marginBottom: 12 }} />
+                <div style={{ height: 42, width: "100%", background: "var(--c-surface-3)", borderRadius: 8 }} />
               </div>
             </div>
           ))}
@@ -290,138 +306,171 @@ export function BibitCatalogGrid() {
         </div>
       ) : (
         <div className="perfume-grid">
-          {paginatedBibits.map((b) => {
-            // Pick preview bottle mockup deterministically
-            const imageIdx = Math.abs((b.id - 1) % PREVIEW_IMAGES.length);
-            const previewImage = PREVIEW_IMAGES[imageIdx];
+          {paginatedBibits.map((b) => (
+            <article 
+              key={b.id} 
+              className="perfume-card" 
+              style={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                justifyContent: "space-between",
+                background: "var(--c-surface-1)",
+                border: "1px solid var(--c-border)",
+                borderRadius: "var(--r-lg)",
+                padding: "20px",
+                position: "relative",
+                overflow: "hidden",
+                transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+              }}
+            >
+              {/* Top ambient color accent line */}
+              <div 
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: b.collection === "Arabian Parfume"
+                    ? "linear-gradient(90deg, #d97706, #fbbf24)"
+                    : "linear-gradient(90deg, var(--c-gold), #60a5fa)",
+                }}
+              />
 
-            return (
-              <article key={b.id} className="perfume-card" style={{ display: "flex", flexDirection: "column" }}>
-                {/* Image & Badges */}
+              {/* Upper Card: Badges, Accord, Name, Notes */}
+              <div>
+                {/* Header Badges */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <span style={{
+                    fontSize: "0.72rem",
+                    padding: "3px 10px",
+                    borderRadius: 100,
+                    background: b.collection === "Arabian Parfume" ? "rgba(217, 119, 6, 0.15)" : "rgba(255, 255, 255, 0.08)",
+                    color: b.collection === "Arabian Parfume" ? "#f59e0b" : "var(--c-gold)",
+                    fontWeight: 600,
+                    border: "1px solid rgba(217, 119, 6, 0.25)",
+                    letterSpacing: "0.3px",
+                  }}>
+                    {b.collection || "Global Parfume"}
+                  </span>
+
+                  <span style={{
+                    fontSize: "0.72rem",
+                    padding: "2px 8px",
+                    borderRadius: 100,
+                    background: b.intensity === "Strong" ? "rgba(239, 68, 68, 0.12)" : b.intensity === "Medium" ? "rgba(245, 158, 11, 0.12)" : "rgba(16, 185, 129, 0.12)",
+                    color: b.intensity === "Strong" ? "#ef4444" : b.intensity === "Medium" ? "#f59e0b" : "#10b981",
+                    border: "1px solid currentColor",
+                    fontWeight: 600,
+                  }}>
+                    {b.intensity || "Medium"}
+                  </span>
+                </div>
+
+                {/* Main Accord */}
+                <div style={{ 
+                  fontSize: "0.72rem", 
+                  color: "var(--c-gold)", 
+                  fontWeight: 700, 
+                  marginBottom: 6, 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.8px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6
+                }}>
+                  <Sparkles size={12} />
+                  <span>{b.main_accord || "Signature Aroma"}</span>
+                </div>
+
+                {/* Name */}
                 <Link href={`/bibit/${b.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                  <div className="perfume-card__thumb" style={{ position: "relative", overflow: "hidden", background: "#FFFFFF" }}>
-                    <Image
-                      src={previewImage}
-                      alt={b.name}
-                      width={400}
-                      height={400}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        padding: "16px",
-                        transition: "transform 0.3s ease",
-                      }}
-                      className="card-hover-zoom"
-                    />
-
-                    {/* Top Badges */}
-                    <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6, flexWrap: "wrap", zIndex: 2 }}>
-                      <span style={{
-                        fontSize: "0.7rem",
-                        padding: "2px 8px",
-                        borderRadius: 100,
-                        background: "rgba(0, 0, 0, 0.75)",
-                        color: "#FFFFFF",
-                        fontWeight: 600,
-                        backdropFilter: "blur(4px)",
-                      }}>
-                        {b.collection || "Bibit"}
-                      </span>
-                    </div>
-
-                    <div style={{ position: "absolute", top: 12, right: 12, zIndex: 2 }}>
-                      <span style={{
-                        fontSize: "0.7rem",
-                        padding: "2px 8px",
-                        borderRadius: 100,
-                        background: b.intensity === "Strong" ? "rgba(239, 68, 68, 0.15)" : b.intensity === "Medium" ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                        color: b.intensity === "Strong" ? "#ef4444" : b.intensity === "Medium" ? "#f59e0b" : "#10b981",
-                        border: "1px solid currentColor",
-                        fontWeight: 600,
-                      }}>
-                        {b.intensity}
-                      </span>
-                    </div>
-                  </div>
+                  <h3 style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "1.2rem",
+                    fontWeight: 700,
+                    color: "var(--c-ink)",
+                    margin: "0 0 10px",
+                    lineHeight: 1.3,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}>
+                    {b.name}
+                  </h3>
                 </Link>
 
-                {/* Card Body */}
-                <div className="perfume-card__body" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      {b.main_accord || "Signature Aroma"}
-                    </div>
-
-                    <Link href={`/bibit/${b.slug}`} style={{ textDecoration: "none", color: "inherit" }}>
-                      <h3 style={{
-                        fontSize: "1.05rem",
-                        fontWeight: 700,
-                        color: "var(--c-ink)",
-                        margin: "0 0 8px",
-                        lineHeight: 1.3,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}>
-                        {b.name}
-                      </h3>
-                    </Link>
-
-                    {/* Notes preview tags */}
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
-                      {Array.isArray(b.top_notes) && b.top_notes.slice(0, 3).map((note: any, nIdx: number) => (
-                        <span key={nIdx} style={{ fontSize: "0.7rem", padding: "1px 6px", borderRadius: 4, background: "var(--c-surface-2)", color: "var(--c-ink-dim)" }}>
-                          {typeof note === "string" ? note : note.name || ""}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Price and Actions */}
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-                      <div>
-                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", display: "block" }}>Harga Bibit</span>
-                        <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--c-gold)" }}>
-                          {formatRupiah(b.price_per_ml || 1500)}
-                        </span>
-                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)" }}> /ml</span>
-                      </div>
-                      
-                      <Link 
-                        href={`/bibit/${b.slug}`}
-                        style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)", textDecoration: "underline" }}
-                      >
-                        Detail Aroma
-                      </Link>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openVariantModal(b)}
-                      className="btn btn-primary"
-                      style={{
-                        width: "100%",
-                        padding: "10px 14px",
-                        fontSize: "0.9rem",
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        borderRadius: "var(--r-md)",
+                {/* Fragrance Notes preview chips */}
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 20 }}>
+                  {Array.isArray(b.top_notes) && b.top_notes.slice(0, 3).map((note: any, nIdx: number) => (
+                    <span 
+                      key={nIdx} 
+                      style={{ 
+                        fontSize: "0.72rem", 
+                        padding: "3px 8px", 
+                        borderRadius: "var(--r-sm, 6px)", 
+                        background: "var(--c-surface-2)", 
+                        color: "var(--c-ink-dim)",
+                        border: "1px solid var(--c-border)" 
                       }}
                     >
-                      <ShoppingBag size={16} />
-                      <span>+ Keranjang</span>
-                    </button>
-                  </div>
+                      {typeof note === "string" ? note : note.name || ""}
+                    </span>
+                  ))}
                 </div>
-              </article>
-            );
-          })}
+              </div>
+
+              {/* Lower Card: Price, Detail Link & Buy Action */}
+              <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 14, marginTop: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+                  <div>
+                    <span style={{ fontSize: "0.72rem", color: "var(--c-ink-dim)", display: "block" }}>Harga Bibit</span>
+                    <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--c-gold)" }}>
+                      {formatRupiah(b.price_per_ml || 1500)}
+                    </span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)" }}> /ml</span>
+                  </div>
+                  
+                  <Link 
+                    href={`/bibit/${b.slug}`}
+                    style={{ 
+                      fontSize: "0.82rem", 
+                      color: "var(--c-ink-dim)", 
+                      textDecoration: "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontWeight: 600
+                    }}
+                  >
+                    <span>Detail Aroma</span>
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openVariantModal(b)}
+                  className="btn btn-primary"
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    fontSize: "0.88rem",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    borderRadius: "var(--r-md)",
+                  }}
+                >
+                  <ShoppingBag size={16} />
+                  <span>+ Keranjang</span>
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       )}
 

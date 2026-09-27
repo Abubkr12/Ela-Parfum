@@ -350,6 +350,10 @@ export default function CustomCheckoutPage() {
       setError("Cabang yang dipilih memiliki stok bibit/botol yang tidak mencukupi.");
       return;
     }
+    if (fulfillmentType === "delivery" && isOwnBottle) {
+      setError("Pesanan racikan dengan botol sendiri wajib diambil langsung di toko cabang. Tidak dapat dikirim kurir ekspedisi.");
+      return;
+    }
     if (fulfillmentType === "delivery" && !selectedAddress) {
       setError("Silakan tambahkan alamat pengiriman terlebih dahulu.");
       return;

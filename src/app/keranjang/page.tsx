@@ -214,6 +214,22 @@ export default function KeranjangPage() {
                               Racikan Refill
                             </span>
                           )}
+
+                          {isRefill && item.refillData?.useOwnBottle && (
+                            <span
+                              style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                padding: "2px 8px",
+                                borderRadius: 100,
+                                background: "rgba(168, 85, 247, 0.15)",
+                                color: "#a855f7",
+                                border: "1px solid rgba(168, 85, 247, 0.3)",
+                              }}
+                            >
+                              Botol Sendiri (Ambil di Toko)
+                            </span>
+                          )}
                         </div>
 
                         <div style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", marginTop: 2 }}>
@@ -316,10 +332,19 @@ export default function KeranjangPage() {
                     <span style={{ color: "var(--c-ink-muted)" }}>Subtotal ({totalItems} item)</span>
                     <span style={{ color: "var(--c-ink)" }}>{formatRupiah(subtotal)}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
-                    <span style={{ color: "var(--c-ink-muted)" }}>Ongkos Kirim</span>
-                    <span style={{ color: "var(--c-teal)", fontSize: "0.82rem" }}>Dihitung saat checkout</span>
-                  </div>
+                  {cart.items.some((it) => it.itemType === "refill" && it.refillData?.useOwnBottle) ? (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.88rem" }}>
+                      <span style={{ color: "var(--c-ink-muted)" }}>Pengiriman</span>
+                      <span style={{ color: "#a855f7", fontSize: "0.8rem", fontWeight: 700, background: "rgba(168, 85, 247, 0.1)", padding: "2px 8px", borderRadius: 4 }}>
+                        Wajib Ambil di Toko
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+                      <span style={{ color: "var(--c-ink-muted)" }}>Ongkos Kirim</span>
+                      <span style={{ color: "var(--c-teal)", fontSize: "0.82rem" }}>Dihitung saat checkout</span>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ height: 1, background: "var(--c-border)", marginBottom: 16 }} />

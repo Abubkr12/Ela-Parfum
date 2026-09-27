@@ -230,6 +230,12 @@ export default function CheckoutPage() {
 
   // Handle Switch Mode Pengiriman
   const handleFulfillmentChange = (type: "delivery" | "pickup") => {
+    if (type === "delivery" && hasOwnBottle) {
+      toast.error("Pesanan dengan botol sendiri wajib diambil langsung di toko.");
+      setFulfillmentType("pickup");
+      return;
+    }
+
     setFulfillmentType(type);
     setError("");
 
@@ -323,6 +329,10 @@ export default function CheckoutPage() {
     }
     if (!selectedStore.isAvailable) {
       setError("Cabang yang Anda pilih memiliki stok yang tidak mencukupi.");
+      return;
+    }
+    if (fulfillmentType === "delivery" && hasOwnBottle) {
+      setError("Pesanan yang menggunakan racikan Botol Sendiri wajib diambil langsung di toko cabang. Tidak dapat dikirim kurir ekspedisi.");
       return;
     }
     if (fulfillmentType === "delivery" && !selectedAddress) {

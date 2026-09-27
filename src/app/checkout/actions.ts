@@ -107,6 +107,11 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     const orderCode = generateOrderCode();
 
     const refillItems = cart.items.filter(it => it.itemType === 'refill' && it.refillData);
+    const hasOwnBottle = refillItems.some(it => it.refillData?.useOwnBottle);
+    if (fulfillmentType === 'delivery' && hasOwnBottle) {
+      return { error: 'Pesanan yang menggunakan racikan Botol Sendiri wajib diambil langsung di toko cabang (tidak dapat dikirim via kurir ekspedisi).' };
+    }
+
     let refillNotes = '';
     if (refillItems.length > 0) {
       const compactRefillData = refillItems.map(it => ({
@@ -349,6 +354,17 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     const storeId = storeIdStr ? parseInt(storeIdStr, 10) : 2;
     const fulfillmentType = (formData.get('fulfillmentType') as string || (courierInfo?.toLowerCase().includes('ambil') ? 'pickup' : 'delivery')) as 'delivery' | 'pickup';
 
+    // Parse recipe first to validate own bottle constraints
+    let parsedRecipe: any = {};
+    try {
+      parsedRecipe = typeof request.ai_recipe === "string" ? JSON.parse(request.ai_recipe) : (request.ai_recipe || {});
+    } catch (e) {}
+
+    const isOwnBottle = parsedRecipe.own_bottle === true;
+    if (fulfillmentType === 'delivery' && isOwnBottle) {
+      return { error: 'Pesanan racikan dengan botol sendiri wajib diambil langsung di toko cabang (tidak dapat dikirim via kurir ekspedisi).' };
+    }
+
     // 1. Create order record in orders table
     const { data: orderData, error: orderError } = await supabaseAdmin
       .from('orders')
@@ -375,15 +391,10 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     if (orderError) return { error: 'Gagal membuat pesanan: ' + orderError.message };
 
     // 1.5 Create order items for the custom refill
-    let parsedRecipe: any = {};
-    try {
-      parsedRecipe = typeof request.ai_recipe === "string" ? JSON.parse(request.ai_recipe) : (request.ai_recipe || {});
-    } catch (e) {}
 
     const bibitsList = parsedRecipe.bibits || [];
     const bottleObj = parsedRecipe.bottle || null;
     const ratioStr = parsedRecipe.ratio || "50/50";
-    const isOwnBottle = parsedRecipe.own_bottle === true;
     
     const itemsToInsert = [];
     
