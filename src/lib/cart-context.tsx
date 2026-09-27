@@ -10,11 +10,17 @@ import {
 } from "react";
 import type { Cart, CartItem } from "@/lib/types";
 
+export function getItemKey(item: { id?: string; sizeId?: number }): string {
+  if (item.id) return item.id;
+  if (item.sizeId) return `regular-${item.sizeId}`;
+  return `item-${Date.now()}`;
+}
+
 interface CartContextValue {
   cart: Cart;
   addItem: (item: Omit<CartItem, "quantity">, qty?: number) => void;
-  updateQuantity: (sizeId: number, qty: number) => void;
-  removeItem: (sizeId: number) => void;
+  updateQuantity: (idOrSizeId: string | number, qty: number) => void;
+  removeItem: (idOrSizeId: string | number) => void;
   clearCart: () => void;
   setVoucher: (code: string | null) => void;
   totalItems: number;
@@ -51,7 +57,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (stored) {
         const parsed = JSON.parse(stored) as Cart;
         if (parsed && Array.isArray(parsed.items)) {
-          setCart(parsed);
+          const normalizedItems = parsed.items.map((it) => ({
+            ...it,
+            id: getItemKey(it),
+            itemType: it.itemType || (it.refillData ? "refill" : "regular"),
+          }));
+          setCart({ ...parsed, items: normalizedItems });
         }
       }
     } catch {
@@ -67,14 +78,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cart, mounted]);
 
   const addItem = useCallback(
-    (item: Omit<CartItem, "quantity">, qty = 1) => {
+    (rawItem: Omit<CartItem, "quantity">, qty = 1) => {
+      const key = rawItem.id || (rawItem.sizeId ? `regular-${rawItem.sizeId}` : `refill-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
+      const item: Omit<CartItem, "quantity"> = {
+        ...rawItem,
+        id: key,
+        itemType: rawItem.itemType || (rawItem.refillData ? "refill" : "regular"),
+      };
+
       setCart((prev) => {
-        const existing = prev.items.find((i) => i.sizeId === item.sizeId);
+        const existing = prev.items.find((i) => getItemKey(i) === key);
         if (existing) {
           return {
             ...prev,
             items: prev.items.map((i) =>
-              i.sizeId === item.sizeId
+              getItemKey(i) === key
                 ? { ...i, quantity: i.quantity + qty }
                 : i
             ),
@@ -89,27 +107,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const updateQuantity = useCallback((sizeId: number, qty: number) => {
+  const updateQuantity = useCallback((idOrSizeId: string | number, qty: number) => {
+    const matchKey = String(idOrSizeId);
     setCart((prev) => {
       if (qty <= 0) {
         return {
           ...prev,
-          items: prev.items.filter((i) => i.sizeId !== sizeId),
+          items: prev.items.filter((i) => getItemKey(i) !== matchKey && i.sizeId !== idOrSizeId),
         };
       }
       return {
         ...prev,
         items: prev.items.map((i) =>
-          i.sizeId === sizeId ? { ...i, quantity: qty } : i
+          getItemKey(i) === matchKey || i.sizeId === idOrSizeId
+            ? { ...i, quantity: qty }
+            : i
         ),
       };
     });
   }, []);
 
-  const removeItem = useCallback((sizeId: number) => {
+  const removeItem = useCallback((idOrSizeId: string | number) => {
+    const matchKey = String(idOrSizeId);
     setCart((prev) => ({
       ...prev,
-      items: prev.items.filter((i) => i.sizeId !== sizeId),
+      items: prev.items.filter((i) => getItemKey(i) !== matchKey && i.sizeId !== idOrSizeId),
     }));
   }, []);
 

@@ -171,7 +171,7 @@ export async function POST(req: Request) {
       }
       // ----------------------------------------------------
 
-      // Check if order is linked to a Custom Request
+      // Check if order is linked to a Custom Request or has RefillCartItems
       const customReqMatch = order.notes?.match(/CustomRequestID:\s*([a-f0-9-]+)/i);
       if (customReqMatch && customReqMatch[1]) {
         const customReqId = customReqMatch[1];
@@ -186,7 +186,10 @@ export async function POST(req: Request) {
         console.log(`[Webhook Debug] Updated custom_request ${customReqId} to paid`);
 
         // Potong stok bibit, pelarut, dan botol untuk pesanan refill
-        await deductRefillStock(order.id);
+        await deductRefillStock(order.id, order.store_id || undefined);
+      } else if (order.notes?.includes('RefillCartItems:')) {
+        // Potong stok bibit, pelarut, dan botol untuk pesanan refill dari cart
+        await deductRefillStock(order.id, order.store_id || undefined);
       }
 
 

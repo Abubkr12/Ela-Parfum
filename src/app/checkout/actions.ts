@@ -106,6 +106,23 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
 
     const orderCode = generateOrderCode();
 
+    const refillItems = cart.items.filter(it => it.itemType === 'refill' && it.refillData);
+    let refillNotes = '';
+    if (refillItems.length > 0) {
+      const compactRefillData = refillItems.map(it => ({
+        customName: it.refillData?.customName || it.perfumeName,
+        quantity: it.quantity,
+        volumeMl: it.refillData?.volumeMl || 30,
+        ratio: it.refillData?.ratio || '50/50',
+        useOwnBottle: it.refillData?.useOwnBottle || false,
+        bottle: it.refillData?.bottle,
+        bibits: it.refillData?.bibits,
+        adminRecipe: it.refillData?.adminRecipe,
+        technicalRecipe: it.refillData?.technicalRecipe
+      }));
+      refillNotes = ` | RefillCartItems: ${JSON.stringify(compactRefillData)}`;
+    }
+
     const { data: orderData, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
@@ -123,7 +140,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         total: total,
         status: paymentMethod === 'TUNAI' ? 'pending_verification' : 'pending',
         payment_method: paymentMethod === 'TUNAI' ? 'Bayar Tunai di Toko' : 'QRIS (Mayar)',
-        notes: `Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | StoreID: ${storeId} | Fulfillment: ${fulfillmentType} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}`
+        notes: `Kurir: ${courierInfo}${courierCompany ? ` | CourierCompany: ${courierCompany}` : ''}${courierServiceCode ? ` | CourierService: ${courierServiceCode}` : ''} | Origin: ${originName} | StoreID: ${storeId} | Fulfillment: ${fulfillmentType} | Dest: ${destinationAreaId} | DestLat: ${destinationLat} | DestLng: ${destinationLng} | Pembayaran: ${paymentMethod}${voucherCode ? ` | Voucher: ${voucherCode}` : ''}${refillNotes}`
       })
       .select('id, order_code')
       .single();
@@ -132,8 +149,8 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
 
     const orderItemsData = cart.items.map(item => ({
       order_id: orderData.id,
-      perfume_id: item.perfumeId,
-      size_id: item.sizeId,
+      perfume_id: item.itemType === 'refill' ? null : (item.perfumeId || null),
+      size_id: item.itemType === 'refill' ? null : (item.sizeId || null),
       perfume_name: item.perfumeName,
       size_label: item.sizeLabel,
       quantity: item.quantity,
@@ -147,7 +164,9 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     // --- Deduct Stock (Only for TUNAI) ---
     // QRIS orders will deduct stock in the webhook upon successful payment
     if (paymentMethod === 'TUNAI') {
+      // 1. Regular items stock deduction
       for (const item of cart.items) {
+        if (!item.sizeId) continue;
         const { data: stockData } = await supabaseAdmin
           .from('product_stocks')
           .select('id, stock_qty')
@@ -188,6 +207,11 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
               order_id: orderData.id
             });
         }
+      }
+
+      // 2. Refill items stock deduction
+      if (refillItems.length > 0) {
+        await deductRefillStock(orderData.id, storeId);
       }
     }
     // --------------------
