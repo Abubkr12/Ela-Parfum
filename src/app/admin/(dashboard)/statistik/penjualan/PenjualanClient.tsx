@@ -364,6 +364,40 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
       right: { style: 'thin', color: { argb: 'FF94A3B8' } }
     };
 
+    // Dynamic row height calculator to ensure cells never vertically clip text
+    const calcRowHeight = (values: any[], colWidths: number[], baseHeight = 22): number => {
+      let maxLines = 1;
+      values.forEach((val, idx) => {
+        if (val === null || val === undefined || val === '') return;
+        const str = String(val);
+        const w = colWidths[idx] || 15;
+        const effectiveW = Math.max(6, Math.floor((w - 2) * 0.88));
+        const lines = str.split('\n');
+        let totalCellLines = 0;
+        lines.forEach(l => {
+          const words = l.split(' ');
+          let currentLineLen = 0;
+          let estLines = 1;
+          words.forEach(word => {
+            const wordLen = word.length;
+            if (wordLen > effectiveW) {
+              const wordLines = Math.ceil(wordLen / effectiveW);
+              estLines += wordLines;
+              currentLineLen = wordLen % effectiveW;
+            } else if (currentLineLen + wordLen + (currentLineLen > 0 ? 1 : 0) <= effectiveW) {
+              currentLineLen += wordLen + (currentLineLen > 0 ? 1 : 0);
+            } else {
+              estLines++;
+              currentLineLen = wordLen;
+            }
+          });
+          totalCellLines += Math.max(1, estLines);
+        });
+        if (totalCellLines > maxLines) maxLines = totalCellLines;
+      });
+      return Math.max(baseHeight, maxLines * 16 + 6);
+    };
+
     // ==========================================
     // SHEET 1: RINGKASAN EKSEKUTIF (EXECUTIVE SUMMARY)
     // ==========================================
@@ -378,26 +412,26 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
       }
     });
 
-    wsSummary.columns = [
-      { width: 32 }, 
-      { width: 28 }, 
-      { width: 24 }
-    ];
+    const summaryColWidths = [36, 42, 32];
+    wsSummary.columns = summaryColWidths.map(w => ({ width: w }));
 
     // Header Ela Parfum
     wsSummary.addRow(['ELA PARFUM - LAPORAN PENJUALAN']);
     wsSummary.getCell('A1').font = titleFont;
     wsSummary.mergeCells('A1:C1');
+    wsSummary.getRow(1).height = 28;
 
     const periodeStr = timeRange === 'custom' ? `${customStart} s/d ${customEnd}` : timeRange.replace('-', ' ').toUpperCase();
     const storeStr = selectedStore === 'all' ? 'SEMUA CABANG' : `CABANG ${selectedStore.toUpperCase()}`;
     wsSummary.addRow([`Periode: ${periodeStr} | Filter Toko: ${storeStr} | Dicetak: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}`]);
     wsSummary.getCell('A2').font = italicFont;
     wsSummary.mergeCells('A2:C2');
+    wsSummary.getRow(2).height = 22;
     wsSummary.addRow([]);
 
     // Table 1: Indikator Utama
     const kpiHead = wsSummary.addRow(['RINGKASAN UTAMA (KPI)', 'TOTAL / NILAI', 'KETERANGAN']);
+    kpiHead.height = 26;
     kpiHead.eachCell(cell => {
       cell.font = headerFontWhite;
       cell.border = thinBorder;
@@ -415,10 +449,11 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
 
     kpiData.forEach(d => {
       const r = wsSummary.addRow(d);
+      r.height = calcRowHeight(d, summaryColWidths, 22);
       r.eachCell((cell, col) => {
         cell.font = normalFont;
         cell.border = thinBorder;
-        cell.alignment = { vertical: 'middle', horizontal: col === 2 ? 'right' : 'left' };
+        cell.alignment = { vertical: 'middle', horizontal: col === 2 ? 'right' : 'left', wrapText: true };
       });
       r.getCell(1).font = normalFontBold;
     });
@@ -427,6 +462,7 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
 
     // Table 2: Breakdown Cabang
     const branchHead = wsSummary.addRow(['CABANG TOKO', 'TOTAL OMZET', 'JUMLAH TRANSAKSI']);
+    branchHead.height = 26;
     branchHead.eachCell(cell => {
       cell.font = headerFontWhite;
       cell.border = thinBorder;
@@ -448,11 +484,13 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
     });
 
     ['Condet', 'Rawabelong', 'Tangerang'].forEach(b => {
-      const r = wsSummary.addRow([`Toko Ela Parfum - ${b}`, formatIDR(storeStats[b]?.total || 0), `${storeStats[b]?.count || 0} pesanan`]);
+      const rowData = [`Toko Ela Parfum - ${b}`, formatIDR(storeStats[b]?.total || 0), `${storeStats[b]?.count || 0} pesanan`];
+      const r = wsSummary.addRow(rowData);
+      r.height = calcRowHeight(rowData, summaryColWidths, 22);
       r.eachCell((cell, col) => {
         cell.font = normalFont;
         cell.border = thinBorder;
-        cell.alignment = { vertical: 'middle', horizontal: col === 2 || col === 3 ? 'right' : 'left' };
+        cell.alignment = { vertical: 'middle', horizontal: col === 2 || col === 3 ? 'right' : 'left', wrapText: true };
       });
       r.getCell(1).font = normalFontBold;
     });
@@ -461,6 +499,7 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
 
     // Table 3: Breakdown Metode Pembayaran
     const payHead = wsSummary.addRow(['METODE PEMBAYARAN', 'TOTAL OMZET', 'JUMLAH TRANSAKSI']);
+    payHead.height = 26;
     payHead.eachCell(cell => {
       cell.font = headerFontWhite;
       cell.border = thinBorder;
@@ -477,13 +516,33 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
     });
 
     Object.keys(payStats).sort().forEach(pm => {
-      const r = wsSummary.addRow([pm, formatIDR(payStats[pm].total), `${payStats[pm].count} pesanan`]);
+      const rowData = [pm, formatIDR(payStats[pm].total), `${payStats[pm].count} pesanan`];
+      const r = wsSummary.addRow(rowData);
+      r.height = calcRowHeight(rowData, summaryColWidths, 22);
       r.eachCell((cell, col) => {
         cell.font = normalFont;
         cell.border = thinBorder;
-        cell.alignment = { vertical: 'middle', horizontal: col === 2 || col === 3 ? 'right' : 'left' };
+        cell.alignment = { vertical: 'middle', horizontal: col === 2 || col === 3 ? 'right' : 'left', wrapText: true };
       });
       r.getCell(1).font = normalFontBold;
+    });
+
+    // Auto-fit summary columns with safety bounds
+    wsSummary.columns.forEach((column, colIdx) => {
+      let maxLen = 0;
+      column.eachCell?.({ includeEmpty: false }, (cell, rowNumber) => {
+        if (rowNumber > 3) {
+          const cellVal = cell.value;
+          if (cellVal !== null && cellVal !== undefined) {
+            const lines = String(cellVal).split('\n');
+            lines.forEach(l => {
+              if (l.length > maxLen) maxLen = l.length;
+            });
+          }
+        }
+      });
+      const baseW = summaryColWidths[colIdx] || 32;
+      column.width = Math.max(baseW, Math.min(55, maxLen + 3));
     });
 
     // ==========================================
@@ -508,30 +567,19 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
         }
       });
 
-      wsDate.columns = [
-        { width: 11 }, // 1. Waktu
-        { width: 20 }, // 2. Kode Pesanan
-        { width: 14 }, // 3. Toko
-        { width: 18 }, // 4. Pelanggan
-        { width: 28 }, // 5. Produk
-        { width: 11 }, // 6. Ukuran
-        { width: 7 },  // 7. Qty
-        { width: 14 }, // 8. Harga Satuan
-        { width: 14 }, // 9. Subtotal Item
-        { width: 14 }, // 10. Biaya Tambahan
-        { width: 15 }, // 11. Total Pesanan
-        { width: 16 }, // 12. Metode Bayar
-        { width: 12 }  // 13. Status
-      ];
+      const dateColWidths = [12, 26, 16, 26, 38, 12, 8, 16, 16, 18, 18, 18, 14];
+      wsDate.columns = dateColWidths.map(w => ({ width: w }));
 
       // Sheet Title
       wsDate.addRow(['Ela Parfum - Laporan Penjualan Harian']);
       wsDate.getCell('A1').font = titleFont;
       wsDate.mergeCells('A1:M1');
+      wsDate.getRow(1).height = 28;
 
       wsDate.addRow([`Tanggal: ${date} | Filter Toko: ${storeStr}`]);
       wsDate.getCell('A2').font = italicFont;
       wsDate.mergeCells('A2:M2');
+      wsDate.getRow(2).height = 22;
       wsDate.addRow([]);
 
       // Header Row
@@ -539,7 +587,7 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
         'Waktu', 'Kode Pesanan', 'Toko', 'Pelanggan', 'Produk', 'Ukuran', 
         'Qty', 'Harga Satuan', 'Subtotal Item', 'Biaya Tambahan', 'Total Pesanan', 'Metode Bayar', 'Status'
       ]);
-      headerRow.height = 26;
+      headerRow.height = 28;
       headerRow.eachCell(cell => {
         cell.font = headerFontWhite;
         cell.border = thinBorder;
@@ -562,7 +610,7 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
 
         if (items) {
           items.forEach((item: any, idx: number) => {
-            const row = wsDate.addRow([
+            const rowValues = [
               idx === 0 ? time : '',
               idx === 0 ? order.order_code : '',
               idx === 0 ? storeName : '',
@@ -576,8 +624,9 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
               idx === 0 ? order.total : '',
               idx === 0 ? order.payment_method : '',
               idx === 0 ? order.status : ''
-            ]);
-            row.height = 20;
+            ];
+            const row = wsDate.addRow(rowValues);
+            row.height = calcRowHeight(rowValues, dateColWidths, 22);
 
             row.eachCell((cell, colNumber) => {
               cell.font = normalFont;
@@ -609,10 +658,11 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
           }
         } else {
           // No items
-          const row = wsDate.addRow([
+          const rowValues = [
             time, order.order_code, storeName, order.customer_name, '-', '-', 0, 0, 0, biayaTambahan, order.total, order.payment_method, order.status
-          ]);
-          row.height = 20;
+          ];
+          const row = wsDate.addRow(rowValues);
+          row.height = calcRowHeight(rowValues, dateColWidths, 22);
           row.eachCell((cell, colNumber) => {
             cell.font = normalFont;
             cell.border = thinBorder;
@@ -630,7 +680,7 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
 
       // Total Row (Directly attached to the table, NO floating gap!)
       const totalRow = wsDate.addRow(['TOTAL KESELURUHAN (HARI INI)', '', '', '', '', '', '', '', '', '', dailyTotal, '', '']);
-      totalRow.height = 24;
+      totalRow.height = 26;
 
       // Merge A to J (1 to 10) for label, and L to M (12 to 13) for closing the box
       wsDate.mergeCells(totalRow.number, 1, totalRow.number, 10);
@@ -648,6 +698,24 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
       totalRow.getCell(11).font = headerFontDark;
       totalRow.getCell(11).numFmt = '"Rp"#,##0';
       totalRow.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // Auto-fit columns with safety bounds
+      wsDate.columns.forEach((column, colIdx) => {
+        let maxLen = 0;
+        column.eachCell?.({ includeEmpty: false }, (cell, rowNumber) => {
+          if (rowNumber > 3 && rowNumber < wsDate.rowCount) {
+            const cellVal = cell.value;
+            if (cellVal !== null && cellVal !== undefined) {
+              const lines = String(cellVal).split('\n');
+              lines.forEach(l => {
+                if (l.length > maxLen) maxLen = l.length;
+              });
+            }
+          }
+        });
+        const baseW = dateColWidths[colIdx] || 15;
+        column.width = Math.max(baseW, Math.min(50, maxLen + 3));
+      });
     });
 
     const buffer = await workbook.xlsx.writeBuffer();

@@ -461,45 +461,111 @@ export default function BarangClient({
     workbook.creator = "Ela Parfum";
     workbook.created = new Date();
 
-    const titleFont: Partial<ExcelJS.Font> = { name: 'Times New Roman', size: 16, bold: true };
-    const headerFont: Partial<ExcelJS.Font> = { name: 'Times New Roman', size: 12, bold: true };
-    const normalFont: Partial<ExcelJS.Font> = { name: 'Times New Roman', size: 11 };
+    const titleFont: Partial<ExcelJS.Font> = { name: 'Times New Roman', size: 16, bold: true, color: { argb: 'FF0F172A' } };
+    const headerFontWhite: Partial<ExcelJS.Font> = { name: 'Times New Roman', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    const normalFont: Partial<ExcelJS.Font> = { name: 'Times New Roman', size: 10 };
+    const italicFont: Partial<ExcelJS.Font> = { name: 'Times New Roman', size: 9, italic: true, color: { argb: 'FF64748B' } };
     const thinBorder: Partial<ExcelJS.Borders> = {
-      top: { style: 'thin' }, left: { style: 'thin' },
-      bottom: { style: 'thin' }, right: { style: 'thin' }
+      top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+      left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+      bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+      right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+    };
+
+    const calcRowHeight = (values: any[], colWidths: number[], baseHeight = 22): number => {
+      let maxLines = 1;
+      values.forEach((val, idx) => {
+        if (val === null || val === undefined || val === '') return;
+        const str = String(val);
+        const w = colWidths[idx] || 15;
+        const effectiveW = Math.max(6, Math.floor((w - 2) * 0.88));
+        const lines = str.split('\n');
+        let totalCellLines = 0;
+        lines.forEach(l => {
+          const words = l.split(' ');
+          let currentLineLen = 0;
+          let estLines = 1;
+          words.forEach(word => {
+            const wordLen = word.length;
+            if (wordLen > effectiveW) {
+              const wordLines = Math.ceil(wordLen / effectiveW);
+              estLines += wordLines;
+              currentLineLen = wordLen % effectiveW;
+            } else if (currentLineLen + wordLen + (currentLineLen > 0 ? 1 : 0) <= effectiveW) {
+              currentLineLen += wordLen + (currentLineLen > 0 ? 1 : 0);
+            } else {
+              estLines++;
+              currentLineLen = wordLen;
+            }
+          });
+          totalCellLines += Math.max(1, estLines);
+        });
+        if (totalCellLines > maxLines) maxLines = totalCellLines;
+      });
+      return Math.max(baseHeight, maxLines * 16 + 6);
     };
 
     const ws = workbook.addWorksheet(activeTab, {
-      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } }
+      pageSetup: { 
+        paperSize: 9, 
+        orientation: 'portrait', 
+        fitToPage: true, 
+        fitToWidth: 1, 
+        fitToHeight: 0, 
+        margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } 
+      }
     });
 
-    ws.columns = [
-      { width: 30 }, { width: 15 }, { width: 15 }, { width: 15 }
-    ];
+    const barangColWidths = [38, 18, 18, 18];
+    ws.columns = barangColWidths.map(w => ({ width: w }));
 
-    ws.addRow([`Ela Parfum - Statistik Barang (${activeTab})`]);
+    ws.addRow([`Ela Parfum - Statistik Barang (${activeTab.toUpperCase()})`]);
     ws.getCell('A1').font = titleFont;
     ws.mergeCells('A1:D1');
-    ws.addRow([`Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`]);
-    ws.getCell('A2').font = { ...normalFont, italic: true };
+    ws.getRow(1).height = 28;
+
+    ws.addRow([`Tanggal Export: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}`]);
+    ws.getCell('A2').font = italicFont;
     ws.mergeCells('A2:D2');
+    ws.getRow(2).height = 22;
     ws.addRow([]);
 
     const headerRow = ws.addRow(["Nama Barang", "Stok Saat Ini", "Total Keluar", "Total Masuk"]);
+    headerRow.height = 26;
     headerRow.eachCell(cell => {
-      cell.font = headerFont;
+      cell.font = headerFontWhite;
       cell.border = thinBorder;
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     });
 
     processedData.tableData.forEach(d => {
-      const row = ws.addRow([d.name, d.stock, d.out, d.in]);
+      const rowValues = [d.name, d.stock, d.out, d.in];
+      const row = ws.addRow(rowValues);
+      row.height = calcRowHeight(rowValues, barangColWidths, 22);
       row.eachCell((cell, colNumber) => {
         cell.font = normalFont;
         cell.border = thinBorder;
         cell.alignment = { vertical: 'middle', wrapText: true, horizontal: colNumber > 1 ? 'right' : 'left' };
       });
+    });
+
+    // Auto-fit columns with safety bounds
+    ws.columns.forEach((column, colIdx) => {
+      let maxLen = 0;
+      column.eachCell?.({ includeEmpty: false }, (cell, rowNumber) => {
+        if (rowNumber > 3) {
+          const cellVal = cell.value;
+          if (cellVal !== null && cellVal !== undefined) {
+            const lines = String(cellVal).split('\n');
+            lines.forEach(l => {
+              if (l.length > maxLen) maxLen = l.length;
+            });
+          }
+        }
+      });
+      const baseW = barangColWidths[colIdx] || 18;
+      column.width = Math.max(baseW, Math.min(55, maxLen + 3));
     });
 
     const buffer = await workbook.xlsx.writeBuffer();

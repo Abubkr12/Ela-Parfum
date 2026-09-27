@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-*(Tidak ada task aktif saat ini. Siap untuk instruksi atau fitur baru).*
+(Tidak ada task aktif saat ini)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,14 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Rombak Auto-Fit & Dynamic Row Height Export Excel Statistik Penjualan & Barang:**
+  - [x] **Root Cause:** Properti `row.height = 20;` yang ter-hardcode memicu flag XML `customHeight="1"` pada OpenXML/ExcelJS sehingga Excel mengunci tinggi baris dan menolak auto-expand saat teks wrap ke baris 2 atau 3, menyebabkan teks terpotong vertikal dan user terpaksa double-click manual.
+  - [x] **Perlebar Kolom Basis:** Kode Pesanan (min width 26, cukup untuk 17 karakter seperti `MW-MSBPWGPG-2XQ0`), Pelanggan (min width 26), Produk (min width 38), Biaya Tambahan (min width 18), dan Total Pesanan (min width 18).
+  - [x] **Dynamic Row Height Calculation:** Implementasi helper cerdas `calcRowHeight(values, colWidths, baseHeight)` yang mengestimasi word-wrapping secara presisi (`row.height = Math.max(22, maxLines * 16 + 6)`). Baris 1 line = 22pt, 2 lines = 38pt, 3 lines = 54pt. Teks langsung tampil plong tanpa terpotong dan tanpa perlu double-click.
+  - [x] **Auto-Fit Column Width:** Pindai cell value terpanjang di setiap kolom (mengecualikan title/total yang di-merge) dan otomatis set `column.width = Math.max(baseWidth, Math.min(50/55, maxLen + 3))` di Sheet Ringkasan dan seluruh Sheet Tanggal.
+  - [x] **Poles Sheet Ringkasan & Detail Harian:** Standarisasi font Times New Roman, title height 28pt, subtitle height 22pt, header height 26-28pt, table borders rapi, dan print setup A4 portrait/landscape `fitToWidth: 1`.
+  - [x] **Sinkronisasi Statistik Barang:** Terapkan standar dynamic row height, auto-fit column, dan tema Times New Roman yang sama pada export Excel Statistik Barang.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` dengan 0 error.
 - [x] **Resolusi 500 Internal Server Error & Eliminasi DOM Dependencies pada SSR Statistik (/admin/statistik):**
   - [x] **Root Cause:** Paket `file-saver` mencoba mengakses `HTMLAnchorElement.prototype` saat dievaluasi di level modul SSR Cloudflare Workers (V8 isolate tanpa browser DOM), memicu `ReferenceError` dan crash 500. Ditambah `exceljs` yang besar diimpor secara statis di top-level.
   - [x] **Pemberantasan `file-saver` & Native Download:** Hapus `file-saver` dan gunakan download berbasis browser native (`URL.createObjectURL` dan link virtual `a.click()`).
