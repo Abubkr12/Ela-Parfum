@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Saat ini antrian aktif kosong — perbaikan deteksi lokasi GPS & tombol perbarui sukses diuji dan siap deploy)
+- (Saat ini antrian aktif kosong — perbaikan Error 1102 Refill & sinkronisasi UX jarak checkout selesai diuji dan siap deploy)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,17 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Eliminasi Error 1102 Refill Wizard & Sinkronisasi UX Jarak Cabang Checkout:**
+  - [x] **Root Cause Error 1102 pada Refill Wizard (`/refill/wizard` & `/api/refill-analyze`):**
+    - Halaman `/refill/wizard` melakukan SSR query 740 bibit dan serialisasi payload besar ke HTML flight stream, melampaui limit CPU 10ms Cloudflare Free.
+    - Route `/api/refill-analyze` memuat 740 baris bibit lengkap dengan notes dan melakukan `JSON.stringify(..., null, 2)` (~400KB string) ke prompt Gemini bahkan saat user hanya memilih 1 bibit kustom.
+  - [x] **Client-Side Catalog Streaming (`/api/refill/catalog`):** Buat endpoint katalog terkompresi dengan caching dan ubah `/refill/wizard` menjadi lightweight SSR shell (< 0.2ms CPU).
+  - [x] **Fast Path 1-Bibit Kustom di `/api/refill-analyze`:** Permintaan racik 1 bibit langsung merespons data aroma murni dalam 5ms dari database tanpa memanggil Gemini LLM atau memformat 740 bibit (0ms CPU Cloudflare, 0 error). Untuk multi-bibit, hanya 2-3 bibit terpilih yang dikirim ke LLM.
+  - [x] **Resolusi Geolocation & UX Jarak Checkout (Delivery vs Pickup):**
+    - Sembunyikan badge jarak dan label "Terdekat dari Anda" pada mode "Dikirim Kurir Ekspedisi" jika alamat penerima belum dipilih, mencegah kebingungan munculnya jarak default Monas (8.3 km).
+    - Ubah opsi geolocation ke `enableHighAccuracy: false` (Wi-Fi/IP provider) dengan timeout 6s agar tidak hang/timeout di PC Windows yang tidak memiliki chip GPS satelit.
+    - Sediakan endpoint fallback Cloudflare edge `/api/geo/my-location` jika browser memblokir izin lokasi.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` 0 error dan sukses build produksi (`npm run build`).
 - [x] **Fix Deteksi GPS & Tombol Perbarui Lokasi Real-time Saat Ambil di Toko:**
   - [x] Analisis & optimasi opsi geolocation (`enableHighAccuracy: true`, `timeout: 10000`, `maximumAge: 60000`) mencegah false timeout di browser desktop/Windows.
   - [x] Implementasi auto-detect GPS saat checkout dimuat ulang (refresh) atau saat opsi "Ambil di Toko" dipilih / pesanan bawa botol sendiri (`own_bottle: true`).

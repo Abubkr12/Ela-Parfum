@@ -175,43 +175,59 @@ export default function CheckoutPage() {
   }, [cart.items, fetchRates]);
 
   const requestGpsLocation = useCallback((fallbackLat?: number, fallbackLng?: number) => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      toast.error("Browser tidak mendukung deteksi lokasi GPS.");
-      if (fallbackLat && fallbackLng) {
+    setDetectingGps(true);
+
+    const applyCoords = (lat: number, lng: number, label: string) => {
+      evaluateStores(lat, lng, true);
+      setDetectingGps(false);
+      toast.success(`Lokasi Anda (${label}) berhasil dideteksi!`);
+    };
+
+    const fallbackEdgeOrAddress = async () => {
+      // 1. Coba koordinat alamat tersimpan jika ada dan valid
+      if (fallbackLat && fallbackLng && (fallbackLat !== -6.2088 || fallbackLng !== 106.8456)) {
         evaluateStores(fallbackLat, fallbackLng, false);
+        setDetectingGps(false);
+        toast.info("Menggunakan koordinat alamat tersimpan Anda.");
+        return;
       }
+
+      // 2. Coba Cloudflare Edge Geo IP
+      try {
+        const res = await fetch("/api/geo/my-location");
+        const geo = await res.json();
+        if (geo?.latitude && geo?.longitude && (geo.latitude !== -6.2088 || geo.longitude !== 106.8456)) {
+          applyCoords(geo.latitude, geo.longitude, geo.city || "Jaringan");
+          return;
+        }
+      } catch {
+        // Fallback
+      }
+
+      // 3. Fallback default
+      evaluateStores(-6.2088, 106.8456, false);
+      setDetectingGps(false);
+      toast.info("Pilih cabang toko pengambilan yang diinginkan di bawah.");
+    };
+
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      fallbackEdgeOrAddress();
       return;
     }
 
-    setDetectingGps(true);
+    // Gunakan enableHighAccuracy: false agar instan via Wi-Fi/IP dan tidak hang di PC/laptop Windows
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        evaluateStores(lat, lng, true);
-        setDetectingGps(false);
-        toast.success("Lokasi GPS berhasil dideteksi!");
+        applyCoords(pos.coords.latitude, pos.coords.longitude, "Perangkat");
       },
       (err) => {
-        setDetectingGps(false);
-        console.warn("Geolocation lookup fallback:", err);
-        if (err.code === 1) {
-          toast.error("Izin lokasi belum diberikan. Menggunakan koordinat default.");
-        } else if (err.code === 3) {
-          toast.error("Pencarian lokasi GPS timeout. Menggunakan koordinat default.");
-        } else {
-          toast.error("Gagal mendapatkan lokasi GPS.");
-        }
-        if (fallbackLat && fallbackLng) {
-          evaluateStores(fallbackLat, fallbackLng, false);
-        } else {
-          evaluateStores(-6.2088, 106.8456, false);
-        }
+        console.warn("Browser geolocation fallback:", err);
+        fallbackEdgeOrAddress();
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
+        enableHighAccuracy: false,
+        timeout: 6000,
+        maximumAge: 300000,
       }
     );
   }, [evaluateStores]);
@@ -554,125 +570,132 @@ export default function CheckoutPage() {
             )}
 
             {/* PILIHAN CABANG TOKO & JARAK REAL-TIME */}
-            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-                <div>
-                  <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>
-                    <Store size={18} style={{ color: "var(--c-gold)" }} />
-                    {fulfillmentType === "pickup" ? "Pilih Cabang Pengambilan" : "Pilih Cabang Pengirim"}
-                  </h2>
-                  <p style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-                    <MapPin size={13} style={{ color: isRealtimeGps ? "var(--c-gold)" : "var(--c-ink-dim)", flexShrink: 0 }} />
-                    {fulfillmentType === "pickup"
-                      ? isRealtimeGps 
-                        ? "Jarak dihitung akurat dari koordinat GPS Anda saat ini via rute jalan raya."
-                        : "Jarak dihitung dari alamat utama Anda via rute jalan raya."
-                      : "Sistem merekomendasikan cabang dengan rute jalan raya terdekat dan stok mencukupi."}
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {fulfillmentType === "pickup" && (
-                    <button
-                      type="button"
-                      onClick={() => requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude)}
-                      disabled={detectingGps || loadingStores}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 14px",
-                        background: "var(--glass-bg)",
-                        border: "1px solid var(--c-gold)",
-                        borderRadius: "var(--r-md)",
-                        color: "var(--c-gold)",
-                        fontSize: "0.8rem",
-                        fontWeight: 600,
-                        cursor: (detectingGps || loadingStores) ? "not-allowed" : "pointer",
-                        transition: "all 0.2s ease"
-                      }}
-                      title="Klik untuk mendeteksi atau memperbarui koordinat GPS Anda"
-                    >
-                      <LocateFixed size={14} className={detectingGps ? "animate-spin" : ""} />
-                      {detectingGps ? "Mencari GPS..." : isRealtimeGps ? "Perbarui Titik GPS" : "Gunakan Titik GPS"}
-                    </button>
-                  )}
-
-                  {loadingStores && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--c-gold)" }}>
-                      <Loader2 size={14} className="animate-spin" /> Menghitung rute...
+            {(() => {
+              const shouldShowDistance = fulfillmentType === "pickup" || !!selectedAddress;
+              return (
+                <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>
+                        <Store size={18} style={{ color: "var(--c-gold)" }} />
+                        {fulfillmentType === "pickup" ? "Pilih Cabang Pengambilan" : "Pilih Cabang Pengirim"}
+                      </h2>
+                      <p style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                        <MapPin size={13} style={{ color: isRealtimeGps ? "var(--c-gold)" : "var(--c-ink-dim)", flexShrink: 0 }} />
+                        {fulfillmentType === "pickup"
+                          ? isRealtimeGps 
+                            ? "Jarak dihitung dari posisi GPS/perangkat Anda saat ini via jaringan jalan."
+                            : "Pilih cabang pengambilan terdekat atau gunakan tombol GPS di samping."
+                          : selectedAddress
+                            ? "Sistem memilih cabang terdekat dari alamat pengiriman Anda dengan stok tersedia."
+                            : "Cabang pengirim akan disesuaikan otomatis setelah alamat pengiriman dipilih."}
+                      </p>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {storeOptions.map((st) => {
-                  const isSelected = selectedStore?.storeId === st.storeId;
-                  const isAvailable = st.isAvailable;
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {fulfillmentType === "pickup" && (
+                        <button
+                          type="button"
+                          onClick={() => requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude)}
+                          disabled={detectingGps || loadingStores}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 14px",
+                            background: "var(--glass-bg)",
+                            border: "1px solid var(--c-gold)",
+                            borderRadius: "var(--r-md)",
+                            color: "var(--c-gold)",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            cursor: (detectingGps || loadingStores) ? "not-allowed" : "pointer",
+                            transition: "all 0.2s ease"
+                          }}
+                          title="Klik untuk mendeteksi atau memperbarui koordinat GPS Anda"
+                        >
+                          <LocateFixed size={14} className={detectingGps ? "animate-spin" : ""} />
+                          {detectingGps ? "Mencari GPS..." : isRealtimeGps ? "Perbarui Titik GPS" : "Gunakan Titik GPS"}
+                        </button>
+                      )}
 
-                  return (
-                    <div
-                      key={st.storeId}
-                      onClick={() => handleSelectStore(st)}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "var(--r-md)",
-                        border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
-                        background: isSelected ? "var(--glass-bg)" : "transparent",
-                        cursor: isAvailable ? "pointer" : "not-allowed",
-                        opacity: isAvailable ? 1 : 0.6,
-                        transition: "all 0.2s ease",
-                        position: "relative"
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          <input 
-                            type="radio"
-                            name="selected_store"
-                            checked={isSelected}
-                            disabled={!isAvailable}
-                            onChange={() => handleSelectStore(st)}
-                            style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
-                          />
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                              <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{st.name}</span>
-                              {st.isNearest && isAvailable && (
-                                <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(234, 179, 8, 0.15)", color: "var(--c-gold)", border: "1px solid rgba(234, 179, 8, 0.3)", borderRadius: 100, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                  <Sparkles size={11} /> {fulfillmentType === "pickup" ? "Terdekat dari Anda" : "Direkomendasikan (Terdekat)"}
-                                </span>
-                              )}
-                              {!isAvailable && (
-                                <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(225, 29, 72, 0.1)", color: "var(--c-rose)", borderRadius: 100, fontWeight: 600 }}>
-                                  Stok Tidak Tersedia
-                                </span>
-                              )}
+                      {loadingStores && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--c-gold)" }}>
+                          <Loader2 size={14} className="animate-spin" /> Menghitung rute...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {storeOptions.map((st) => {
+                      const isSelected = selectedStore?.storeId === st.storeId;
+                      const isAvailable = st.isAvailable;
+
+                      return (
+                        <div
+                          key={st.storeId}
+                          onClick={() => handleSelectStore(st)}
+                          style={{
+                            padding: "16px",
+                            borderRadius: "var(--r-md)",
+                            border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
+                            background: isSelected ? "var(--glass-bg)" : "transparent",
+                            cursor: isAvailable ? "pointer" : "not-allowed",
+                            opacity: isAvailable ? 1 : 0.6,
+                            transition: "all 0.2s ease",
+                            position: "relative"
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                              <input 
+                                type="radio"
+                                name="selected_store"
+                                checked={isSelected}
+                                disabled={!isAvailable}
+                                onChange={() => handleSelectStore(st)}
+                                style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
+                              />
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                                  <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{st.name}</span>
+                                  {shouldShowDistance && st.isNearest && isAvailable && (
+                                    <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(234, 179, 8, 0.15)", color: "var(--c-gold)", border: "1px solid rgba(234, 179, 8, 0.3)", borderRadius: 100, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                      <Sparkles size={11} /> {fulfillmentType === "pickup" ? "Terdekat dari Anda" : "Rute Pengiriman Terdekat"}
+                                    </span>
+                                  )}
+                                  {!isAvailable && (
+                                    <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(225, 29, 72, 0.1)", color: "var(--c-rose)", borderRadius: 100, fontWeight: 600 }}>
+                                      Stok Tidak Tersedia
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", lineHeight: 1.4 }}>
+                                  {st.address}
+                                </div>
+                                {!isAvailable && st.outOfStockItems.length > 0 && (
+                                  <div style={{ marginTop: 6, fontSize: "0.78rem", color: "var(--c-rose)", display: "flex", alignItems: "center", gap: 6 }}>
+                                    <AlertCircle size={13} /> {st.outOfStockItems.join(", ")}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", lineHeight: 1.4 }}>
-                              {st.address}
-                            </div>
-                            {!isAvailable && st.outOfStockItems.length > 0 && (
-                              <div style={{ marginTop: 6, fontSize: "0.78rem", color: "var(--c-rose)", display: "flex", alignItems: "center", gap: 6 }}>
-                                <AlertCircle size={13} /> {st.outOfStockItems.join(", ")}
+
+                            {shouldShowDistance && st.distanceText && (
+                              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--c-gold)" }}>{st.distanceText}</div>
+                                <div style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>~{st.durationText}</div>
                               </div>
                             )}
                           </div>
                         </div>
-
-                        {st.distanceText && (
-                          <div style={{ textAlign: "right", flexShrink: 0 }}>
-                            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--c-gold)" }}>{st.distanceText}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>~{st.durationText}</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* OPSI PENGIRIMAN KURIR (HANYA JIKA DELIVERY) */}
             {fulfillmentType === "delivery" && (

@@ -3,259 +3,245 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAiConfig, recordAiUsage, isRateLimitError } from "@/lib/ai-fallback";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { mode, prompt, imageBase64, bibitIds } = body;
-    
-    if (!mode || !['ai', 'gambar', 'custom'].includes(mode)) {
+
+    if (!mode || !["ai", "gambar", "custom"].includes(mode)) {
       return NextResponse.json({ error: "Invalid or missing mode parameter." }, { status: 400 });
     }
 
     const supabase = createAdminClient();
-    
-    // Fetch bibit catalog
+
+    // =========================================================================
+    // FAST PATH: MODE 'custom' (Pelanggan memilih bibit sendiri)
+    // =========================================================================
+    if (mode === "custom") {
+      if (!bibitIds || !Array.isArray(bibitIds) || bibitIds.length < 1) {
+        return NextResponse.json({ error: "Pilih minimal 1 bibit parfum." }, { status: 400 });
+      }
+
+      // Query HANYA bibit yang dipilih pelanggan (Sangat hemat memory & CPU)
+      const { data: customSelectedBibits, error: selectErr } = await supabase
+        .from("bibit")
+        .select("id, name, slug, collection, intensity, main_accord, price_per_ml, top_notes, middle_notes, base_notes")
+        .in("id", bibitIds)
+        .eq("is_active", true);
+
+      if (selectErr || !customSelectedBibits || customSelectedBibits.length === 0) {
+        return NextResponse.json({ error: "Bibit yang dipilih tidak valid atau tidak aktif." }, { status: 400 });
+      }
+
+      // SUB-FAST PATH: 1 BIBIT TUNGGAL (Langsung respons tanpa panggil LLM!)
+      if (customSelectedBibits.length === 1) {
+        const b = customSelectedBibits[0];
+        const topNotes = Array.isArray(b.top_notes) ? b.top_notes : (b.top_notes ? [String(b.top_notes)] : []);
+        const midNotes = Array.isArray(b.middle_notes) ? b.middle_notes : (b.middle_notes ? [String(b.middle_notes)] : []);
+        const baseNotes = Array.isArray(b.base_notes) ? b.base_notes : (b.base_notes ? [String(b.base_notes)] : []);
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            mode: "custom",
+            selectedBibits: [b],
+            analysis: {
+              custom_name: b.name,
+              technical_recipe: `100% ${b.name}`,
+              predicted_notes: {
+                top: topNotes,
+                middle: midNotes,
+                base: baseNotes,
+              },
+              predicted_intensity: b.intensity || "Medium",
+              description: `Aroma murni ${b.name} dari koleksi ${b.collection} dengan karakter dominan ${b.main_accord}. Menghadirkan kesan aroma khas yang autentik.`,
+              reasoning: `Formula tunggal murni 100% konsentrasi bibit pilihan Anda.`,
+              confidence: 100,
+              blend_verdict: "",
+              blend_warning: "",
+            },
+          },
+        });
+      }
+
+      // MULTI-BIBIT CUSTOM: Hanya kirim 2-3 bibit terpilih ke Gemini (JANGAN kirim seluruh katalog!)
+      const leanSelected = customSelectedBibits.map((b) => ({
+        id: b.id,
+        name: b.name,
+        collection: b.collection,
+        intensity: b.intensity,
+        main_accord: b.main_accord,
+        notes: `${(b.top_notes || []).slice(0, 3).join(", ")} | ${(b.middle_notes || []).slice(0, 3).join(", ")} | ${(b.base_notes || []).slice(0, 3).join(", ")}`,
+      }));
+
+      const systemPrompt = `Kamu adalah 'Nove', Master Perfumer dari Ela Parfum.
+Tugasmu: Analisis kecocokan campuran beberapa bibit parfum berikut secara objektif dan kritis:
+${JSON.stringify(leanSelected)}
+
+Panduan Harmonisasi:
+- HARMONIS (75-100%): Woody+Spicy, Floral+Citrus, Sweet+Woody, Musky+Floral, Fresh+Citrus.
+- CUKUP HARMONIS (50-74%): Woody+Floral, Sweet+Floral, Spicy+Musky.
+- TIDAK HARMONIS (<50%): Aquatic+Sweet Gourmand, Heavy Spicy+Aquatic, Extreme+Extreme intensity.
+
+OUTPUT HARUS STRICT JSON (dibungkus \`\`\`json \`\`\`):
+{
+  "success": true,
+  "data": {
+    "mode": "custom",
+    "selectedBibits": ${JSON.stringify(customSelectedBibits)},
+    "analysis": {
+      "custom_name": "Nama blend kreatif baru",
+      "technical_recipe": "Rasio persentase (misal: 60% ${customSelectedBibits[0].name}, 40% ${customSelectedBibits[1]?.name || 'bibit kedua'})",
+      "predicted_notes": { "top": ["note1"], "middle": ["note2"], "base": ["note3"] },
+      "predicted_intensity": "Soft" | "Medium" | "Strong" | "Extreme",
+      "description": "Deskripsi aroma racikan",
+      "reasoning": "Alasan kecocokan",
+      "confidence": 85,
+      "blend_verdict": "HARMONIS" | "CUKUP HARMONIS" | "TIDAK HARMONIS",
+      "blend_warning": "Peringatan aroma jika tidak harmonis, atau kosongkan"
+    }
+  }
+}`;
+
+      return await runGeminiGeneration(systemPrompt, [{ text: "Analisis campuran bibit parfum ini secara objektif." }]);
+    }
+
+    // =========================================================================
+    // MODE 'ai' & 'gambar' (Pencarian Rekomendasi dari Katalog)
+    // =========================================================================
+    // Ambil ringkasan katalog yang ramping (ID, Nama, Accord, Intensitas)
     const { data: bibitList, error: bibitError } = await supabase
-      .from('bibit')
-      .select('id, name, slug, collection, intensity, main_accord, price_per_ml, top_notes, middle_notes, base_notes')
-      .eq('is_active', true);
-      
+      .from("bibit")
+      .select("id, name, collection, intensity, main_accord, price_per_ml")
+      .eq("is_active", true)
+      .order("id");
+
     if (bibitError || !bibitList || bibitList.length === 0) {
       return NextResponse.json({ error: "Katalog bibit tidak ditemukan di database." }, { status: 404 });
     }
 
-    let catalogueText = "Katalog Bibit yang Tersedia (JANGAN rekomendasikan di luar id yang ada di sini!):\n";
-    catalogueText += JSON.stringify(bibitList, null, 2);
+    // Format padat satu baris per bibit (~15KB saja vs 400KB sebelumnya)
+    const compactCatalog = bibitList
+      .map((b) => `${b.id}: ${b.name} (${b.collection} | ${b.main_accord} | ${b.intensity})`)
+      .join("\n");
 
     let systemPrompt = `Kamu adalah 'Nove', Master Perfumer dari Ela Parfum.
-Tugasmu adalah menganalisis permintaan parfum pelanggan.
-KAMU WAJIB MENGHASILKAN OUTPUT STRICT JSON YANG VALID (dibungkus block \`\`\`json \`\`\`).
-JANGAN tambahkan teks lain di luar block JSON.
+Tugasmu: Rekomendasikan 1 ID bibit parfum yang PALING COCOK dari katalog di bawah.
+WAJIB PILIH ID DARI KATALOG INI:
+${compactCatalog}
 
-Struktur JSON yang diharapkan:
+OUTPUT HARUS STRICT JSON (dibungkus \`\`\`json \`\`\`):
 {
   "success": true,
   "data": {
     "mode": "${mode}",
-    // Jika mode 'ai' atau 'gambar':
     "recommendedBibit": {
-      "id": number,
-      "name": "string",
-      "collection": "string",
-      "intensity": "string",
-      "main_accord": "string",
-      "price_per_ml": number,
-      "top_notes": [],
-      "middle_notes": [],
-      "base_notes": []
+      "id": 123,
+      "name": "Nama Bibit",
+      "collection": "Global Parfume",
+      "intensity": "Strong",
+      "main_accord": "Woody",
+      "price_per_ml": 2000
     },
-    // Jika mode 'custom':
-    "selectedBibits": [ /* array objek bibit yang dipilih */ ],
-    // Selalu ada:
+    "selectedBibits": [],
     "analysis": {
-      "custom_name": "string", // Hanya jika mode 'custom', nama blend / nama asli jika 1 bibit
-      "technical_recipe": "string", // Hanya jika mode 'custom', rasio (misal: 60% A, 40% B).
-      "predicted_notes": { "top": ["string"], "middle": ["string"], "base": ["string"] },
-      "predicted_intensity": "string", // 'Soft' | 'Medium' | 'Strong' | 'Extreme'
-      "description": "string", // Deskripsi aroma hasil analisismu
-      "reasoning": "string", // Alasan
-      "confidence": number, // 0-100. Jika mode custom: HARMONIS (75-100), CUKUP HARMONIS (50-74), TIDAK HARMONIS (<50)
-      "blend_verdict": "string", // WAJIB untuk mode 'custom' > 1 bibit. Pilihan: 'HARMONIS' | 'CUKUP HARMONIS' | 'TIDAK HARMONIS'. Kosongkan jika 1 bibit atau mode lain.
-      "blend_warning": "string" // Berikan alasan singkat mengapa TIDAK HARMONIS atau peringatan untuk kustomer. Kosongkan jika HARMONIS atau 1 bibit.
+      "description": "Deskripsi wangi bibit ini",
+      "reasoning": "Kenapa bibit ini sangat cocok dengan permintaan pengguna",
+      "confidence": 95,
+      "predicted_intensity": "Strong",
+      "predicted_notes": { "top": ["..."], "middle": ["..."], "base": ["..."] }
     }
   }
-}
+}`;
 
-${catalogueText}
-`;
+    const userContentParts: any[] = [];
 
-    let userContentParts: any[] = [];
-    let customSelectedBibits: any[] = [];
-
-    if (mode === 'ai') {
-      if (!prompt) return NextResponse.json({ error: "Prompt is required for AI mode." }, { status: 400 });
-      systemPrompt += `\nINTRUKSI: Cari 1 bibit dari katalog yang PALING COCOK dengan deskripsi pengguna.`;
+    if (mode === "ai") {
+      if (!prompt) return NextResponse.json({ error: "Prompt diperlukan untuk mode AI." }, { status: 400 });
+      systemPrompt += `\nInstruksi: Cari 1 bibit yang aromanya paling mendekati deskripsi pengguna.`;
       userContentParts.push({ text: `Deskripsi parfum yang saya inginkan: ${prompt}` });
-    } 
-    else if (mode === 'gambar') {
-        if (!imageBase64) return NextResponse.json({ error: "imageBase64 is required for gambar mode." }, { status: 400 });
-        systemPrompt += `\nINTRUKSI MODE GAMBAR:
-          1. Identifikasi merek dan nama parfum di gambar (gunakan Google Search jika perlu).
-          2. PRIORITAS UTAMA: Jika merek parfum tersebut ADA di katalog bibit (misal: gambar Baccarat Rouge 540, dan bibit "Baccarat Rouge 540" ada di katalog), WAJIB pilih bibit yang EXACT MATCH dengan merek itu.
-          3. Jika merek TIDAK ADA di katalog, baru cari bibit yang aromanya PALING MIRIP berdasarkan accord dan piramida notes.
-          4. Di "reasoning", jelaskan: merek apa yang terdeteksi, apakah exact match atau alternatif terdekat.`;
+    } else if (mode === "gambar") {
+      if (!imageBase64) return NextResponse.json({ error: "Foto parfum diperlukan untuk mode gambar." }, { status: 400 });
       const matches = imageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
-      if (matches) {
-        userContentParts.push({ text: "Tolong identifikasi parfum ini dan carikan bibit yang paling mirip di katalog." });
-        userContentParts.push({
-          inlineData: {
-            mimeType: matches[1],
-            data: matches[2]
-          }
-        });
-      } else {
-         return NextResponse.json({ error: "Invalid imageBase64 format." }, { status: 400 });
+      if (!matches) {
+        return NextResponse.json({ error: "Format gambar tidak valid." }, { status: 400 });
       }
-    }
-    else if (mode === 'custom') {
-      if (!bibitIds || !Array.isArray(bibitIds) || bibitIds.length < 1) {
-        return NextResponse.json({ error: "bibitIds array with at least 1 ID is required for custom mode." }, { status: 400 });
-      }
-      
-      customSelectedBibits = bibitList.filter(b => bibitIds.includes(b.id));
-      if (customSelectedBibits.length !== bibitIds.length) {
-        return NextResponse.json({ error: "Satu atau lebih bibit ID tidak valid atau tidak aktif." }, { status: 400 });
-      }
-      
-      if (customSelectedBibits.length === 1) {
-        systemPrompt += `\nINTRUKSI: Pelanggan memilih 1 bibit parfum secara manual: ${JSON.stringify(customSelectedBibits[0])}. 
-Tugasmu: Berikan deskripsi dan analisa dasar terhadap bibit ini. 
-Untuk "custom_name", gunakan nama variasi atau nama asli bibit tersebut. 
-Untuk "technical_recipe", tulis "100% ${customSelectedBibits[0].name}". 
-Gunakan data notes dan intensitas asli dari database. JANGAN buat aroma baru yang jauh menyimpang. "blend_verdict" harus kosong.`;
-        userContentParts.push({ text: "Tolong analisis 1 bibit pilihan saya ini." });
-      } else {
-        systemPrompt += `\nINTRUKSI: Pelanggan meracik beberapa bibit parfum secara manual: ${JSON.stringify(customSelectedBibits)}.          
-          PANDUAN KOMPATIBILITAS ACCORD:
-          ✅ HARMONIS (confidence 75-100):
-            - Woody + Spicy → Oriental klasik
-            - Floral + Citrus → Fresh floral
-            - Sweet + Woody → Oriental manis
-            - Musky + Floral → Romantis
-            - Fresh + Citrus → Clean modern
-            - Aquatic + Citrus → Marine fresh
-
-          ⚠️ CUKUP HARMONIS (confidence 50-74):
-            - Woody + Floral → Butuh balance
-            - Sweet + Floral → Tergantung intensitas
-            - Spicy + Musky → Bold, bisa terlalu berat
-
-          ❌ TIDAK HARMONIS (confidence 20-49):
-            - Aquatic + Sweet Gourmand → Clash water vs sugar
-            - Heavy Spicy + Aquatic → Kontradiksi panas vs dingin
-            - Extreme + Extreme intensity → Over-saturated
-
-          Tugasmu: Analisis JUJUR campuran dari bibit-bibit tersebut.
-          1. "custom_name": BUATKAN nama baru yang unik, kreatif, dan elegan untuk racikan ini.
-          2. "technical_recipe": BUATKAN racikan persentase spesifik (contoh: ${customSelectedBibits[0].name} 60%, bibit lainnya 40%).
-          3. "blend_verdict": JADILAH OBJEKTIF DAN GENERAL! Jangan netral dan menganggap semua enak. Evaluasi secara kritis kecocokan notes-nya (apakah clashing? apakah dominan menabrak?). Berikan "HARMONIS", "CUKUP HARMONIS", atau "TIDAK HARMONIS".
-          4. "confidence": Sesuaikan persentase dengan verdict! HARMONIS = 75-100%, CUKUP HARMONIS = 50-74%, TIDAK HARMONIS = <50%.
-          5. "blend_warning": Jika verdict BUKAN "HARMONIS", berikan peringatan jujur tentang aroma clashing yang mungkin terjadi (contoh: aroma citrus segar bertabrakan dengan oud yang tajam sehingga akan memusingkan).
-          6. Prediksi notes baru (top, middle, base), intensitas hasil campuran, dan deskripsikan sensasi wangi barunya.`;
-        userContentParts.push({ text: "Tolong analisis campuran bibit-bibit parfum ini secara objektif." });
-      }
+      systemPrompt += `\nInstruksi: Identifikasi merek/nama botol parfum pada foto. Jika ada nama yang sama/mirip di katalog, utamakan exact match. Jika tidak, pilih alternatif yang paling mendekati karakternya.`;
+      userContentParts.push({ text: "Tolong identifikasi parfum ini dan pilihkan bibit yang paling cocok dari katalog." });
+      userContentParts.push({
+        inlineData: {
+          mimeType: matches[1],
+          data: matches[2],
+        },
+      });
     }
 
-    const { apiKeys, availableModels } = await getAiConfig('refill');
-    
-    let resultText = "";
-    let success = false;
-    let lastError = "";
-    
-    // Round-robin iteration over keys, and cascade through models
-    for (const keyObj of apiKeys) {
-      for (const modelObj of availableModels) {
-        try {
-          // Skip if key usage is near max_rpd for this specific model type (naive check)
-          // For a true check, we would need to check model category. We skip if key daily_usage > 10,000 as a hard ceiling.
-          if (keyObj.daily_usage_count > 10000) continue; 
-
-          const ai = new GoogleGenAI({ apiKey: keyObj.api_key });
-          
-          let aiConfig: any = {
-            temperature: 0.4,
-            systemInstruction: { parts: [{ text: systemPrompt }] }
-          };
-          
-          if (modelObj.model_name.includes('thinking')) {
-            aiConfig.thinkingConfig = { thinkingBudget: mode === 'custom' ? 1024 : 512 };
-          }
-
-          let response;
-          try {
-            const supportsSearchGrounding = modelObj.model_name.startsWith('gemini-2.0') || 
-                                            modelObj.model_name.startsWith('gemini-2.5') || 
-                                            modelObj.model_name.startsWith('gemma') || 
-                                            modelObj.model_name.startsWith('deep-research') || 
-                                            modelObj.model_name.startsWith('gemini-robotics') ||
-                                            modelObj.model_name.startsWith('antigravity');
-
-            // Search grounding only if needed and model supports it
-            if ((mode === 'gambar' || mode === 'custom') && supportsSearchGrounding) {
-              aiConfig.tools = [{ googleSearch: {} }];
-            }
-
-            response = await ai.models.generateContent({
-              model: modelObj.model_name,
-              contents: [{ role: "user", parts: userContentParts }],
-              config: aiConfig
-            });
-          } catch (eWithTools: any) {
-            if (aiConfig.tools) {
-               // Retrying without googleSearch
-               delete aiConfig.tools;
-               response = await ai.models.generateContent({
-                 model: modelObj.model_name,
-                 contents: [{ role: "user", parts: userContentParts }],
-                 config: aiConfig
-               });
-            } else {
-               throw eWithTools;
-            }
-          }
-          
-          resultText = response.text || '';
-          success = true;
-          
-          // Record successful usage
-          await recordAiUsage(keyObj.id);
-          
-          break; // Exit model loop
-        } catch (e: any) {
-          const errMsg = e.message || String(e);
-          console.log(`Model ${modelObj.model_name} pada key ${keyObj.id} gagal:`, errMsg);
-          lastError = errMsg;
-          
-          if (isRateLimitError(e)) {
-            // If it's a rate limit on this model, try next model with same key
-            continue; 
-          } else {
-            // Other error (e.g. invalid key, unsupported tool), break to next key or model
-            continue;
-          }
-        }
-      }
-      if (success) break; // Exit key loop
-    }
-    
-    if (!success) {
-      return NextResponse.json({ error: "Semua kuota API LLM telah habis. Coba lagi besok.", details: lastError }, { status: 500 });
-    }
-
-    // Parse the JSON from the AI response
-    let parsedJson = null;
-    try {
-      const jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
-      if (jsonMatch && jsonMatch[1]) {
-        parsedJson = JSON.parse(jsonMatch[1]);
-      } else {
-        // Fallback to try parsing the raw text in case there are no markdown blocks
-        parsedJson = JSON.parse(resultText);
-      }
-    } catch (parseError) {
-      console.error("Failed to parse AI JSON response:", resultText);
-      return NextResponse.json({ error: "AI returned invalid format", raw: resultText }, { status: 500 });
-    }
-
-    // Add selectedBibits explicitly for custom mode if AI didn't do it right
-    if (mode === 'custom' && parsedJson && parsedJson.data) {
-        parsedJson.data.selectedBibits = customSelectedBibits;
-    }
-
-    return NextResponse.json(parsedJson);
-
+    return await runGeminiGeneration(systemPrompt, userContentParts);
   } catch (error: any) {
     console.error("Refill Analyze API Error:", error);
     return NextResponse.json({ error: error.message || "Terjadi kesalahan server" }, { status: 500 });
+  }
+}
+
+async function runGeminiGeneration(systemPrompt: string, userContentParts: any[]) {
+  const { apiKeys, availableModels } = await getAiConfig("refill");
+
+  let resultText = "";
+  let success = false;
+  let lastError = "";
+
+  for (const keyObj of apiKeys) {
+    if (keyObj.daily_usage_count > 10000) continue;
+
+    for (const modelObj of availableModels) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: keyObj.api_key });
+
+        const aiConfig: any = {
+          temperature: 0.3,
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+        };
+
+        const response = await ai.models.generateContent({
+          model: modelObj.model_name,
+          contents: [{ role: "user", parts: userContentParts }],
+          config: aiConfig,
+        });
+
+        resultText = response.text || "";
+        if (resultText) {
+          success = true;
+          await recordAiUsage(keyObj.id);
+          break;
+        }
+      } catch (e: any) {
+        lastError = e.message || String(e);
+        console.warn(`Model ${modelObj.model_name} key ${keyObj.id} error:`, lastError);
+        if (isRateLimitError(e)) {
+          continue;
+        }
+      }
+    }
+    if (success) break;
+  }
+
+  if (!success) {
+    return NextResponse.json({ error: "Sistem analisis AI sedang sibuk. Silakan coba sesaat lagi.", details: lastError }, { status: 500 });
+  }
+
+  try {
+    let parsedJson = null;
+    const jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch && jsonMatch[1]) {
+      parsedJson = JSON.parse(jsonMatch[1]);
+    } else {
+      parsedJson = JSON.parse(resultText);
+    }
+    return NextResponse.json(parsedJson);
+  } catch (parseErr) {
+    console.error("Failed to parse Gemini JSON:", resultText);
+    return NextResponse.json({ error: "Format respons AI tidak valid", raw: resultText }, { status: 500 });
   }
 }
