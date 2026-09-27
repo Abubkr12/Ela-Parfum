@@ -9,6 +9,20 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Pemberantasan Tuntas Infinite Loop Dev Server & Tombol Navigasi Google Maps ("Lihat Peta"):**
+  - [x] **Root Cause Infinite Loop (Biteship 'Test Rates API limit reached'):**
+    - Di `src/app/checkout/custom/[id]/page.tsx`, `useParams()` mengembalikan objek baru pada render cycle Next.js. Referensi `initializedIdRef.current === id` gagal menghentikan effect karena array param reference re-evaluation dan keberadaan `evaluateStores` di dependency array effect.
+    - Setiap `evaluateStores` mengeksekusi `fetchRates`, `setStoreOptions`, dan `setSelectedStore`, memicu re-render yang memanggil ulang `useEffect` setiap beberapa ratus milidetik hingga limit rate Biteship habis.
+    - **Solusi Permanen:**
+      1. Normalisasi `id` ke string primitif murni (`const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : ""`).
+      2. Gunakan boolean guard statis `hasLoadedRef = useRef(false)`.
+      3. Lepaskan `router`, `supabase`, dan `evaluateStores` dari dependency array effect (`// eslint-disable-next-line react-hooks/exhaustive-deps`, deps `[id]` di custom dan `[]` di checkout reguler).
+      4. `loadData()` dan `checkUser()` dijamin 100% hanya dieksekusi tepat 1 kali saat halaman pertama kali dibuka.
+  - [x] **Tombol Interaktif "Lihat Peta" (Direct Google Maps Navigation):**
+    - Ditambahkan pada setiap kartu cabang toko di `/checkout` dan `/checkout/custom/[id]`.
+    - Menggunakan koordinat presisi pin cabang (`store.latitude` & `store.longitude`) dari `/api/stores/distances` untuk membuka Google Maps secara langsung di tab baru.
+    - Pengguna tanpa sensor GPS fisik (laptop/desktop) tidak perlu lagi bergantung pada tebakan ISP Ancol atau tektokan koordinat — cukup klik "Lihat Peta" untuk melihat lokasi presisi cabang toko dan rute jalan raya.
+  - [x] **Verifikasi:** Lolos typecheck TypeScript (`npx tsc --noEmit`) 0 error dan sukses kompilasi produksi `npm run build` (68 rute dinamis lolos).
 - [x] **Eliminasi Infinite Loop Checkout & Presisi Geolocation Laptop vs Mobile (Anti-Ancol):**
   - [x] **Root Cause 1 (Looping Tanpa Henti "Mendeteksi Lokasi" & "Menghitung Ongkir"):**
     - Di `src/app/checkout/page.tsx` dan `src/app/checkout/custom/[id]/page.tsx`, `const supabase = createClient()` dieksekusi langsung di tubuh komponen tanpa memoization.

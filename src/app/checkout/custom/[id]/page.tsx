@@ -17,7 +17,8 @@ import {
   Wine, 
   Store,
   AlertCircle,
-  LocateFixed
+  LocateFixed,
+  ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
@@ -40,14 +41,17 @@ interface StoreOption {
   isNearest: boolean;
   isAvailable: boolean;
   outOfStockItems: string[];
+  latitude?: number;
+  longitude?: number;
 }
 
 export default function CustomCheckoutPage() {
   const params = useParams();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const id = params.id as string;
-  const initializedIdRef = useRef<string | null>(null);
+  const rawId = params?.id;
+  const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
+  const hasLoadedRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -201,8 +205,8 @@ export default function CustomCheckoutPage() {
   );
 
   useEffect(() => {
-    if (!id || initializedIdRef.current === id) return;
-    initializedIdRef.current = id;
+    if (!id || hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
 
     async function loadData() {
       try {
@@ -286,7 +290,8 @@ export default function CustomCheckoutPage() {
     }
 
     loadData();
-  }, [id, router, supabase, evaluateStores]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const handleFulfillmentChange = (type: "delivery" | "pickup") => {
     if (isOwnBottle && type === "delivery") return;
@@ -728,6 +733,38 @@ export default function CustomCheckoutPage() {
                                 </div>
                                 <div style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", lineHeight: 1.4 }}>
                                   {st.address}
+                                </div>
+                                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                                  <a
+                                    href={
+                                      st.latitude && st.longitude
+                                        ? `https://www.google.com/maps/search/?api=1&query=${st.latitude},${st.longitude}`
+                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(st.name + " " + st.address)}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 5,
+                                      fontSize: "0.76rem",
+                                      color: "var(--c-gold)",
+                                      fontWeight: 500,
+                                      textDecoration: "none",
+                                      padding: "3px 9px",
+                                      borderRadius: "6px",
+                                      background: "rgba(234, 179, 8, 0.08)",
+                                      border: "1px solid rgba(234, 179, 8, 0.22)",
+                                      cursor: "pointer",
+                                      width: "fit-content",
+                                      transition: "all 0.15s ease"
+                                    }}
+                                  >
+                                    <MapPin size={12} />
+                                    <span>Lihat Peta</span>
+                                    <ExternalLink size={11} />
+                                  </a>
                                 </div>
                                 {!isAvailable && st.outOfStockItems.length > 0 && (
                                   <div style={{ marginTop: 6, fontSize: "0.78rem", color: "var(--c-rose)", display: "flex", alignItems: "center", gap: 6 }}>
