@@ -50,14 +50,14 @@ export async function getAiConfig(useFor: 'chat' | 'refill') {
     // Fallbacks if db empty
     if (useFor === 'chat') {
       availableModels = [
-        { model_name: 'gemini-3.1-flash-lite', priority: 1, max_rpd: 500 },
-        { model_name: 'gemini-3.5-flash-lite', priority: 2, max_rpd: 500 },
-        { model_name: 'gemini-2.5-flash-lite', priority: 3, max_rpd: 20 },
+        { model_name: 'gemini-3.8-flash', priority: 1, max_rpd: 500 },
+        { model_name: 'gemini-3.5-flash', priority: 2, max_rpd: 500 },
+        { model_name: 'gemini-3.1-flash-lite', priority: 3, max_rpd: 500 },
       ];
     } else {
       availableModels = [
-        { model_name: 'gemini-2.5-flash', priority: 1, max_rpd: 20 },
-        { model_name: 'gemini-3.5-flash', priority: 2, max_rpd: 20 },
+        { model_name: 'gemini-3.8-flash', priority: 1, max_rpd: 500 },
+        { model_name: 'gemini-3.5-flash', priority: 2, max_rpd: 500 },
         { model_name: 'gemini-3.1-flash-lite', priority: 3, max_rpd: 500 },
       ];
     }

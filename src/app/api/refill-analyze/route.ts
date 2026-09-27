@@ -38,9 +38,19 @@ export async function POST(req: Request) {
       // SUB-FAST PATH: 1 BIBIT TUNGGAL (Langsung respons tanpa panggil LLM!)
       if (customSelectedBibits.length === 1) {
         const b = customSelectedBibits[0];
-        const topNotes = Array.isArray(b.top_notes) ? b.top_notes : (b.top_notes ? [String(b.top_notes)] : []);
-        const midNotes = Array.isArray(b.middle_notes) ? b.middle_notes : (b.middle_notes ? [String(b.middle_notes)] : []);
-        const baseNotes = Array.isArray(b.base_notes) ? b.base_notes : (b.base_notes ? [String(b.base_notes)] : []);
+        const extractNoteName = (n: any) => {
+          if (!n) return "";
+          if (typeof n === "string") return n;
+          return n.name || n.note || "";
+        };
+
+        const rawTop = Array.isArray(b.top_notes) ? b.top_notes : (b.top_notes ? [b.top_notes] : []);
+        const rawMid = Array.isArray(b.middle_notes) ? b.middle_notes : (b.middle_notes ? [b.middle_notes] : []);
+        const rawBase = Array.isArray(b.base_notes) ? b.base_notes : (b.base_notes ? [b.base_notes] : []);
+
+        const topNotes = rawTop.map(extractNoteName).filter(Boolean);
+        const midNotes = rawMid.map(extractNoteName).filter(Boolean);
+        const baseNotes = rawBase.map(extractNoteName).filter(Boolean);
 
         return NextResponse.json({
           success: true,

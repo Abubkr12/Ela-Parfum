@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Saat ini antrian aktif kosong — arsitektur deteksi lokasi bertingkat GPS & non-GPS telah selesai diuji dan siap deploy)
+- (Saat ini antrian aktif kosong — perbaikan crash render StepAiResult & rotasi model Gemini telah selesai dan siap deploy)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,17 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Eliminasi Crash "This page couldn't load" & Error 1102 pada Custom Refill:**
+  - [x] **Root Cause 1 (Fatal React Rendering Crash):**
+    - Pada bibit di database Supabase, `top_notes`, `middle_notes`, dan `base_notes` disimpan sebagai array objek JSON (`[{ name: "Lilac", intensity: "Strong" }, ...]`).
+    - Jalur 1-bibit di `/api/refill-analyze` meneruskan array objek tersebut ke `predicted_notes`.
+    - Di `src/components/refill/StepAiResult.tsx`, komponen me-render `{note}` secara langsung di dalam tag `<span>`. React mendeteksi objek sebagai child dan melempar fatal error: *"Objects are not valid as a React child"*, memicu Next.js error boundary: *"This page couldn't load"*.
+    - **Solusi:** Ekstraksi string nama aroma secara aman (`extractNoteName`) pada route handler dan tambahkan pengecekan defensif `typeof note === "object"` di `StepAiResult.tsx`.
+  - [x] **Root Cause 2 (Gemini Multi-Bibit Error 1102 Timeout):**
+    - Di database `ai_models`, model prioritas 1 terdaftar sebagai `gemini-2.5-flash` dan prioritas 4 sebagai `gemini-3-flash` (keduanya 404 dari Google GenAI).
+    - Loop rotasi mencoba 10 API keys x 5 model usang, memakan waktu hingga 55 detik dan melampaui resource limit Cloudflare Worker (Error 1102).
+    - **Solusi:** Perbarui `ai_models` di Supabase dengan model resmi yang aktif dan ultra cepat: `gemini-3.8-flash` (Priority 1), `gemini-3.5-flash`, dan `gemini-3.1-flash-lite`. Waktu analisis terpangkas dari 55 detik menjadi hanya ~10 detik.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses build produksi (`npm run build`).
 - [x] **Arsitektur Deteksi Lokasi Bertingkat (GPS Mobile vs Non-GPS Laptop/PC):**
   - [x] **Analisis Perbedaan Hardware:**
     - Perangkat ponsel (Android/iOS) memiliki modul GPS hardware, membutuhkan `enableHighAccuracy: true` untuk mengunci titik satelit secara presisi (< 30m).
