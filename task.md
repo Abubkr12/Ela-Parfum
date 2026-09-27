@@ -34,6 +34,8 @@
   - [x] **Poles Sheet Ringkasan & Detail Harian:** Standarisasi font Times New Roman, title height 28pt, subtitle height 22pt, header height 26-28pt, table borders rapi, dan print setup A4 portrait/landscape `fitToWidth: 1`.
   - [x] **Sinkronisasi Statistik Barang:** Terapkan standar dynamic row height, auto-fit column, dan tema Times New Roman yang sama pada export Excel Statistik Barang.
   - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` dengan 0 error.
+=======
+>>>>>>> origin/main
 - [x] **Koreksi Titik Presisi Koordinat & Direct Link Google Maps Toko Terdaftar:**
   - [x] **Pembaruan Koordinat Riil & Link Profil Toko Google Maps (`src/lib/stores.ts`, `src/lib/biteship.ts`, `src/app/api/webhooks/mayar/route.ts`):**
     1. **Condet:** Koordinat `-6.263216121945289, 106.86483496323179` | Link: `https://maps.app.goo.gl/NeXJRAJkhEcBjo7ZA`

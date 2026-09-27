@@ -16,6 +16,7 @@ import {
   Store, 
   Sparkles, 
   AlertCircle, 
+  Navigation,
   LocateFixed,
   ExternalLink
 } from "lucide-react";
