@@ -1,8 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import BarangClient from "./BarangClient";
+import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
+
+const BarangClient = dynamic(() => import("./BarangClient"), {
+  ssr: false,
+  loading: () => (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", flexDirection: "column", gap: 16 }}>
+      <Loader2 className="animate-spin" size={36} style={{ color: "var(--c-gold)" }} />
+      <p style={{ color: "var(--c-ink-dim)", fontSize: "0.95rem" }}>Memuat statistik barang...</p>
+    </div>
+  ),
+});
 
 export default function StatistikBarangPage() {
   const [loading, setLoading] = useState(true);

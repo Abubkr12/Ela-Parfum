@@ -18,8 +18,7 @@ import {
   Droplet
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme-context';
-import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
+import type ExcelJS from 'exceljs';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
@@ -339,6 +338,7 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
   };
 
   const handleExportExcel = async () => {
+    const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Ela Parfum';
     workbook.created = new Date();
@@ -651,7 +651,15 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `ElaParfum_Penjualan_${new Date().getTime()}.xlsx`);
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ElaParfum_Penjualan_${Date.now()}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   return (

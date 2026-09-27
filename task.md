@@ -9,6 +9,12 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Resolusi 500 Internal Server Error & Eliminasi DOM Dependencies pada SSR Statistik (/admin/statistik):**
+  - [x] **Root Cause:** Paket `file-saver` mencoba mengakses `HTMLAnchorElement.prototype` saat dievaluasi di level modul SSR Cloudflare Workers (V8 isolate tanpa browser DOM), memicu `ReferenceError` dan crash 500. Ditambah `exceljs` yang besar diimpor secara statis di top-level.
+  - [x] **Pemberantasan `file-saver` & Native Download:** Hapus `file-saver` dan gunakan download berbasis browser native (`URL.createObjectURL` dan link virtual `a.click()`).
+  - [x] **Dynamic Import `exceljs` on Demand:** Modul `exceljs` dipindah ke import dinamis asinkron yang hanya diunduh saat tombol "Export Excel" ditekan pengguna di browser.
+  - [x] **Dynamic SSR Bypass untuk Halaman Statistik:** Bungkus `PenjualanClient` dan `BarangClient` dengan `dynamic(..., { ssr: false })` sehingga server Cloudflare Worker merespons instan (< 0.5 ms CPU) tanpa mengevaluasi library grafik dan tabel di server.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` 0 error dan `npm run build` sukses 70 rute.
 - [x] **Eliminasi Error 1102 Edit Botol & Sanitasi Server Actions (/admin/botol):**
   - [x] **Root Cause:** Next.js Server Action (`saveBotol`) dengan multipart/form-data dan `revalidatePath` melebihi batas 10ms CPU Cloudflare Free saat memproses foto biner dan re-render SSR.
   - [x] **Direct Client Upload:** Foto botol diunggah langsung dari browser ke Supabase Storage (0ms CPU Cloudflare) dengan fallback ke streaming route `/api/admin/botol/upload`.

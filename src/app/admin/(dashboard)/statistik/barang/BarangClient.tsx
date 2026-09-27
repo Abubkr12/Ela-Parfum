@@ -14,9 +14,8 @@ import {
   Filter,
   ArrowUpDown
 } from "lucide-react";
-import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
 import { useTheme } from "@/lib/theme-context";
+import type ExcelJS from "exceljs";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -457,6 +456,7 @@ export default function BarangClient({
   const paginatedTable = perPage >= totalItems ? filteredTable : filteredTable.slice((page - 1) * perPage, page * perPage);
 
   const exportExcel = async () => {
+    const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "Ela Parfum";
     workbook.created = new Date();
@@ -503,7 +503,15 @@ export default function BarangClient({
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `Statistik_Barang_${activeTab}_${new Date().toISOString().split("T")[0]}.xlsx`);
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Statistik_Barang_${activeTab}_${new Date().toISOString().split("T")[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const chartOptions: ApexCharts.ApexOptions = {

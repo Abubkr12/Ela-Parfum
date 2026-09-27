@@ -25,8 +25,8 @@ export function createClient(isAdmin = false) {
   } else {
     if (!customerClient) {
       customerClient = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        supabaseUrl,
+        supabaseAnonKey,
         {
           isSingleton: false,
         }
