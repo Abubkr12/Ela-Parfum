@@ -127,20 +127,23 @@ export function StepAiResult({ mode, recommendedBibit, selectedBibits, analysis,
           </h4>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {[
-              { label: "Top Notes", notes: analysis.predicted_notes.top, bg: "rgba(245, 158, 11, 0.1)", color: "#d97706" },
-              { label: "Middle Notes", notes: analysis.predicted_notes.middle, bg: "rgba(16, 185, 129, 0.1)", color: "#059669" },
-              { label: "Base Notes", notes: analysis.predicted_notes.base, bg: "rgba(99, 102, 241, 0.1)", color: "#4f46e5" },
+              { label: "Top Notes", notes: analysis?.predicted_notes?.top || [], bg: "rgba(245, 158, 11, 0.1)", color: "#d97706" },
+              { label: "Middle Notes", notes: analysis?.predicted_notes?.middle || [], bg: "rgba(16, 185, 129, 0.1)", color: "#059669" },
+              { label: "Base Notes", notes: analysis?.predicted_notes?.base || [], bg: "rgba(99, 102, 241, 0.1)", color: "#4f46e5" },
             ].map((layer, idx) => (
               <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
                 <span style={{ width: "90px", fontSize: "0.85rem", fontWeight: 600, color: layer.color, paddingTop: "4px" }}>
                   {layer.label}
                 </span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", flex: 1 }}>
-                  {layer.notes.map((note, i) => (
-                    <span key={i} style={{ fontSize: "0.85rem", padding: "4px 10px", borderRadius: "100px", background: layer.bg, color: layer.color, fontWeight: 500 }}>
-                      {note}
-                    </span>
-                  ))}
+                  {Array.isArray(layer.notes) && layer.notes.map((note: any, i: number) => {
+                    const noteText = typeof note === "object" && note !== null ? (note.name || note.note || JSON.stringify(note)) : String(note);
+                    return (
+                      <span key={i} style={{ fontSize: "0.85rem", padding: "4px 10px", borderRadius: "100px", background: layer.bg, color: layer.color, fontWeight: 500 }}>
+                        {noteText}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             ))}

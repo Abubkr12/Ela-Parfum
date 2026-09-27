@@ -23,6 +23,9 @@ export async function POST(request: Request) {
         distanceText: formatDistanceKm(roadRes.distanceMeters),
         durationText: formatDurationHuman(roadRes.durationSeconds),
         isRoadNetwork: roadRes.isRoadNetwork,
+        latitude: store.latitude,
+        longitude: store.longitude,
+        mapsUrl: store.mapsUrl,
       };
     });
 

@@ -6,6 +6,7 @@ export interface ElaStore {
   areaId: string;
   latitude: number;
   longitude: number;
+  mapsUrl: string;
 }
 
 export const ELA_STORES: ElaStore[] = [
@@ -15,8 +16,9 @@ export const ELA_STORES: ElaStore[] = [
     shortName: "Condet",
     address: "Jl. Raya Condet No. 1, RT.001/RW.015, Cililitan, Kramat Jati, Jakarta Timur 13640",
     areaId: "IDNP6IDNC149IDND851",
-    latitude: -6.263281646322936,
-    longitude: 106.86484090895478,
+    latitude: -6.263216121945289,
+    longitude: 106.86483496323179,
+    mapsUrl: "https://maps.app.goo.gl/NeXJRAJkhEcBjo7ZA",
   },
   {
     id: 2,
@@ -24,8 +26,9 @@ export const ELA_STORES: ElaStore[] = [
     shortName: "Rawa Belong",
     address: "Jl. Raya Kb. Jeruk No.57B, RT.8/RW.15, Palmerah, Jakarta Barat 11530",
     areaId: "IDNP6IDNC146IDND825",
-    latitude: -6.202968871424059,
-    longitude: 106.78298439693361,
+    latitude: -6.202979537456524,
+    longitude: 106.7829307530255,
+    mapsUrl: "https://maps.app.goo.gl/VL9L2EzQErwJFVhW6",
   },
   {
     id: 3,
@@ -33,8 +36,9 @@ export const ELA_STORES: ElaStore[] = [
     shortName: "Tangerang",
     address: "Jl. Pondok Kacang No. 36, RT.002/RW.005, Parung Serab, Ciledug, Tangerang 15226",
     areaId: "IDNP3IDNC446IDND5630",
-    latitude: -6.244325229406331,
-    longitude: 106.69862467974234,
+    latitude: -6.244421216053853,
+    longitude: 106.69871051069751,
+    mapsUrl: "https://maps.app.goo.gl/SE7NPjjYjBPCeTz38",
   },
 ];
 

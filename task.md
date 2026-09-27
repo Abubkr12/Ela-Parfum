@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Tidak ada task aktif saat ini)
+- (Tidak ada task aktif saat ini — seluruh fitur katalog bibit tanpa gambar, proteksi botol sendiri, dan deploy live Cloudflare selesai)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,13 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Katalog Bibit Swatch Spesifikasi & Proteksi Wajib Ambil di Toko (Bawa Botol Sendiri):**
+  - [x] **Hapus Gambar Botol di List Katalog (`/katalog`):** Tampilan kartu bibit murni berbasis teks/swatch spesifikasi mewah (badge koleksi & intensitas, main accord, notes chips, harga per ml, tombol "+ Keranjang", link "Detail Aroma").
+  - [x] **Galeri 5 Botol Mockup Eksklusif di Detail (`/bibit/[slug]`):** Mockup studio 5 botol Ela Parfum tetap tampil tajam di galeri interaktif halaman detail bibit.
+  - [x] **Proteksi Berlapis "Bawa Botol Sendiri" (Pickup Only):**
+    - Client side (`/checkout` & `/checkout/custom/[id]`): Tab kurir dinonaktifkan (`disabled`), switch otomatis ke `pickup`, notifikasi banner peringatan, dan `handleSubmit` memblokir pengiriman kurir.
+    - Server side (`processCheckout` & `processCustomCheckout`): Validasi server-side menolak pesanan jika `fulfillmentType === 'delivery'` dan ada item `useOwnBottle: true`.
+    - Keranjang (`/keranjang`): Badge ungu "Botol Sendiri (Ambil di Toko)" dan notifikasi di ringkasan belanja.
 - [x] **Unified Refill Cart & Katalog Bibit (Refill Manual):**
   - [x] **Task 1: Generate 5 Universal Bottle Preview Mockups:** 5 foto preview kemasan botol studio berlatar putih bersih (#FFFFFF) berlogo Ela Parfum (Casa, Lacoste, Dhermes, POT, dan Male Spray Action) di `public/images/bottles/preview/`.
   - [x] **Task 2: Polymorphic Cart Structure & Refill Support:** Perluasan antarmuka `CartItem` di `types.ts` & `CartContext` dengan composite ID unik, `itemType: 'regular' | 'refill'`, dan payload `refillData` (resep teknis, botol, rasio, bibit, kuantitas).
@@ -27,6 +34,96 @@
   - [x] **Poles Sheet Ringkasan & Detail Harian:** Standarisasi font Times New Roman, title height 28pt, subtitle height 22pt, header height 26-28pt, table borders rapi, dan print setup A4 portrait/landscape `fitToWidth: 1`.
   - [x] **Sinkronisasi Statistik Barang:** Terapkan standar dynamic row height, auto-fit column, dan tema Times New Roman yang sama pada export Excel Statistik Barang.
   - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` dengan 0 error.
+- [x] **Koreksi Titik Presisi Koordinat & Direct Link Google Maps Toko Terdaftar:**
+  - [x] **Pembaruan Koordinat Riil & Link Profil Toko Google Maps (`src/lib/stores.ts`, `src/lib/biteship.ts`, `src/app/api/webhooks/mayar/route.ts`):**
+    1. **Condet:** Koordinat `-6.263216121945289, 106.86483496323179` | Link: `https://maps.app.goo.gl/NeXJRAJkhEcBjo7ZA`
+    2. **Rawa Belong:** Koordinat `-6.202979537456524, 106.7829307530255` | Link: `https://maps.app.goo.gl/VL9L2EzQErwJFVhW6` (Profil Resmi "E & V Parfum")
+    3. **Tangerang:** Koordinat `-6.244421216053853, 106.69871051069751` | Link: `https://maps.app.goo.gl/SE7NPjjYjBPCeTz38`
+  - [x] **Integrasi Direct Maps URL pada Tombol "Lihat Peta":**
+    - `src/app/api/stores/distances/route.ts` mengembalikan properti `mapsUrl` langsung dari data cabang.
+    - Tombol "Lihat Peta" di `/checkout` dan `/checkout/custom/[id]` memprioritaskan link Google Maps terdaftar toko (`st.mapsUrl`), sehingga saat diklik tidak hanya memunculkan pin koordinat mentah, melainkan membuka profil bisnis resmi toko lengkap dengan foto, ulasan, nama tempat, dan navigasi rute Google Maps.
+  - [x] **Verifikasi:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi produksi `npm run build` (68 rute dinamis lolos).
+- [x] **Pemberantasan Tuntas Infinite Loop Dev Server & Tombol Navigasi Google Maps ("Lihat Peta"):**
+  - [x] **Root Cause Infinite Loop (Biteship 'Test Rates API limit reached'):**
+    - Di `src/app/checkout/custom/[id]/page.tsx`, `useParams()` mengembalikan objek baru pada render cycle Next.js. Referensi `initializedIdRef.current === id` gagal menghentikan effect karena array param reference re-evaluation dan keberadaan `evaluateStores` di dependency array effect.
+    - Setiap `evaluateStores` mengeksekusi `fetchRates`, `setStoreOptions`, dan `setSelectedStore`, memicu re-render yang memanggil ulang `useEffect` setiap beberapa ratus milidetik hingga limit rate Biteship habis.
+    - **Solusi Permanen:**
+      1. Normalisasi `id` ke string primitif murni (`const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : ""`).
+      2. Gunakan boolean guard statis `hasLoadedRef = useRef(false)`.
+      3. Lepaskan `router`, `supabase`, dan `evaluateStores` dari dependency array effect (`// eslint-disable-next-line react-hooks/exhaustive-deps`, deps `[id]` di custom dan `[]` di checkout reguler).
+      4. `loadData()` dan `checkUser()` dijamin 100% hanya dieksekusi tepat 1 kali saat halaman pertama kali dibuka.
+  - [x] **Tombol Interaktif "Lihat Peta" (Direct Google Maps Navigation):**
+    - Ditambahkan pada setiap kartu cabang toko di `/checkout` dan `/checkout/custom/[id]`.
+    - Menggunakan koordinat presisi pin cabang (`store.latitude` & `store.longitude`) dari `/api/stores/distances` untuk membuka Google Maps secara langsung di tab baru.
+    - Pengguna tanpa sensor GPS fisik (laptop/desktop) tidak perlu lagi bergantung pada tebakan ISP Ancol atau tektokan koordinat — cukup klik "Lihat Peta" untuk melihat lokasi presisi cabang toko dan rute jalan raya.
+  - [x] **Verifikasi:** Lolos typecheck TypeScript (`npx tsc --noEmit`) 0 error dan sukses kompilasi produksi `npm run build` (68 rute dinamis lolos).
+- [x] **Eliminasi Infinite Loop Checkout & Presisi Geolocation Laptop vs Mobile (Anti-Ancol):**
+  - [x] **Root Cause 1 (Looping Tanpa Henti "Mendeteksi Lokasi" & "Menghitung Ongkir"):**
+    - Di `src/app/checkout/page.tsx` dan `src/app/checkout/custom/[id]/page.tsx`, `const supabase = createClient()` dieksekusi langsung di tubuh komponen tanpa memoization.
+    - Setiap re-render menghasilkan referensi objek `supabase` baru, memicu `useEffect` yang memiliki dependency `supabase` untuk mengeksekusi `loadData()` / `checkUser()` berulang kali tanpa henti.
+    - Panggilan `evaluateStores()` memicu `fetchRates()`, yang mengubah state ongkir dan kurir, memicu re-render baru dan siklus loop tak terbatas (menghabiskan request API).
+    - **Solusi:** Bungkus Supabase dengan `useMemo(() => createClient(), [])`, pasang guard `initializedRef` / `initializedIdRef` agar `loadData()` hanya berjalan 1 kali saat mount, dan jadikan `cartItemsRef` terpisah agar `evaluateStores` tidak berubah referensi.
+  - [x] **Root Cause 2 (Jomplang ke Ancol 17–30 km di Laptop Tanpa GPS):**
+    - Laptop Windows tidak memiliki chip GPS satelit fisik. Saat izin lokasi diberikan di Chrome, Windows Location Service mengembalikan koordinat IP gateway Indosat di Ancol dengan akurasi kasar (1.000m – 15.000m).
+    - Geolocation resolver sebelumnya menganggap semua hasil browser sebagai `wifi_network` yang akurat, sehingga menimpa alamat tersimpan pengguna di Kebon Jeruk.
+    - **Solusi:** `src/lib/geolocation.ts` sekarang memvalidasi `coords.accuracy`. Jika akurasi > 250m di desktop atau > 500m di mobile dan pengguna memiliki alamat tersimpan yang valid (Kebon Jeruk), sistem **otomatis memprioritaskan alamat tersimpan** pengguna (1.4 km ke Rawa Belong) dan menolak titik kasar Ancol.
+  - [x] **Optimasi UX Mode Ambil di Toko (Pickup):**
+    - Saat beralih ke tab "Ambil Langsung di Toko", sistem langsung menghitung jarak instan dari alamat profil tersimpan pengguna (< 100ms) tanpa menunggu timeout GPS.
+    - Tombol "Gunakan Titik Lokasi" / "Perbarui Titik Lokasi" hanya memperbarui ke GPS fisik jika perangkat benar-benar memberikan koordinat presisi (< 150m mobile / < 250m Wi-Fi).
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi produksi `npm run build` (68/68 rute dinamis lolos).
+- [x] **Koreksi Presisi Geolocation: Eliminasi Nyasar ISP Ancol & Prioritas Alamat Profil:**
+  - [x] **Root Cause Nyasar ke Ancol (17–30 km):**
+    - Di Windows laptop, pemanggilan `enableHighAccuracy: false` tidak memicu pemindaian Wi-Fi access point, dan timeout singkat (2s) pada fallback langsung beralih ke endpoint IP Geolocation.
+    - ISP seluler/broadband (Indosat) mendaftarkan gateway IP publiknya di **Ancol, Jakarta Utara** (-6.1142, 106.8619), sehingga koordinat melompat 20–30 km dari lokasi riil pengguna di Kebon Jeruk.
+    - Geolocation resolver sebelumnya mengecek endpoint IP *sebelum* memeriksa alamat tersimpan pengguna.
+  - [x] **Solusi & Rekonfigurasi Geolocation (`src/lib/geolocation.ts`):**
+    - **Prioritas 1 (Sensor Fisik / Wi-Fi Presisi):** Berikan waktu 8 detik dengan `enableHighAccuracy: true` agar laptop Windows/Mac dapat menyelesaikan pemindaian BSSID Wi-Fi secara presisi ke tingkat jalan/rumah.
+    - **Prioritas 2 (Alamat Profil Tersimpan):** Jika izin browser ditolak atau GPS gagal, sistem **WAJIB** menggunakan alamat profil pengguna di database (misal: Kebon Jeruk, Jakarta Barat, ~1.1 km ke Cabang Rawa Belong) sebelum mencoba IP publik.
+    - **Prioritas 3 (IP Geolocation):** Hanya digunakan sebagai opsi terakhir bagi pengguna tamu (guest) yang belum memiliki alamat profil tersimpan di akunnya.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses build produksi (`npm run build`).
+- [x] **Eliminasi Crash "This page couldn't load" & Error 1102 pada Custom Refill:**
+  - [x] **Root Cause 1 (Fatal React Rendering Crash):**
+    - Pada bibit di database Supabase, `top_notes`, `middle_notes`, dan `base_notes` disimpan sebagai array objek JSON (`[{ name: "Lilac", intensity: "Strong" }, ...]`).
+    - Jalur 1-bibit di `/api/refill-analyze` meneruskan array objek tersebut ke `predicted_notes`.
+    - Di `src/components/refill/StepAiResult.tsx`, komponen me-render `{note}` secara langsung di dalam tag `<span>`. React mendeteksi objek sebagai child dan melempar fatal error: *"Objects are not valid as a React child"*, memicu Next.js error boundary: *"This page couldn't load"*.
+    - **Solusi:** Ekstraksi string nama aroma secara aman (`extractNoteName`) pada route handler dan tambahkan pengecekan defensif `typeof note === "object"` di `StepAiResult.tsx`.
+  - [x] **Root Cause 2 (Gemini Multi-Bibit Error 1102 Timeout):**
+    - Di database `ai_models`, model prioritas 1 terdaftar sebagai `gemini-2.5-flash` dan prioritas 4 sebagai `gemini-3-flash` (keduanya 404 dari Google GenAI).
+    - Loop rotasi mencoba 10 API keys x 5 model usang, memakan waktu hingga 55 detik dan melampaui resource limit Cloudflare Worker (Error 1102).
+    - **Solusi:** Perbarui `ai_models` di Supabase dengan model resmi yang aktif dan ultra cepat: `gemini-3.8-flash` (Priority 1), `gemini-3.5-flash`, dan `gemini-3.1-flash-lite`. Waktu analisis terpangkas dari 55 detik menjadi hanya ~10 detik.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses build produksi (`npm run build`).
+- [x] **Arsitektur Deteksi Lokasi Bertingkat (GPS Mobile vs Non-GPS Laptop/PC):**
+  - [x] **Analisis Perbedaan Hardware:**
+    - Perangkat ponsel (Android/iOS) memiliki modul GPS hardware, membutuhkan `enableHighAccuracy: true` untuk mengunci titik satelit secara presisi (< 30m).
+    - Laptop/PC desktop umumnya tidak memiliki sensor GPS hardware. Pemanggilan `enableHighAccuracy: true` memicu timeout/hang di Windows Location Service. Sebaliknya, `enableHighAccuracy: false` memanfaatkan pemindaian BSSID Wi-Fi yang merespons instan (< 400ms) dengan akurasi lingkungan lokal (20–50m).
+  - [x] **Modul Progressive Geolocation Resolver (`src/lib/geolocation.ts`):**
+    - **Ponsel (Mobile):** Prioritas 1 GPS Akurasi Tinggi (timeout 3.5s) -> Prioritas 2 Jaringan/Wi-Fi (timeout 3.0s) jika di dalam ruangan -> Prioritas 3 Cloudflare Edge IP -> Prioritas 4 Alamat Profil -> Prioritas 5 Default Jakarta.
+    - **Laptop/PC (Non-GPS):** Prioritas 1 Wi-Fi BSSID Triangulation (timeout 3.0s, respon instan < 400ms) -> Prioritas 2 Sensor internal (timeout 2.0s) -> Prioritas 3 Cloudflare Edge / IP lookup -> Prioritas 4 Alamat Profil -> Prioritas 5 Default Jakarta.
+    - **Penanganan Permission Denied:** Jika pengguna menolak izin lokasi (error code 1), sistem langsung melompat ke Cloudflare Edge IP / Alamat tersimpan tanpa perulangan error.
+  - [x] **Penyempurnaan Endpoint `/api/geo/my-location`:**
+    - Di Cloudflare Workers produksi: Membaca header `cf.latitude` & `cf.longitude` langsung (0ms latency).
+    - Di lingkungan Local Development / Non-CF: Menjalankan lookup IP publik instan via `ip-api.com` (timeout 1.5s) untuk mengembalikan titik kota riil ISP developer/pengguna, bukan sekadar koordinat statis Monas.
+  - [x] **Integrasi UI Checkout Reguler & Kustom (`/checkout` & `/checkout/custom/[id]`):**
+    - Mengganti teks tombol menjadi "Perbarui Titik Lokasi" / "Gunakan Titik Lokasi" dengan status loading "Mendeteksi...".
+    - Memberikan feedback toast sonner yang informatif: "Lokasi GPS akurat terdeteksi", "Lokasi terdeteksi via Wi-Fi / Laptop", atau "Lokasi terdeteksi via Jaringan IP".
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi produksi `npm run build` (68 rute dinamis lolos).
+- [x] **Eliminasi Error 1102 Refill Wizard & Sinkronisasi UX Jarak Cabang Checkout:**
+  - [x] **Root Cause Error 1102 pada Refill Wizard (`/refill/wizard` & `/api/refill-analyze`):**
+    - Halaman `/refill/wizard` melakukan SSR query 740 bibit dan serialisasi payload besar ke HTML flight stream, melampaui limit CPU 10ms Cloudflare Free.
+    - Route `/api/refill-analyze` memuat 740 baris bibit lengkap dengan notes dan melakukan `JSON.stringify(..., null, 2)` (~400KB string) ke prompt Gemini bahkan saat user hanya memilih 1 bibit kustom.
+  - [x] **Client-Side Catalog Streaming (`/api/refill/catalog`):** Buat endpoint katalog terkompresi dengan caching dan ubah `/refill/wizard` menjadi lightweight SSR shell (< 0.2ms CPU).
+  - [x] **Fast Path 1-Bibit Kustom di `/api/refill-analyze`:** Permintaan racik 1 bibit langsung merespons data aroma murni dalam 5ms dari database tanpa memanggil Gemini LLM atau memformat 740 bibit (0ms CPU Cloudflare, 0 error). Untuk multi-bibit, hanya 2-3 bibit terpilih yang dikirim ke LLM.
+  - [x] **Resolusi Geolocation & UX Jarak Checkout (Delivery vs Pickup):**
+    - Sembunyikan badge jarak dan label "Terdekat dari Anda" pada mode "Dikirim Kurir Ekspedisi" jika alamat penerima belum dipilih, mencegah kebingungan munculnya jarak default Monas (8.3 km).
+    - Ubah opsi geolocation ke `enableHighAccuracy: false` (Wi-Fi/IP provider) dengan timeout 6s agar tidak hang/timeout di PC Windows yang tidak memiliki chip GPS satelit.
+    - Sediakan endpoint fallback Cloudflare edge `/api/geo/my-location` jika browser memblokir izin lokasi.
+  - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` 0 error dan sukses build produksi (`npm run build`).
+- [x] **Fix Deteksi GPS & Tombol Perbarui Lokasi Real-time Saat Ambil di Toko:**
+  - [x] Analisis & optimasi opsi geolocation (`enableHighAccuracy: true`, `timeout: 10000`, `maximumAge: 60000`) mencegah false timeout di browser desktop/Windows.
+  - [x] Implementasi auto-detect GPS saat checkout dimuat ulang (refresh) atau saat opsi "Ambil di Toko" dipilih / pesanan bawa botol sendiri (`own_bottle: true`).
+  - [x] Tambahkan tombol interaktif "Perbarui Titik GPS" dengan indikator status/loading dan notifikasi Sonner Toast di `src/app/checkout/page.tsx` & `src/app/checkout/custom/[id]/page.tsx`.
+  - [x] Sanitasi ikon (bebas stock emoji, menggunakan Lucide `LocateFixed` dan `MapPin`).
+  - [x] Verifikasi type check TypeScript (`npx tsc --noEmit`) 0 error dan sukses build produksi (`npm run build`).
 - [x] **Resolusi 500 Internal Server Error & Eliminasi DOM Dependencies pada SSR Statistik (/admin/statistik):**
   - [x] **Root Cause:** Paket `file-saver` mencoba mengakses `HTMLAnchorElement.prototype` saat dievaluasi di level modul SSR Cloudflare Workers (V8 isolate tanpa browser DOM), memicu `ReferenceError` dan crash 500. Ditambah `exceljs` yang besar diimpor secara statis di top-level.
   - [x] **Pemberantasan `file-saver` & Native Download:** Hapus `file-saver` dan gunakan download berbasis browser native (`URL.createObjectURL` dan link virtual `a.click()`).

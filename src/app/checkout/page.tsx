@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
@@ -16,8 +16,8 @@ import {
   Store, 
   Sparkles, 
   AlertCircle, 
-  Navigation,
-  LocateFixed
+  LocateFixed,
+  ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
@@ -26,6 +26,7 @@ import { formatRupiah } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { processCheckout, validateVoucher } from "./actions";
 import { ELA_STORES } from "@/lib/stores";
+import { resolveBestCoordinates } from "@/lib/geolocation";
 
 interface StoreOption {
   storeId: number;
@@ -40,12 +41,21 @@ interface StoreOption {
   isNearest: boolean;
   isAvailable: boolean;
   outOfStockItems: string[];
+  latitude?: number;
+  longitude?: number;
+  mapsUrl?: string;
 }
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { cart, subtotal, clearCart } = useCart();
+  const initializedRef = useRef(false);
+  const cartItemsRef = useRef(cart.items);
+
+  useEffect(() => {
+    cartItemsRef.current = cart.items;
+  }, [cart.items]);
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -133,7 +143,7 @@ export default function CheckoutPage() {
       const distData = await distRes.json();
 
       // 2. Ambil ketersediaan stok produk per cabang
-      const cartItemsPayload = cart.items.map((it) => ({
+      const cartItemsPayload = (cartItemsRef.current || []).map((it) => ({
         sizeId: it.sizeId,
         quantity: it.quantity,
         name: it.perfumeName,
@@ -174,10 +184,49 @@ export default function CheckoutPage() {
     } finally {
       setLoadingStores(false);
     }
-  }, [cart.items, fetchRates]);
+  }, [fetchRates]);
+
+  const requestGpsLocation = useCallback(
+    async (fallbackLat?: number, fallbackLng?: number, addressLabel?: string) => {
+      setDetectingGps(true);
+
+      try {
+        const loc = await resolveBestCoordinates({
+          fallbackLat,
+          fallbackLng,
+          savedAddressLabel: addressLabel,
+        });
+
+        const isRealtime = loc.source === "gps_high" || loc.source === "wifi_network";
+        evaluateStores(loc.latitude, loc.longitude, isRealtime);
+
+        if (loc.source === "gps_high") {
+          toast.success(`Lokasi GPS akurat ponsel terdeteksi (${loc.label})!`);
+        } else if (loc.source === "wifi_network") {
+          toast.success(`Lokasi terdeteksi presisi via ${loc.label}!`);
+        } else if (loc.source === "saved_address") {
+          toast.info(`Menggunakan titik ${loc.label} agar jarak presisi.`);
+        } else if (loc.source === "edge_ip") {
+          toast.info(`Lokasi terdeteksi via ${loc.label}.`);
+        } else {
+          toast.info("Pilih cabang toko pengambilan yang diinginkan di bawah.");
+        }
+      } catch (err) {
+        console.warn("Location resolution error:", err);
+        evaluateStores(-6.2088, 106.8456, false);
+        toast.info("Pilih cabang toko pengambilan yang diinginkan di bawah.");
+      } finally {
+        setDetectingGps(false);
+      }
+    },
+    [evaluateStores]
+  );
 
   // Auth & Alamat Init
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     async function checkUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -209,7 +258,8 @@ export default function CheckoutPage() {
     }
     
     checkUser();
-  }, [router, supabase, evaluateStores]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!loading && !submitting && cart.items.length === 0) {
@@ -240,23 +290,6 @@ export default function CheckoutPage() {
     setError("");
 
     if (type === "pickup") {
-      // Ambil di Toko -> Coba dapatkan GPS Real-time Customer
-      if (typeof navigator !== "undefined" && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            evaluateStores(lat, lng, true);
-          },
-          () => {
-            // Jika user tolak akses GPS, gunakan koordinat alamat tersimpan
-            if (selectedAddress?.maps_latitude && selectedAddress?.maps_longitude) {
-              evaluateStores(selectedAddress.maps_latitude, selectedAddress.maps_longitude, false);
-            }
-          },
-          { timeout: 5000 }
-        );
-      }
       setShippingCost(0);
       setSelectedCourier({
         courier_name: "Toko Ela Parfum",
@@ -264,6 +297,10 @@ export default function CheckoutPage() {
         courier_service_code: "pickup",
         price: 0
       });
+      // Evaluasi toko instan berdasarkan alamat tersimpan customer
+      const lat = selectedAddress?.maps_latitude || -6.2088;
+      const lng = selectedAddress?.maps_longitude || 106.8456;
+      evaluateStores(lat, lng, false);
     } else {
       // Mode Kurir -> Gunakan koordinat Alamat Penerima
       if (selectedAddress) {
@@ -566,96 +603,167 @@ export default function CheckoutPage() {
             )}
 
             {/* PILIHAN CABANG TOKO & JARAK REAL-TIME */}
-            <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                <div>
-                  <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>
-                    <Store size={18} style={{ color: "var(--c-gold)" }} />
-                    {fulfillmentType === "pickup" ? "Pilih Cabang Pengambilan" : "Pilih Cabang Pengirim"}
-                  </h2>
-                  <p style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", margin: 0 }}>
-                    {fulfillmentType === "pickup"
-                      ? isRealtimeGps 
-                        ? "📍 Jarak dihitung akurat dari koordinat GPS Anda saat ini via rute jalan raya."
-                        : "📍 Jarak dihitung dari alamat utama Anda via rute jalan raya."
-                      : "📍 Sistem merekomendasikan cabang dengan rute jalan raya terdekat dan stok mencukupi."}
-                  </p>
-                </div>
+            {(() => {
+              const shouldShowDistance = fulfillmentType === "pickup" || !!selectedAddress;
+              return (
+                <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>
+                        <Store size={18} style={{ color: "var(--c-gold)" }} />
+                        {fulfillmentType === "pickup" ? "Pilih Cabang Pengambilan" : "Pilih Cabang Pengirim"}
+                      </h2>
+                      <p style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                        <MapPin size={13} style={{ color: isRealtimeGps ? "var(--c-gold)" : "var(--c-ink-dim)", flexShrink: 0 }} />
+                        {fulfillmentType === "pickup"
+                          ? isRealtimeGps 
+                            ? "Jarak dihitung dari posisi GPS/perangkat Anda saat ini via jaringan jalan."
+                            : selectedAddress
+                              ? `Jarak dihitung dari Alamat Tersimpan Anda (${selectedAddress.label || "Utama"}) via jaringan jalan.`
+                              : "Pilih cabang pengambilan terdekat atau gunakan tombol GPS di samping."
+                          : selectedAddress
+                            ? "Sistem memilih cabang terdekat dari alamat pengiriman Anda dengan stok tersedia."
+                            : "Cabang pengirim akan disesuaikan otomatis setelah alamat pengiriman dipilih."}
+                      </p>
+                    </div>
 
-                {loadingStores && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--c-gold)" }}>
-                    <Loader2 size={14} className="animate-spin" /> Menghitung rute...
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {fulfillmentType === "pickup" && (
+                        <button
+                          type="button"
+                          onClick={() => requestGpsLocation(selectedAddress?.maps_latitude, selectedAddress?.maps_longitude, selectedAddress?.label)}
+                          disabled={detectingGps || loadingStores}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 14px",
+                            background: "var(--glass-bg)",
+                            border: "1px solid var(--c-gold)",
+                            borderRadius: "var(--r-md)",
+                            color: "var(--c-gold)",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            cursor: (detectingGps || loadingStores) ? "not-allowed" : "pointer",
+                            transition: "all 0.2s ease"
+                          }}
+                          title="Klik untuk mendeteksi atau memperbarui titik lokasi Anda (GPS / Wi-Fi)"
+                        >
+                          <LocateFixed size={14} className={detectingGps ? "animate-spin" : ""} />
+                          {detectingGps ? "Mendeteksi..." : isRealtimeGps ? "Perbarui Titik Lokasi" : "Gunakan Titik Lokasi"}
+                        </button>
+                      )}
+
+                      {loadingStores && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--c-gold)" }}>
+                          <Loader2 size={14} className="animate-spin" /> Menghitung rute...
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {storeOptions.map((st) => {
-                  const isSelected = selectedStore?.storeId === st.storeId;
-                  const isAvailable = st.isAvailable;
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {storeOptions.map((st) => {
+                      const isSelected = selectedStore?.storeId === st.storeId;
+                      const isAvailable = st.isAvailable;
 
-                  return (
-                    <div
-                      key={st.storeId}
-                      onClick={() => handleSelectStore(st)}
-                      style={{
-                        padding: "16px",
-                        borderRadius: "var(--r-md)",
-                        border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
-                        background: isSelected ? "var(--glass-bg)" : "transparent",
-                        cursor: isAvailable ? "pointer" : "not-allowed",
-                        opacity: isAvailable ? 1 : 0.6,
-                        transition: "all 0.2s ease",
-                        position: "relative"
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          <input 
-                            type="radio"
-                            name="selected_store"
-                            checked={isSelected}
-                            disabled={!isAvailable}
-                            onChange={() => handleSelectStore(st)}
-                            style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
-                          />
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                              <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{st.name}</span>
-                              {st.isNearest && isAvailable && (
-                                <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(234, 179, 8, 0.15)", color: "var(--c-gold)", border: "1px solid rgba(234, 179, 8, 0.3)", borderRadius: 100, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                  <Sparkles size={11} /> {fulfillmentType === "pickup" ? "Terdekat dari Anda" : "Direkomendasikan (Terdekat)"}
-                                </span>
-                              )}
-                              {!isAvailable && (
-                                <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(225, 29, 72, 0.1)", color: "var(--c-rose)", borderRadius: 100, fontWeight: 600 }}>
-                                  Stok Tidak Tersedia
-                                </span>
-                              )}
+                      return (
+                        <div
+                          key={st.storeId}
+                          onClick={() => handleSelectStore(st)}
+                          style={{
+                            padding: "16px",
+                            borderRadius: "var(--r-md)",
+                            border: isSelected ? "1.5px solid var(--c-gold)" : "1px solid var(--c-border)",
+                            background: isSelected ? "var(--glass-bg)" : "transparent",
+                            cursor: isAvailable ? "pointer" : "not-allowed",
+                            opacity: isAvailable ? 1 : 0.6,
+                            transition: "all 0.2s ease",
+                            position: "relative"
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                              <input 
+                                type="radio"
+                                name="selected_store"
+                                checked={isSelected}
+                                disabled={!isAvailable}
+                                onChange={() => handleSelectStore(st)}
+                                style={{ accentColor: "var(--c-gold)", marginTop: 4 }}
+                              />
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                                  <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--c-ink)" }}>{st.name}</span>
+                                  {shouldShowDistance && st.isNearest && isAvailable && (
+                                    <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(234, 179, 8, 0.15)", color: "var(--c-gold)", border: "1px solid rgba(234, 179, 8, 0.3)", borderRadius: 100, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                      <Sparkles size={11} /> {fulfillmentType === "pickup" ? "Terdekat dari Anda" : "Rute Pengiriman Terdekat"}
+                                    </span>
+                                  )}
+                                  {!isAvailable && (
+                                    <span style={{ fontSize: "0.7rem", padding: "2px 8px", background: "rgba(225, 29, 72, 0.1)", color: "var(--c-rose)", borderRadius: 100, fontWeight: 600 }}>
+                                      Stok Tidak Tersedia
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", lineHeight: 1.4 }}>
+                                  {st.address}
+                                </div>
+                                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                                  <a
+                                    href={
+                                      st.mapsUrl ||
+                                      (st.latitude && st.longitude
+                                        ? `https://www.google.com/maps/search/?api=1&query=${st.latitude},${st.longitude}`
+                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(st.name + " " + st.address)}`)
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 5,
+                                      fontSize: "0.76rem",
+                                      color: "var(--c-gold)",
+                                      fontWeight: 500,
+                                      textDecoration: "none",
+                                      padding: "3px 9px",
+                                      borderRadius: "6px",
+                                      background: "rgba(234, 179, 8, 0.08)",
+                                      border: "1px solid rgba(234, 179, 8, 0.22)",
+                                      cursor: "pointer",
+                                      width: "fit-content",
+                                      transition: "all 0.15s ease"
+                                    }}
+                                  >
+                                    <MapPin size={12} />
+                                    <span>Lihat Peta</span>
+                                    <ExternalLink size={11} />
+                                  </a>
+                                </div>
+                                {!isAvailable && st.outOfStockItems.length > 0 && (
+                                  <div style={{ marginTop: 6, fontSize: "0.78rem", color: "var(--c-rose)", display: "flex", alignItems: "center", gap: 6 }}>
+                                    <AlertCircle size={13} /> {st.outOfStockItems.join(", ")}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", lineHeight: 1.4 }}>
-                              {st.address}
-                            </div>
-                            {!isAvailable && st.outOfStockItems.length > 0 && (
-                              <div style={{ marginTop: 6, fontSize: "0.78rem", color: "var(--c-rose)", display: "flex", alignItems: "center", gap: 6 }}>
-                                <AlertCircle size={13} /> {st.outOfStockItems.join(", ")}
+
+                            {shouldShowDistance && st.distanceText && (
+                              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--c-gold)" }}>{st.distanceText}</div>
+                                <div style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>~{st.durationText}</div>
                               </div>
                             )}
                           </div>
                         </div>
-
-                        {st.distanceText && (
-                          <div style={{ textAlign: "right", flexShrink: 0 }}>
-                            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--c-gold)" }}>{st.distanceText}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>~{st.durationText}</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* OPSI PENGIRIMAN KURIR (HANYA JIKA DELIVERY) */}
             {fulfillmentType === "delivery" && (
