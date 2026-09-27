@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-*(Tidak ada task aktif saat ini. Siap untuk instruksi atau fitur baru).*
+- (Saat ini antrian aktif kosong — perbaikan deteksi lokasi GPS & tombol perbarui sukses diuji dan siap deploy)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,12 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Fix Deteksi GPS & Tombol Perbarui Lokasi Real-time Saat Ambil di Toko:**
+  - [x] Analisis & optimasi opsi geolocation (`enableHighAccuracy: true`, `timeout: 10000`, `maximumAge: 60000`) mencegah false timeout di browser desktop/Windows.
+  - [x] Implementasi auto-detect GPS saat checkout dimuat ulang (refresh) atau saat opsi "Ambil di Toko" dipilih / pesanan bawa botol sendiri (`own_bottle: true`).
+  - [x] Tambahkan tombol interaktif "Perbarui Titik GPS" dengan indikator status/loading dan notifikasi Sonner Toast di `src/app/checkout/page.tsx` & `src/app/checkout/custom/[id]/page.tsx`.
+  - [x] Sanitasi ikon (bebas stock emoji, menggunakan Lucide `LocateFixed` dan `MapPin`).
+  - [x] Verifikasi type check TypeScript (`npx tsc --noEmit`) 0 error dan sukses build produksi (`npm run build`).
 - [x] **Resolusi 500 Internal Server Error & Eliminasi DOM Dependencies pada SSR Statistik (/admin/statistik):**
   - [x] **Root Cause:** Paket `file-saver` mencoba mengakses `HTMLAnchorElement.prototype` saat dievaluasi di level modul SSR Cloudflare Workers (V8 isolate tanpa browser DOM), memicu `ReferenceError` dan crash 500. Ditambah `exceljs` yang besar diimpor secara statis di top-level.
   - [x] **Pemberantasan `file-saver` & Native Download:** Hapus `file-saver` dan gunakan download berbasis browser native (`URL.createObjectURL` dan link virtual `a.click()`).
