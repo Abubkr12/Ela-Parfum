@@ -18,7 +18,7 @@ export function getItemKey(item: { id?: string; sizeId?: number }): string {
 
 interface CartContextValue {
   cart: Cart;
-  addItem: (item: Omit<CartItem, "quantity">, qty?: number) => void;
+  addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }, qty?: number) => void;
   updateQuantity: (idOrSizeId: string | number, qty: number) => void;
   removeItem: (idOrSizeId: string | number) => void;
   clearCart: () => void;
@@ -78,7 +78,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cart, mounted]);
 
   const addItem = useCallback(
-    (rawItem: Omit<CartItem, "quantity">, qty = 1) => {
+    (rawItem: Omit<CartItem, "quantity"> & { quantity?: number }, qty?: number) => {
+      const finalQty =
+        typeof qty === "number" && qty > 0
+          ? qty
+          : typeof rawItem.quantity === "number" && rawItem.quantity > 0
+            ? rawItem.quantity
+            : 1;
+
       const key = rawItem.id || (rawItem.sizeId ? `regular-${rawItem.sizeId}` : `refill-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
       const item: Omit<CartItem, "quantity"> = {
         ...rawItem,
@@ -93,14 +100,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ...prev,
             items: prev.items.map((i) =>
               getItemKey(i) === key
-                ? { ...i, quantity: i.quantity + qty }
+                ? { ...i, quantity: i.quantity + finalQty }
                 : i
             ),
           };
         }
         return {
           ...prev,
-          items: [...prev.items, { ...item, quantity: qty }],
+          items: [...prev.items, { ...item, quantity: finalQty }],
         };
       });
     },

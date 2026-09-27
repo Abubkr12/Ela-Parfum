@@ -64,8 +64,13 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     if (!user) return { error: 'Harap login terlebih dahulu untuk checkout.' };
     if (!cart || cart.items.length === 0) return { error: 'Keranjang belanja kosong.' };
 
-    const fullName = formData.get('fullName') as string;
-    const phone = formData.get('phone') as string;
+    const fullName = (formData.get('fullName') as string || 'Pelanggan').trim();
+    const rawPhone = (formData.get('phone') as string || '').trim();
+    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('62')) {
+      cleanPhone = '0' + cleanPhone.substring(2);
+    }
+
     const address = formData.get('address') as string;
     const shippingCostStr = formData.get('shippingCost') as string;
     const courierInfo = formData.get('courierInfo') as string;
@@ -96,6 +101,9 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     // Hitung total dan 1% fee jika QRIS
     let total = subtotal + shippingCost - discount;
     if (paymentMethod === "QRIS") {
+      if (cleanPhone.length < 10) {
+        return { error: 'Nomor WhatsApp tidak valid (minimal 10 digit angka). Mohon periksa kembali nomor kontak Anda.' };
+      }
       const fee = Math.floor(total * 0.01);
       total += fee;
     }
@@ -134,7 +142,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         order_code: orderCode,
         customer_id: user.id,
         customer_name: fullName,
-        customer_phone: phone,
+        customer_phone: cleanPhone || rawPhone,
         customer_address: address,
         store_id: storeId,
         fulfillment_type: fulfillmentType,
@@ -244,7 +252,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         name: fullName,
         email: user.email || 'customer@elaparfum.com',
         amount: total,
-        mobile: phone,
+        mobile: cleanPhone,
         description: `Pesanan ${orderCode}`,
         referenceId: orderData.order_code,
         redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
@@ -269,8 +277,11 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
         return { url: resData.data.link, success: true };
       } else {
         console.error("Mayar API Error:", resData);
-        // Fallback if Mayar fails
-        return { error: 'Gagal membuat link pembayaran: ' + (resData.message || resData.messages || 'Unknown Error') };
+        let detailMsg = resData.message || resData.messages || 'Unknown Error';
+        if (Array.isArray(resData.data) && resData.data.length > 0 && resData.data[0]?.message) {
+          detailMsg = resData.data[0].message;
+        }
+        return { error: `Gagal membuat link pembayaran: ${detailMsg}` };
       }
     } catch (e: any) {
       console.error("Error creating Mayar invoice:", e);
@@ -299,8 +310,13 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
 
     if (reqErr || !request) return { error: 'Data pesanan custom tidak ditemukan.' };
 
-    const fullName = formData.get('fullName') as string;
-    const phone = formData.get('phone') as string;
+    const fullName = (formData.get('fullName') as string || request.customer_name || 'Pelanggan Ela').trim();
+    const rawPhone = (formData.get('phone') as string || request.customer_whatsapp || '').trim();
+    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('62')) {
+      cleanPhone = '0' + cleanPhone.substring(2);
+    }
+
     const address = formData.get('address') as string;
     const shippingCostStr = formData.get('shippingCost') as string;
     const courierInfo = formData.get('courierInfo') as string;
@@ -330,6 +346,9 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
     // Hitung total dan 1% fee jika QRIS
     let total = subtotal + shippingCost - discount;
     if (paymentMethod === "QRIS") {
+      if (cleanPhone.length < 10) {
+        return { error: 'Nomor WhatsApp tidak valid (minimal 10 digit angka). Mohon periksa kembali nomor kontak Anda.' };
+      }
       const fee = Math.floor(total * 0.01);
       total += fee;
     }
@@ -372,7 +391,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         order_code: orderCode,
         customer_id: user.id,
         customer_name: fullName,
-        customer_phone: phone,
+        customer_phone: cleanPhone || rawPhone,
         customer_address: address,
         store_id: storeId,
         fulfillment_type: fulfillmentType,
@@ -485,7 +504,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         status: paymentMethod === 'TUNAI' ? 'paid' : 'quoted',
         total_price: total,
         customer_name: fullName,
-        customer_whatsapp: phone
+        customer_whatsapp: cleanPhone || rawPhone
       })
       .eq('id', customRequestId);
 
@@ -513,7 +532,7 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         name: fullName,
         email: user.email || 'customer@elaparfum.com',
         amount: total,
-        mobile: phone,
+        mobile: cleanPhone,
         description: `Pesanan Custom Refill ${orderCode}`,
         referenceId: orderData.order_code,
         redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?id=${orderData.id}`,
@@ -537,7 +556,11 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
         return { url: resData.data.link, success: true };
       } else {
         console.error("Mayar API Error:", resData);
-        return { error: 'Gagal membuat link pembayaran: ' + (resData.message || resData.messages || 'Unknown Error') };
+        let detailMsg = resData.message || resData.messages || 'Unknown Error';
+        if (Array.isArray(resData.data) && resData.data.length > 0 && resData.data[0]?.message) {
+          detailMsg = resData.data[0].message;
+        }
+        return { error: `Gagal membuat link pembayaran: ${detailMsg}` };
       }
     } catch (e) {
       console.error("Error creating Mayar invoice:", e);

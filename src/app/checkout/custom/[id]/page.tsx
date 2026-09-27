@@ -18,7 +18,9 @@ import {
   Store,
   AlertCircle,
   LocateFixed,
-  ExternalLink
+  ExternalLink,
+  User,
+  Phone
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
@@ -64,6 +66,8 @@ export default function CustomCheckoutPage() {
 
   // Fulfillment Type: 'delivery' | 'pickup'
   const [fulfillmentType, setFulfillmentType] = useState<"delivery" | "pickup">("delivery");
+  const [pickupName, setPickupName] = useState("");
+  const [pickupPhone, setPickupPhone] = useState("");
 
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
@@ -267,14 +271,23 @@ export default function CustomCheckoutPage() {
         let defaultRegionCode = "";
         let defaultLabel = "";
 
+        const defaultName = (req.customer_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "").trim();
+        const defaultPhone = (req.customer_whatsapp || user.phone || user.user_metadata?.phone || "").trim();
+
         if (addrs && addrs.length > 0) {
           setAddresses(addrs);
           const defaultAddr = addrs[0];
           setSelectedAddress(defaultAddr);
+          setPickupName(defaultAddr.recipient_name || defaultName);
+          setPickupPhone(defaultAddr.phone || defaultPhone);
+
           defaultLat = defaultAddr.maps_latitude || -6.2088;
           defaultLng = defaultAddr.maps_longitude || 106.8456;
           defaultRegionCode = defaultAddr.region_code || "";
           defaultLabel = defaultAddr.label || "";
+        } else {
+          setPickupName(defaultName);
+          setPickupPhone(defaultPhone);
         }
 
         if (isSelfPickup) {
@@ -402,8 +415,25 @@ export default function CustomCheckoutPage() {
       data.append("fulfillmentType", fulfillmentType);
 
       if (fulfillmentType === "pickup") {
-        data.append("fullName", request.customer_name || selectedAddress?.recipient_name || "Pelanggan Ela");
-        data.append("phone", request.customer_whatsapp || selectedAddress?.phone || "");
+        const contactName = (pickupName.trim() || request.customer_name || selectedAddress?.recipient_name || "Pelanggan Ela").trim();
+        const contactPhone = (pickupPhone.trim() || request.customer_whatsapp || selectedAddress?.phone || "").replace(/[^0-9]/g, "");
+
+        if (!contactName) {
+          setError("Silakan lengkapi Nama Pemesan untuk pengambilan di toko.");
+          setSubmitting(false);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+
+        if (contactPhone.length < 10) {
+          setError("Nomor WhatsApp pemesan wajib diisi minimal 10 digit angka agar staf toko dapat menghubungi Anda.");
+          setSubmitting(false);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+
+        data.append("fullName", contactName);
+        data.append("phone", contactPhone);
         data.append("address", `[Ambil di Toko: ${selectedStore.name}] ${selectedStore.address}`);
         data.append("shippingCost", "0");
         data.append("courierInfo", `Ambil di Tempat (${selectedStore.shortName})${isOwnBottle ? " - Bawa Botol Sendiri" : ""}`);
@@ -630,6 +660,77 @@ export default function CustomCheckoutPage() {
                     </Link>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* JIKA AMBIL DI TOKO: DATA PEMESAN */}
+            {fulfillmentType === "pickup" && (
+              <div style={{ background: "var(--c-surface-1)", padding: 24, borderRadius: "var(--r-lg)", border: "1px solid var(--c-border)" }}>
+                <div style={{ marginBottom: 18 }}>
+                  <h2 style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>
+                    <User size={18} style={{ color: "var(--c-gold)" }} />
+                    Data Pemesan (Pengambilan di Toko)
+                  </h2>
+                  <p style={{ fontSize: "0.82rem", color: "var(--c-ink-dim)", margin: 0 }}>
+                    Informasi ini digunakan kasir Ela Parfum untuk konfirmasi saat Anda mengambil racikan custom pesanan.
+                  </p>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 6 }}>
+                      Nama Lengkap Pemesan <span style={{ color: "var(--c-gold)" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={pickupName}
+                      onChange={(e) => setPickupName(e.target.value)}
+                      placeholder="Nama lengkap Anda"
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        borderRadius: "var(--r-md)",
+                        border: "1px solid var(--c-border)",
+                        background: "var(--c-surface-2)",
+                        color: "var(--c-ink)",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "var(--c-ink)", marginBottom: 6 }}>
+                      Nomor WhatsApp Pemesan <span style={{ color: "var(--c-gold)" }}>*</span>
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type="tel"
+                        required
+                        value={pickupPhone}
+                        onChange={(e) => setPickupPhone(e.target.value.replace(/[^0-9+]/g, ""))}
+                        placeholder="Contoh: 081234567890"
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px 10px 38px",
+                          borderRadius: "var(--r-md)",
+                          border: "1px solid var(--c-border)",
+                          background: "var(--c-surface-2)",
+                          color: "var(--c-ink)",
+                          fontSize: "0.9rem",
+                          outline: "none",
+                        }}
+                      />
+                      <Phone size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-dim)" }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem", color: "var(--c-ink-dim)", background: "rgba(217, 119, 6, 0.06)", border: "1px solid rgba(217, 119, 6, 0.2)", padding: "10px 14px", borderRadius: "var(--r-sm)" }}>
+                  <Store size={15} style={{ color: "var(--c-gold)", flexShrink: 0 }} />
+                  <span>Staf toko kami akan menghubungi via WhatsApp saat racikan parfum kustom Anda sudah siap diambil di cabang pilihan.</span>
+                </div>
               </div>
             )}
 

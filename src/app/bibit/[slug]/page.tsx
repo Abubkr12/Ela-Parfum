@@ -24,6 +24,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { showLuxuryCartToast } from "@/components/ui/LuxuryToast";
 import { PageHeader } from "@/components/page-header";
 import { Footer } from "@/components/footer";
 import { useCart } from "@/lib/cart-context";
@@ -206,15 +207,25 @@ export default function BibitDetailPage() {
 
   const handleAddToCart = () => {
     const item = buildCartItem();
-    if (!item) return;
+    if (!item || !bibit) return;
 
-    addItem(item);
-    toast.success("Berhasil ditambahkan ke keranjang!", {
-      description: `${item.perfumeName} (${item.sizeLabel}) x${quantity}`,
-      action: {
-        label: "Lihat Keranjang",
-        onClick: () => router.push("/keranjang"),
-      },
+    addItem(item, quantity);
+    const ratioName =
+      ratio === "100/0"
+        ? "Elixir (Murni)"
+        : ratio === "70/30"
+        ? "Extrait de Parfum (1:3)"
+        : ratio === "50/50"
+        ? "Eau De Parfum (1:1)"
+        : "Eau De Toilette (3:7)";
+
+    showLuxuryCartToast({
+      title: "Racikan Masuk Keranjang",
+      perfumeName: item.perfumeName,
+      variantDetails: `${capacityMl}ml • ${ratioName}`,
+      quantity: quantity,
+      totalPrice: totalPrice,
+      onOpenCart: () => router.push("/keranjang"),
     });
   };
 
@@ -224,7 +235,7 @@ export default function BibitDetailPage() {
 
     setSubmittingDirect(true);
     try {
-      addItem(item);
+      addItem(item, quantity);
       router.push("/checkout");
     } catch (err: any) {
       toast.error(err.message || "Gagal memproses checkout");

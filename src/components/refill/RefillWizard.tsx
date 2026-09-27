@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { showLuxuryCartToast } from "@/components/ui/LuxuryToast";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/lib/cart-context";
@@ -355,13 +356,14 @@ export function RefillWizard({ initialMode, bibits, bottles }: RefillWizardProps
         }
       };
 
-      addItem(cartItem);
-      toast.success("Racikan berhasil ditambahkan ke keranjang!", {
-        description: `${cartItem.perfumeName} (${cartItem.sizeLabel})`,
-        action: {
-          label: "Lihat Keranjang",
-          onClick: () => router.push("/keranjang"),
-        },
+      addItem(cartItem, 1);
+      showLuxuryCartToast({
+        title: "Racikan Masuk Keranjang",
+        perfumeName: cartItem.perfumeName,
+        variantDetails: cartItem.sizeLabel,
+        quantity: 1,
+        totalPrice: cartItem.price,
+        onOpenCart: () => router.push("/keranjang"),
       });
     } catch (err: any) {
       toast.error(err.message || "Gagal menambahkan ke keranjang");

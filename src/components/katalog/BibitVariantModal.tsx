@@ -16,6 +16,7 @@ import {
   Droplets 
 } from "lucide-react";
 import { toast } from "sonner";
+import { showLuxuryCartToast } from "@/components/ui/LuxuryToast";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { BibitData, BottleData } from "@/components/refill/types";
@@ -138,14 +139,15 @@ export function BibitVariantModal({ bibit, bottles, isOpen, onClose }: BibitVari
         }
       };
 
-      addItem(cartItem);
+      addItem(cartItem, quantity);
       onClose();
-      toast.success("Berhasil ditambahkan ke keranjang!", {
-        description: `${cartItem.perfumeName} (${cartItem.sizeLabel}) x${quantity}`,
-        action: {
-          label: "Lihat Keranjang",
-          onClick: () => router.push("/keranjang"),
-        },
+      showLuxuryCartToast({
+        title: "Racikan Masuk Keranjang",
+        perfumeName: `Refill ${bibit.name}`,
+        variantDetails: `${capacityMl}ml • ${ratioName}`,
+        quantity: quantity,
+        totalPrice: totalPrice,
+        onOpenCart: () => router.push("/keranjang"),
       });
     } catch (err: any) {
       toast.error(err.message || "Gagal menambahkan ke keranjang");

@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Tidak ada task aktif saat ini — seluruh perbaikan sinkronisasi stok botol dan revamping UI varian botol selesai)
+- (Tidak ada task aktif saat ini — seluruh perbaikan sinkronisasi kuantitas keranjang, luxury custom toast, dan kelancaran checkout pickup QRIS selesai)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,23 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Perbaikan Kuantitas Keranjang, Luxury Custom Toast, & Checkout Validation Error (Ambil di Toko / QRIS Mayar):**
+  - [x] **Bug Quantity Keranjang (Pilih 3 pcs masuk 1 pcs):**
+    - Root Cause: `addItem(rawItem, qty = 1)` di `cart-context.tsx` hanya membaca argumen kedua `qty`. Di `BibitVariantModal.tsx` dan `src/app/bibit/[slug]/page.tsx`, `addItem(cartItem)` dipanggil tanpa argumen kedua, sehingga nilai `quantity: 3` ter-override menjadi 1.
+    - Solusi: `cart-context.tsx` membaca `finalQty` dari `qty` atau `rawItem.quantity`, serta semua pemanggil (`BibitVariantModal.tsx`, `/bibit/[slug]`, `RefillWizard.tsx`) secara eksplisit mengirimkan `addItem(item, quantity)`. Kuantitas 3 pcs kini masuk 100% tepat ke keranjang.
+  - [x] **Luxury Custom Toast Notification (Bespoke Artisan Look):**
+    - Menggantikan sonner alert bawaan yang kaku dan terkesan template AI dengan komponen bespoke `LuxuryToast` (`src/components/ui/LuxuryToast.tsx`).
+    - Desain: Dark luxury glassmorphism obsidian (`rgba(15, 17, 16, 0.94)`), blur 14px, border aksen gold (`rgba(217, 119, 6, 0.35)`), box-shadow amber glow.
+    - Icon: Lucide `ShoppingBag` berwarna gold dalam container rounded.
+    - Copy natural: `Racikan Masuk Keranjang`, `3x Refill Mykonos Utopia • 20ml Extrait (1:3)`, badge total harga gold, tombol aksi `Keranjang →`, dan dismiss `X` halus.
+  - [x] **Fix Gagal Checkout "Validation Error" (Ambil di Toko & QRIS Mayar):**
+    - Root Cause: Di mode "Ambil Langsung di Toko (`pickup`)", form tidak merender input kontak pemesan saat user belum punya alamat tersimpan. Akibatnya `phone` bernilai `""` (string kosong). Mayar API me-reject pembuatan invoice dengan status 400 Validation Error: `The 'mobile' field length must be greater than or equal to 10 characters long.`
+    - Solusi UI: Menambahkan card **"Data Pemesan (Pengambilan di Toko)"** di `/checkout` dan `/checkout/custom/[id]` dengan input **Nama Lengkap Pemesan** dan **Nomor WhatsApp Pemesan** (format `08xxxxxxxxxx`), pre-fill otomatis dari user / alamat default, serta validasi frontend minimal 10 digit angka sebelum submit.
+    - Solusi Backend: Sanitasi nomor HP (`cleanPhone`) di `processCheckout` dan `processCustomCheckout` (`src/app/checkout/actions.ts`), validasi `cleanPhone.length >= 10` untuk metode QRIS, dan ekstraksi detail pesan error Mayar yang transparan. Uji Mayar API Sandbox membuktikan HTTP 200 sukses menghasilkan payment link (`https://ay-project.myr.lat/invoices/...`).
+  - [x] **Verifikasi Build:**
+    - TypeScript compilation (`npx tsc --noEmit`) 0 error.
+    - Next.js Turbopack build (`npm run build`) sukses 69 rute dinamis.
+    - OpenNext Cloudflare Worker build (`npm run build:worker`) sukses 100% tersimpan di `.open-next\worker.js`.
 - [x] **Sinkronisasi Stok Botol Admin & Database Multi-Cabang serta Revamp UI Varian Botol:**
   - [x] **Sinkronisasi Stok Botol Multi-Cabang:**
     - Backfill database Supabase: Seluruh 19 botol di-update dengan akumulasi riil 3 cabang (Condet, Rawabelong, Tangerang). Lacoste 30ml (120+120+120 = 360 pcs), Lacoste 50ml (360 pcs), dan botol lainnya 339-340 pcs.
@@ -55,8 +72,6 @@
   - [x] **Poles Sheet Ringkasan & Detail Harian:** Standarisasi font Times New Roman, title height 28pt, subtitle height 22pt, header height 26-28pt, table borders rapi, dan print setup A4 portrait/landscape `fitToWidth: 1`.
   - [x] **Sinkronisasi Statistik Barang:** Terapkan standar dynamic row height, auto-fit column, dan tema Times New Roman yang sama pada export Excel Statistik Barang.
   - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` dengan 0 error.
-=======
->>>>>>> origin/main
 - [x] **Koreksi Titik Presisi Koordinat & Direct Link Google Maps Toko Terdaftar:**
   - [x] **Pembaruan Koordinat Riil & Link Profil Toko Google Maps (`src/lib/stores.ts`, `src/lib/biteship.ts`, `src/app/api/webhooks/mayar/route.ts`):**
     1. **Condet:** Koordinat `-6.263216121945289, 106.86483496323179` | Link: `https://maps.app.goo.gl/NeXJRAJkhEcBjo7ZA`
