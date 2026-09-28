@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Tidak ada task aktif saat ini — seluruh perbaikan sinkronisasi kuantitas keranjang, luxury custom toast, dan kelancaran checkout pickup QRIS selesai)
+- (Saat ini antrian aktif kosong — font rupiah checkout dan tompel invoice PDF telah tuntas diperbaiki dan lolos build)
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,13 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Koreksi Font Nominal Rupiah Checkout Status & Eliminasi Tompel Cetak Invoice PDF:**
+  - [x] **Perbaikan Font Nominal Rupiah (`/checkout/success`):** Mengganti font `var(--font-display)` (Cormorant Garamond) yang memiliki karakter angka keriting/oldstyle figures pada total pembayaran menjadi sans-serif modern `var(--font-body)` (`Inter`, 800 weight, tabular-nums) agar nominal rupiah tampil tegak, presisi, dan profesional.
+  - [x] **Eliminasi Tompel Kanan Bawah saat Cetak Invoice PDF:**
+    - Root cause: `#chatbot-toggle` dari `<ChatWidget />` di `RootLayout` memiliki posisi `fixed` di pojok kanan bawah (`bottom: 24px, right: 24px`) dengan `border-radius: 50%` dan `box-shadow`. Saat user mencetak invoice (print to PDF via browser atau Nitro PDF Creator), tombol chatbot ini ikut ter-render sebagai bulatan putih dengan bayangan ("tompel").
+    - Solusi: Cegah render `ChatWidget` di semua route invoice (`pathname.includes('/invoice')`), tambahkan `className="no-print"` pada elemen chatbot, serta terapkan rule `@media print { #chatbot-toggle, .chat-widget, .no-print { display: none !important; } }` di `chat-widget.tsx`, `globals.css`, dan 4 template invoice (`src/app/riwayat-pesanan/invoice/[id]`, `src/app/pesanan/invoice/[id]`, dan masing-masing varian `custom`).
+  - [x] **Verifikasi & Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi Cloudflare OpenNext worker (`npm run build:worker`) 69/69 rute dinamis.
+
 - [x] **Perbaikan Kuantitas Keranjang, Luxury Custom Toast, & Checkout Validation Error (Ambil di Toko / QRIS Mayar):**
   - [x] **Bug Quantity Keranjang (Pilih 3 pcs masuk 1 pcs):**
     - Root Cause: `addItem(rawItem, qty = 1)` di `cart-context.tsx` hanya membaca argumen kedua `qty`. Di `BibitVariantModal.tsx` dan `src/app/bibit/[slug]/page.tsx`, `addItem(cartItem)` dipanggil tanpa argumen kedua, sehingga nilai `quantity: 3` ter-override menjadi 1.
@@ -74,6 +81,15 @@
   - [x] **Poles Sheet Ringkasan & Detail Harian:** Standarisasi font Times New Roman, title height 28pt, subtitle height 22pt, header height 26-28pt, table borders rapi, dan print setup A4 portrait/landscape `fitToWidth: 1`.
   - [x] **Sinkronisasi Statistik Barang:** Terapkan standar dynamic row height, auto-fit column, dan tema Times New Roman yang sama pada export Excel Statistik Barang.
   - [x] **Verifikasi Build:** Lolos pengecekan `npx tsc --noEmit` dengan 0 error.
+=======
+- [x] **Koreksi Font Nominal Rupiah Checkout Status & Eliminasi Tompel Cetak Invoice PDF:**
+  - [x] **Perbaikan Font Nominal Rupiah (`/checkout/success`):** Mengganti font `var(--font-display)` (Cormorant Garamond) yang memiliki karakter angka keriting/oldstyle figures pada total pembayaran menjadi sans-serif modern `var(--font-body)` (`Inter`, 800 weight, tabular-nums) agar nominal rupiah tampil tegak, presisi, dan profesional.
+  - [x] **Eliminasi Tompel Kanan Bawah saat Cetak Invoice PDF:**
+    - Root cause: `#chatbot-toggle` dari `<ChatWidget />` di `RootLayout` memiliki posisi `fixed` di pojok kanan bawah (`bottom: 24px, right: 24px`) dengan `border-radius: 50%` dan `box-shadow`. Saat user mencetak invoice (print to PDF via browser atau Nitro PDF Creator), tombol chatbot ini ikut ter-render sebagai bulatan putih dengan bayangan ("tompel").
+    - Solusi: Cegah render `ChatWidget` di semua route invoice (`pathname.includes('/invoice')`), tambahkan `className="no-print"` pada elemen chatbot, serta terapkan rule `@media print { #chatbot-toggle, .chat-widget, .no-print { display: none !important; } }` di `chat-widget.tsx`, `globals.css`, dan 4 template invoice (`src/app/riwayat-pesanan/invoice/[id]`, `src/app/pesanan/invoice/[id]`, dan masing-masing varian `custom`).
+  - [x] **Verifikasi & Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi Cloudflare OpenNext worker (`npm run build:worker`) 69/69 rute dinamis.
+
+>>>>>>> 771e717 (fix(invoice-checkout): ganti font rupiah checkout status dan eliminasi tompel print invoice PDF)
 - [x] **Koreksi Titik Presisi Koordinat & Direct Link Google Maps Toko Terdaftar:**
   - [x] **Pembaruan Koordinat Riil & Link Profil Toko Google Maps (`src/lib/stores.ts`, `src/lib/biteship.ts`, `src/app/api/webhooks/mayar/route.ts`):**
     1. **Condet:** Koordinat `-6.263216121945289, 106.86483496323179` | Link: `https://maps.app.goo.gl/NeXJRAJkhEcBjo7ZA`

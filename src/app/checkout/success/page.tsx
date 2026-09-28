@@ -180,7 +180,16 @@ export default function CheckoutSuccessPage() {
           <div style={{ background: 'var(--c-surface-1)', padding: '32px', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-gold)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--c-gold)' }} />
             <p style={{ color: 'var(--c-ink-dim)', fontSize: '0.95rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Total Pembayaran</p>
-            <h2 style={{ fontSize: '3rem', color: 'var(--c-gold)', fontWeight: 700, margin: '0 0 16px 0', fontFamily: 'var(--font-display)' }}>
+            <h2 style={{ 
+              fontSize: '3rem', 
+              color: 'var(--c-gold)', 
+              fontWeight: 800, 
+              margin: '0 0 16px 0', 
+              fontFamily: 'var(--font-body, "Inter", -apple-system, sans-serif)',
+              letterSpacing: '-0.02em',
+              fontVariantNumeric: 'tabular-nums',
+              lineHeight: 1.15
+            }}>
               {formatRupiah(order.total)}
             </h2>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(220, 165, 74, 0.1)', padding: '12px 24px', borderRadius: '100px', color: 'var(--c-gold)', fontSize: '0.9rem' }}>

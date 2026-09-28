@@ -40,8 +40,8 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Don't show on admin pages or if not logged in
-  if (!userId || pathname.startsWith('/admin')) return null;
+  // Don't show on admin pages, invoice pages, or if not logged in
+  if (!userId || pathname.startsWith('/admin') || pathname.includes('/invoice')) return null;
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +96,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
       {/* Floating Toggle Button */}
       <button
         id="chatbot-toggle"
+        className="no-print"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Buka Scent Advisor AI"
         style={{
@@ -124,6 +125,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
       {/* Chat Window */}
       {isOpen && (
         <div
+          className="no-print chat-widget"
           style={{
             position: 'fixed',
             bottom: 92,
@@ -441,6 +443,13 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
             @keyframes chatFadeIn {
               from { opacity: 0; transform: translateY(12px) scale(0.96); }
               to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @media print {
+              #chatbot-toggle, .chat-widget, .no-print {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+              }
             }
           `,
         }}

@@ -2034,3 +2034,38 @@ button { cursor: pointer; border: none; background: none; }
   .co-metode { order: 4; }
   .co-button { order: 5; }
 }
+
+/* GLOBAL PRINT UTILITIES & INVOICE PRINT SANITIZATION */
+@media print {
+  #chatbot-toggle,
+  .chat-widget,
+  .no-print,
+  [data-sonner-toaster],
+  header:not(.invoice-header),
+  footer,
+  nav,
+  .theme-toggle {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .invoice-paper {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 24px 32px !important;
+  }
+
+  @page {
+    margin: 10mm;
+  }
+}
+

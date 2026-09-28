@@ -121,9 +121,10 @@ export default async function InvoiceCustomPage({ params }: { params: { id: stri
       {/* Print CSS embedded */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          body { background: #fff; }
-          .no-print { display: none !important; }
-          @page { margin: 0; }
+          body { background: #fff !important; }
+          .no-print, #chatbot-toggle, .chat-widget, [data-sonner-toaster] { display: none !important; visibility: hidden !important; opacity: 0 !important; }
+          .invoice-paper { box-shadow: none !important; border: none !important; }
+          @page { margin: 10mm; }
         }
       `}} />
     </div>
