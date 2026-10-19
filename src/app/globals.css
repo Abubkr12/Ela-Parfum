@@ -2035,21 +2035,8 @@ button { cursor: pointer; border: none; background: none; }
   .co-button { order: 5; }
 }
 
-/* GLOBAL PRINT UTILITIES & INVOICE PRINT SANITIZATION */
+/* Universal Print Styling — Clean White Paper, Hide All Floating & Interactive Elements */
 @media print {
-  #chatbot-toggle,
-  .chat-widget,
-  .no-print,
-  [data-sonner-toaster],
-  header:not(.invoice-header),
-  footer,
-  nav,
-  .theme-toggle {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-  }
-
   body {
     background: #ffffff !important;
     color: #111111 !important;
@@ -2057,15 +2044,33 @@ button { cursor: pointer; border: none; background: none; }
     print-color-adjust: exact !important;
   }
 
+  #chatbot-toggle,
+  .chat-widget,
+  [data-sonner-toaster],
+  .no-print,
+  header:not(.invoice-header),
+  footer,
+  nav,
+  .theme-toggle,
+  button:not(.allow-print) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+
   .invoice-paper {
     box-shadow: none !important;
     border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
     margin: 0 !important;
-    padding: 24px 32px !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   @page {
-    margin: 10mm;
+    margin: 10mm 12mm;
+    size: auto;
   }
 }
 

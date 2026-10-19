@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-- (Saat ini antrian aktif kosong — font rupiah checkout dan tompel invoice PDF telah tuntas diperbaiki dan lolos build)
+*(Tidak ada task aktif. Semua modul POS Kasir & Sinkronisasi Stok Multi-Cabang telah tuntas.)*
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,13 +9,96 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Sinkronisasi Menyeluruh & Penguatan Idempotensi Alur Stok Multi-Cabang (Produk, Bibit, Botol, Pelarut):**
+  - [x] Bangun engine pemotongan stok terpadu `deductOrderStock` di `src/lib/stock/refill-stock.ts` yang mencakup Produk Jadi (`product_stocks` + sync `perfume_sizes.stock`), Botol Kemasan (`bottle_stocks` + sync `bottles.stock`), Bibit Racik (`bibit_stocks.stock_ml` presisi ml), dan Pelarut (`solvent_stocks.stock_ml`) dengan proteksi idempotensi berlapis via `stock_changelog`.
+  - [x] Terapkan pola Pre-aggregation Map pada `deductOrderStock` untuk mengakumulasikan total kebutuhan per entitas (mencegah under-deduction pada pesanan yang mengandung item kembar/multiple racikan sejenis) dan top-level idempotency guard untuk eliminasi race-condition antar webhook vs polling kasir.
+  - [x] Perbarui `src/app/kasir/actions.ts`: Serialisasi data racikan refill (`RefillCartItems`) & botol kemasan (`PosBottleItems`) ke `order.notes`, integrasikan `deductOrderStock` pada transaksi Tunai/Transfer (`completePosCashTransaction`) dan deteksi QRIS lunas (`checkPosOrderStatus`).
+  - [x] Perbarui Webhook Mayar (`src/app/api/webhooks/mayar/route.ts`): Pastikan pembacaan cabang memprioritaskan `order.store_id`, delegasikan pemotongan ke `deductOrderStock` untuk pesanan QRIS (baik dari web customer maupun terminal POS).
+  - [x] Perbarui aksi Admin Pesanan (`src/app/admin/(dashboard)/pesanan/actions.ts`): Sambungkan `markAsPaid` dan `confirmCashPaymentAndComplete` ke `deductOrderStock`.
+  - [x] Perbarui web checkout (`src/app/checkout/actions.ts`): Sambungkan alur `TUNAI` (reguler & custom refill) ke `deductOrderStock`.
+  - [x] Audit & Verifikasi: Lakukan pengujian skenario transaksi multi-cabang (Condet: 1, Rawabelong: 2, Tangerang: 3), audit kode via subagent QC, pastikan changelog tercatat rapi dan bebas dari selisih atau double-deduction.
+
+- [x] **Sistem Kasir (POS) Multi-Cabang Ela Parfum (`cashier.elaparfum.web.id`):**
+  - [x] **Database Migration & Cloudflare Domain Setup:**
+    - Tambah kolom `assigned_store_ids INT[]` di tabel `admin_users` dan backfill data akun internal dengan `'{1,2,3}'`.
+    - Tambah kolom `cashier_name`, `cash_received`, `cash_change` di tabel `orders`.
+    - Daftarkan custom domain `cashier.elaparfum.web.id` ke Worker `ela-parfum` di Cloudflare (DNS AAAA `100::` proxied aktif otomatis).
+  - [x] **Routing Middleware & Kasir Auth:**
+    - Atur `src/lib/supabase/middleware.ts` untuk mendeteksi `cashier.elaparfum.web.id` dan me-rewrite ke `/kasir`.
+    - Buat halaman login terminal kasir luxury `/kasir/login` dan actions autentikasi `kasirLogin` & `kasirLogout` menggunakan cookie `sb-admin-auth-token`.
+  - [x] **Penugasan Multi-Cabang Karyawan di Admin:**
+    - Perbarui form Admin Karyawan (`/admin/karyawan`) untuk memilih cabang toko (Condet, Rawa Belong, Tangerang) yang bisa diakses kasir (single / multiple).
+    - Tambahkan modal edit penugasan cabang kasir dan aksi `updateEmployeeBranches`.
+  - [x] **Layar Utama POS & Katalog Cepat:**
+    - Layout Split Bento POS (Fullscreen, responsif, dark luxury Ela Parfum).
+    - Top status bar dengan branch switcher, live WIB clock, cashier profile chip, shortcut legend (`F1: Cari`, `F2: Bibit`, `F3: Produk`, `F4: Bayar`, `Esc: Reset`), dan modal shift history.
+    - Katalog cepat dengan search instan & tab filter (`Semua`, `Produk Jadi`, `Bibit Racik`, `Botol Kosong`) lengkap dengan stok cabang real-time.
+  - [x] **Modal Racik Kasir Interaktif (Custom Mix & Refill):**
+    - Pilihan wadah: Botol Ela Parfum (19 botol aktif dengan harga) atau Bawa Botol Sendiri (kapasitas ml custom, harga wadah Rp 0).
+    - Pilihan bibit: 1 bibit atau + Tambah Bibit ke-2 (Layering/Campuran) dengan slider proporsi persentase.
+    - Rasio konsentrasi: Presets (100/0 Elixir, 70/30 Extrait, 50/50 EDP, 30/70 EDT) atau Custom Slider Persentase.
+    - AI Scent Advisor (Nove AI button) untuk rekomendasi proporsi campuran harmonis instan.
+    - Kalkulasi volume & harga otomatis dan masuk ke bill kasir.
+  - [x] **Panel Billing & Integrasi Pembayaran (Tunai, QRIS Mayar Inline, Transfer):**
+    - Kalkulator kembalian uang tunai dengan shortcut pecahan cepat.
+    - Dynamic QRIS Mayar tampil langsung (inline) di layar modal kasir dengan countdown 15 menit dan generator QR Code SVG/canvas data URL.
+    - Auto-detect lunas realtime via Supabase postgres_changes channel + polling fallback 2.5 detik.
+    - Pemotongan otomatis stok cabang (`bibit_stocks`, `solvent_stocks`, `bottle_stocks`, `product_stocks`) via `completePosCashTransaction`, `deductRefillStock`, dan webhook Mayar.
+  - [x] **Modul Struk Kasir (Thermal 58/80mm & WhatsApp Receipt):**
+    - Layout struk thermal monokrom presisi via browser native print (`window.print()`) dengan `@media print` CSS.
+    - Generator struk digital via WhatsApp (`wa.me`) ke nomor pelanggan.
+  - [x] **Verifikasi & Testing:**
+    - Uji kompilasi TypeScript (`npx tsc --noEmit`) 0 error.
+    - Uji build Turbopack Next.js (`npm run build`) sukses 71 rute.
+    - Uji build OpenNext Cloudflare Worker (`npm run build:worker`) sukses 100% tersimpan di `.open-next\worker.js`.
+
 - [x] **Koreksi Font Nominal Rupiah Checkout Status & Eliminasi Tompel Cetak Invoice PDF:**
   - [x] **Perbaikan Font Nominal Rupiah (`/checkout/success`):** Mengganti font `var(--font-display)` (Cormorant Garamond) yang memiliki karakter angka keriting/oldstyle figures pada total pembayaran menjadi sans-serif modern `var(--font-body)` (`Inter`, 800 weight, tabular-nums) agar nominal rupiah tampil tegak, presisi, dan profesional.
   - [x] **Eliminasi Tompel Kanan Bawah saat Cetak Invoice PDF:**
     - Root cause: `#chatbot-toggle` dari `<ChatWidget />` di `RootLayout` memiliki posisi `fixed` di pojok kanan bawah (`bottom: 24px, right: 24px`) dengan `border-radius: 50%` dan `box-shadow`. Saat user mencetak invoice (print to PDF via browser atau Nitro PDF Creator), tombol chatbot ini ikut ter-render sebagai bulatan putih dengan bayangan ("tompel").
     - Solusi: Cegah render `ChatWidget` di semua route invoice (`pathname.includes('/invoice')`), tambahkan `className="no-print"` pada elemen chatbot, serta terapkan rule `@media print { #chatbot-toggle, .chat-widget, .no-print { display: none !important; } }` di `chat-widget.tsx`, `globals.css`, dan 4 template invoice (`src/app/riwayat-pesanan/invoice/[id]`, `src/app/pesanan/invoice/[id]`, dan masing-masing varian `custom`).
   - [x] **Verifikasi & Build:** Lolos pengecekan `npx tsc --noEmit` (0 error) dan sukses kompilasi Cloudflare OpenNext worker (`npm run build:worker`) 69/69 rute dinamis.
+  - [x] Bangun engine pemotongan stok terpadu `deductOrderStock` di `src/lib/stock/refill-stock.ts` yang mencakup Produk Jadi (`product_stocks` + sync `perfume_sizes.stock`), Botol Kemasan (`bottle_stocks` + sync `bottles.stock`), Bibit Racik (`bibit_stocks.stock_ml` presisi ml), dan Pelarut (`solvent_stocks.stock_ml`) dengan proteksi idempotensi berlapis via `stock_changelog`.
+  - [x] Terapkan pola Pre-aggregation Map pada `deductOrderStock` untuk mengakumulasikan total kebutuhan per entitas (mencegah under-deduction pada pesanan yang mengandung item kembar/multiple racikan sejenis) dan top-level idempotency guard untuk eliminasi race-condition antar webhook vs polling kasir.
+  - [x] Perbarui `src/app/kasir/actions.ts`: Serialisasi data racikan refill (`RefillCartItems`) & botol kemasan (`PosBottleItems`) ke `order.notes`, integrasikan `deductOrderStock` pada transaksi Tunai/Transfer (`completePosCashTransaction`) dan deteksi QRIS lunas (`checkPosOrderStatus`).
+  - [x] Perbarui Webhook Mayar (`src/app/api/webhooks/mayar/route.ts`): Pastikan pembacaan cabang memprioritaskan `order.store_id`, delegasikan pemotongan ke `deductOrderStock` untuk pesanan QRIS (baik dari web customer maupun terminal POS).
+  - [x] Perbarui aksi Admin Pesanan (`src/app/admin/(dashboard)/pesanan/actions.ts`): Sambungkan `markAsPaid` dan `confirmCashPaymentAndComplete` ke `deductOrderStock`.
+  - [x] Perbarui web checkout (`src/app/checkout/actions.ts`): Sambungkan alur `TUNAI` (reguler & custom refill) ke `deductOrderStock`.
+  - [x] Audit & Verifikasi: Lakukan pengujian skenario transaksi multi-cabang (Condet: 1, Rawabelong: 2, Tangerang: 3), audit kode via subagent QC, pastikan changelog tercatat rapi dan bebas dari selisih atau double-deduction.
 
+- [x] **Sistem Kasir (POS) Multi-Cabang Ela Parfum (`cashier.elaparfum.web.id`):**
+  - [x] **Database Migration & Cloudflare Domain Setup:**
+    - Tambah kolom `assigned_store_ids INT[]` di tabel `admin_users` dan backfill data akun internal dengan `'{1,2,3}'`.
+    - Tambah kolom `cashier_name`, `cash_received`, `cash_change` di tabel `orders`.
+    - Daftarkan custom domain `cashier.elaparfum.web.id` ke Worker `ela-parfum` di Cloudflare (DNS AAAA `100::` proxied aktif otomatis).
+  - [x] **Routing Middleware & Kasir Auth:**
+    - Atur `src/lib/supabase/middleware.ts` untuk mendeteksi `cashier.elaparfum.web.id` dan me-rewrite ke `/kasir`.
+    - Buat halaman login terminal kasir luxury `/kasir/login` dan actions autentikasi `kasirLogin` & `kasirLogout` menggunakan cookie `sb-admin-auth-token`.
+  - [x] **Penugasan Multi-Cabang Karyawan di Admin:**
+    - Perbarui form Admin Karyawan (`/admin/karyawan`) untuk memilih cabang toko (Condet, Rawa Belong, Tangerang) yang bisa diakses kasir (single / multiple).
+    - Tambahkan modal edit penugasan cabang kasir dan aksi `updateEmployeeBranches`.
+  - [x] **Layar Utama POS & Katalog Cepat:**
+    - Layout Split Bento POS (Fullscreen, responsif, dark luxury Ela Parfum).
+    - Top status bar dengan branch switcher, live WIB clock, cashier profile chip, shortcut legend (`F1: Cari`, `F2: Bibit`, `F3: Produk`, `F4: Bayar`, `Esc: Reset`), dan modal shift history.
+    - Katalog cepat dengan search instan & tab filter (`Semua`, `Produk Jadi`, `Bibit Racik`, `Botol Kosong`) lengkap dengan stok cabang real-time.
+  - [x] **Modal Racik Kasir Interaktif (Custom Mix & Refill):**
+    - Pilihan wadah: Botol Ela Parfum (19 botol aktif dengan harga) atau Bawa Botol Sendiri (kapasitas ml custom, harga wadah Rp 0).
+    - Pilihan bibit: 1 bibit atau + Tambah Bibit ke-2 (Layering/Campuran) dengan slider proporsi persentase.
+    - Rasio konsentrasi: Presets (100/0 Elixir, 70/30 Extrait, 50/50 EDP, 30/70 EDT) atau Custom Slider Persentase.
+    - AI Scent Advisor (Nove AI button) untuk rekomendasi proporsi campuran harmonis instan.
+    - Kalkulasi volume & harga otomatis dan masuk ke bill kasir.
+  - [x] **Panel Billing & Integrasi Pembayaran (Tunai, QRIS Mayar Inline, Transfer):**
+    - Kalkulator kembalian uang tunai dengan shortcut pecahan cepat.
+    - Dynamic QRIS Mayar tampil langsung (inline) di layar modal kasir dengan countdown 15 menit dan generator QR Code SVG/canvas data URL.
+    - Auto-detect lunas realtime via Supabase postgres_changes channel + polling fallback 2.5 detik.
+    - Pemotongan otomatis stok cabang (`bibit_stocks`, `solvent_stocks`, `bottle_stocks`, `product_stocks`) via `completePosCashTransaction`, `deductRefillStock`, dan webhook Mayar.
+  - [x] **Modul Struk Kasir (Thermal 58/80mm & WhatsApp Receipt):**
+    - Layout struk thermal monokrom presisi via browser native print (`window.print()`) dengan `@media print` CSS.
+    - Generator struk digital via WhatsApp (`wa.me`) ke nomor pelanggan.
+  - [x] **Verifikasi & Testing:**
+    - Uji kompilasi TypeScript (`npx tsc --noEmit`) 0 error.
+    - Uji build Turbopack Next.js (`npm run build`) sukses 71 rute.
+    - Uji build OpenNext Cloudflare Worker (`npm run build:worker`) sukses 100% tersimpan di `.open-next\worker.js`.
 - [x] **Perbaikan Kuantitas Keranjang, Luxury Custom Toast, & Checkout Validation Error (Ambil di Toko / QRIS Mayar):**
   - [x] **Bug Quantity Keranjang (Pilih 3 pcs masuk 1 pcs):**
     - Root Cause: `addItem(rawItem, qty = 1)` di `cart-context.tsx` hanya membaca argumen kedua `qty`. Di `BibitVariantModal.tsx` dan `src/app/bibit/[slug]/page.tsx`, `addItem(cartItem)` dipanggil tanpa argumen kedua, sehingga nilai `quantity: 3` ter-override menjadi 1.

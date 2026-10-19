@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Package, LayoutDashboard, Users, Settings, LogOut, MessageCircle, ChevronLeft, TrendingUp, Archive } from "lucide-react";
+import { Package, LayoutDashboard, Users, Settings, LogOut, MessageCircle, ChevronLeft, TrendingUp, Archive, Store } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 import "../admin.css";
@@ -31,6 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+    { name: "Kasir (POS)", href: "/kasir", icon: Store },
     { 
       name: "Pesanan", 
       href: "/admin/pesanan", 

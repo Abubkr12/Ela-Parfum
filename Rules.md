@@ -136,3 +136,26 @@ Minyak Wangi/
     - **Helper Kalkulasi Standar**: Seluruh tampilan UI (kartu katalog, button ukuran di detail produk, chip AI advisor) wajib menggunakan helper `getSizeStock(size)` dan `getTotalStock(sizes)` dari `src/lib/types.ts` yang menjumlahkan `stock_qty` dari relasi `product_stocks`.
     - **Sinkronisasi Otomatis Dual-Write**: Setiap mutasi stok produk di Admin (`/admin/stok`), checkout kasir tunai, atau webhook Mayar QRIS wajib memperbarui `product_stocks` sekaligus meng-update kolom agregat `perfume_sizes.stock` agar konsistensi query lama dan fallback tetap terjaga 100%.
     - **Toleransi URL & Slug**: Halaman `/parfum/[id]` wajib mendukung pencocokan toleran baik slug dash (`-`), underscore (`_`), maupun ID numeric dengan sanitasi `decodeURIComponent` untuk mencegah error 404 atau render kosong.
+
+11. **Standar Arsitektur Sistem Kasir (POS) Multi-Cabang (cashier.elaparfum.web.id)**:
+    - **Routing Subdomain Terpadu**: Beroperasi pada `cashier.elaparfum.web.id` yang di-route langsung via Cloudflare Worker Custom Domain ke Worker produksi `ela-parfum`. Next.js `middleware.ts` mendeteksi host dan me-rewrite request ke rute internal `/kasir` tanpa redirect URL bar.
+    - **Otentikasi & Penugasan Multi-Cabang Staf**:
+      - Akun kasir menggunakan akun internal karyawan (`admin_users`) dengan auth cookie `sb-admin-auth-token`.
+      - Kolom `assigned_store_ids INT[]` di `admin_users` mengatur cabang toko yang berhak diakses oleh karyawan (bisa 1 atau beberapa cabang).
+      - Jika kasir ditugaskan di >1 cabang, kasir memilih cabang aktif shift saat buka kasir.
+    - **Alur Cepat Input Produk & Racikan Bibit (Bento POS UI)**:
+      - *Produk Jadi*: Quick selector ukuran (10ml, 30ml, 50ml, 100ml) langsung masuk bill.
+      - *Racikan Bibit & Refill*: Modal racik instan mendukung Botol Ela Parfum (19 botol) atau Bawa Botol Sendiri (kapasitas ml custom, harga botol Rp 0), 1 bibit atau 2 bibit (mix/layering), rasio preset (100/0, 70/30, 50/50, 30/70) atau custom slider persentase, serta rekomendasi perpaduan note aroma via AI Nove.
+    - **Pembayaran QRIS Inline Mayar Real-time**:
+      - QRIS Mayar dinamis di-generate melalui API Mayar `create_payment` (metode `qris`) dan ditampilkan langsung di layar modal kasir tanpa redirect ke Mayar.
+      - Status pembayaran otomatis terdeteksi realtime melalui Supabase Channel + Polling fallback 2 detik.
+    - **Struk Transaksi & WhatsApp**:
+      - Cetak struk nota fisik teroptimasi untuk printer thermal 58mm & 80mm via CSS media print.
+      - Opsi kirim struk digital via WhatsApp ke nomor pelanggan.
+    - **Integritas Stok & Idempotensi Mutasi Terpadu**:
+      - Pemotongan stok multi-cabang terpusat di `deductOrderStock` (`src/lib/stock/refill-stock.ts`).
+      - Dilengkapi **Top-Level Idempotency Guard** berbasis `stock_changelog` (`order_id == orderId && reason == 'sale'`) untuk memblokir eksekusi ganda jika Webhook Mayar dan Polling kasir selesai bersamaan.
+      - Menerapkan **Pre-Aggregation Map** (akumulasi produk, botol, bibit, pelarut sebelum eksekusi mutasi) untuk memastikan pesanan yang memiliki lebih dari satu racikan sejenis (botol/pelarut/bibit sama) terpotong 100% presisi tanpa risiko under-deduction.
+      - Seluruh transaksi kasir tunai, QRIS, web checkout tunai, dan aksi admin pesanan (`markAsPaid`, `confirmCashPaymentAndComplete`) terhubung ke engine terpadu ini.
+
+

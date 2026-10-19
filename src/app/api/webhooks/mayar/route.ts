@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { deductRefillStock } from '@/lib/stock/refill-stock';
+import { deductOrderStock } from '@/lib/stock/refill-stock';
 import { parseCourier } from '@/lib/biteship';
 function extractPostalCode(address: string): number | undefined {
   if (!address) return undefined;
@@ -89,112 +89,57 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: 'Order already processed' }, { status: 200 });
       }
 
-      // 2. Update Order to Paid
+      // --- 1. Deduct Multi-Branch Stock & Record Changelog for Paid Orders ---
+      // Tentukan store_id (prioritaskan order.store_id)
+      let storeId = order.store_id;
+      if (!storeId) {
+        const originNameMatch = order.notes?.match(/Origin:\s*([^|]+)/);
+        if (originNameMatch && originNameMatch[1]) {
+          const originName = originNameMatch[1].trim().toLowerCase();
+          if (originName.includes('condet')) storeId = 1;
+          else if (originName.includes('rawa belong') || originName.includes('rawabelong')) storeId = 2;
+          else if (originName.includes('tangerang')) storeId = 3;
+        }
+      }
+      if (!storeId) storeId = 2; // Default Rawabelong
+
+      // Potong seluruh stok cabang secara terpadu & idempotent (Produk Jadi, Botol Kemasan, Bibit Racik, Pelarut)
+      await deductOrderStock(order.id, storeId);
+
+      // --- 2. Update Order to Paid ---
       const { error: updateError } = await supabaseAdmin
         .from('orders')
         .update({ 
           status: 'paid', 
-          payment_status: 'paid'
+          payment_status: 'paid',
+          paid_at: new Date().toISOString()
         })
         .eq('id', order.id);
 
       if (updateError) {
-          console.error("Failed to update order status:", updateError);
+        console.error("Failed to update order status:", updateError);
       }
 
-      // --- Deduct Stock & Record Changelog for QRIS Orders ---
-      if (!updateError) {
-        // Fetch order items
-        const { data: items } = await supabaseAdmin
-          .from('order_items')
-          .select('*')
-          .eq('order_id', order.id);
-          
-        if (items && items.length > 0) {
-          // Determine store_id from order notes
-          let storeId = 2; // Default to Rawabelong
-          const originNameMatch = order.notes?.match(/Origin:\s*([^|]+)/);
-          if (originNameMatch && originNameMatch[1]) {
-            const originName = originNameMatch[1].trim().toLowerCase();
-            if (originName.includes('condet')) storeId = 1;
-            else if (originName.includes('rawa belong') || originName.includes('rawabelong')) storeId = 2;
-            else if (originName.includes('tangerang')) storeId = 3;
-          }
-          
-          for (const item of items) {
-            // Check if it's a standard product (has size_id)
-            if (item.size_id) {
-              const { data: stockData } = await supabaseAdmin
-                .from('product_stocks')
-                .select('id, stock_qty')
-                .eq('perfume_size_id', item.size_id)
-                .eq('store_id', storeId)
-                .single();
-                
-              if (stockData) {
-                const newQty = Math.max(0, stockData.stock_qty - item.quantity);
-                
-                // Update stock
-                await supabaseAdmin
-                  .from('product_stocks')
-                  .update({ stock_qty: newQty })
-                  .eq('id', stockData.id);
-
-                // Sync aggregate stock in perfume_sizes for backward compatibility
-                const { data: allStocks } = await supabaseAdmin
-                  .from('product_stocks')
-                  .select('stock_qty')
-                  .eq('perfume_size_id', item.size_id);
-                const totalQty = (allStocks || []).reduce((sum, s) => sum + (s.stock_qty || 0), 0);
-                await supabaseAdmin
-                  .from('perfume_sizes')
-                  .update({ stock: totalQty })
-                  .eq('id', item.size_id);
-                  
-                // Insert changelog
-                await supabaseAdmin
-                  .from('stock_changelog')
-                  .insert({
-                    entity_type: 'product',
-                    entity_id: stockData.id,
-                    entity_name: `${item.perfume_name} - ${item.size_label}`,
-                    store_id: storeId,
-                    change_qty: -item.quantity,
-                    new_qty: newQty,
-                    reason: 'sale',
-                    order_id: order.id
-                  });
-              }
-            }
-          }
-        }
-      }
-      // ----------------------------------------------------
-
-      // Check if order is linked to a Custom Request or has RefillCartItems
+      // Update custom_requests jika pesanan terkait custom request
       const customReqMatch = order.notes?.match(/CustomRequestID:\s*([a-f0-9-]+)/i);
       if (customReqMatch && customReqMatch[1]) {
         const customReqId = customReqMatch[1];
         await supabaseAdmin
           .from('custom_requests')
           .update({ 
-            status: 'paid',
+            status: 'paid', 
             payment_status: 'paid',
             paid_at: new Date().toISOString()
           })
           .eq('id', customReqId);
         console.log(`[Webhook Debug] Updated custom_request ${customReqId} to paid`);
-
-        // Potong stok bibit, pelarut, dan botol untuk pesanan refill
-        await deductRefillStock(order.id, order.store_id || undefined);
-      } else if (order.notes?.includes('RefillCartItems:')) {
-        // Potong stok bibit, pelarut, dan botol untuk pesanan refill dari cart
-        await deductRefillStock(order.id, order.store_id || undefined);
       }
-
+      // --------------------------------------------------------------------
 
       // 3. Trigger Biteship Order if it's not Pickup
-      const isPickup = order.courier_name.toLowerCase().includes('ambil di tempat') || order.courier_name.toLowerCase().includes('pickup');
+      const isPickup =
+        order.fulfillment_type === 'pickup' ||
+        (order.courier_name && (order.courier_name.toLowerCase().includes('ambil di tempat') || order.courier_name.toLowerCase().includes('pickup')));
       
       if (!isPickup) {
         // Extract Origin Name from notes then map to Area ID

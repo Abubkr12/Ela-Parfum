@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
-import { deductRefillStock } from '@/lib/stock/refill-stock';
+import { deductOrderStock } from '@/lib/stock/refill-stock';
 
 const supabaseAdmin = createAdminClient();
 
@@ -49,11 +49,11 @@ export async function markAsPaid(payload: string | FormData) {
     throw new Error('Gagal update status: ' + error.message);
   }
 
-  // Pastikan stok refill terpotong jika belum pernah dipotong
+  // Pastikan seluruh stok terpotong jika belum pernah dipotong
   try {
-    await deductRefillStock(Number(orderId));
+    await deductOrderStock(Number(orderId));
   } catch (stockErr) {
-    console.error('Error deductRefillStock in markAsPaid:', stockErr);
+    console.error('Error deductOrderStock in markAsPaid:', stockErr);
   }
 
   revalidatePath('/admin/pesanan');
@@ -125,9 +125,9 @@ export async function confirmCashPaymentAndComplete(payload: string | FormData |
   }
 
   try {
-    await deductRefillStock(parseInt(orderId, 10));
+    await deductOrderStock(parseInt(orderId, 10));
   } catch (stockErr) {
-    console.error('Error deductRefillStock in confirmCashPaymentAndComplete:', stockErr);
+    console.error('Error deductOrderStock in confirmCashPaymentAndComplete:', stockErr);
   }
 
   revalidatePath('/admin/pesanan');

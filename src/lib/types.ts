@@ -138,11 +138,28 @@ export interface Order {
   midtrans_id: string | null;
   midtrans_url: string | null;
   notes: string | null;
+  cashier_name?: string | null;
+  cash_received?: number | null;
+  cash_change?: number | null;
   created_at: string;
   updated_at: string;
   // Joined
   items?: OrderItem[];
   stores?: Store | null;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  birth_place?: string | null;
+  birth_date?: string | null;
+  gender?: string | null;
+  religion?: string | null;
+  created_at?: string;
+  avatar_url?: string | null;
+  assigned_store_ids?: number[];
 }
 
 export interface OrderItem {

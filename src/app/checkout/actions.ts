@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Cart } from '@/lib/types';
-import { deductRefillStock } from '@/lib/stock/refill-stock';
+import { deductOrderStock } from '@/lib/stock/refill-stock';
 
 const supabaseAdmin = createAdminClient();
 
@@ -193,55 +193,7 @@ export async function processCheckout(formData: FormData, cart: Cart, subtotal: 
     // --- Deduct Stock (Only for TUNAI) ---
     // QRIS orders will deduct stock in the webhook upon successful payment
     if (paymentMethod === 'TUNAI') {
-      // 1. Regular items stock deduction
-      for (const item of cart.items) {
-        if (!item.sizeId) continue;
-        const { data: stockData } = await supabaseAdmin
-          .from('product_stocks')
-          .select('id, stock_qty')
-          .eq('perfume_size_id', item.sizeId)
-          .eq('store_id', storeId)
-          .single();
-          
-        if (stockData) {
-          const newQty = Math.max(0, stockData.stock_qty - item.quantity);
-          
-          await supabaseAdmin
-            .from('product_stocks')
-            .update({ stock_qty: newQty })
-            .eq('perfume_size_id', item.sizeId)
-            .eq('store_id', storeId);
-
-          // Sync aggregate stock in perfume_sizes for backward compatibility
-          const { data: allStocks } = await supabaseAdmin
-            .from('product_stocks')
-            .select('stock_qty')
-            .eq('perfume_size_id', item.sizeId);
-          const totalQty = (allStocks || []).reduce((sum, s) => sum + (s.stock_qty || 0), 0);
-          await supabaseAdmin
-            .from('perfume_sizes')
-            .update({ stock: totalQty })
-            .eq('id', item.sizeId);
-            
-          await supabaseAdmin
-            .from('stock_changelog')
-            .insert({
-              entity_type: 'product',
-              entity_id: stockData.id,
-              entity_name: `${item.perfumeName} - ${item.sizeLabel}`,
-              store_id: storeId,
-              change_qty: -item.quantity,
-              new_qty: newQty,
-              reason: 'sale',
-              order_id: orderData.id
-            });
-        }
-      }
-
-      // 2. Refill items stock deduction
-      if (refillItems.length > 0) {
-        await deductRefillStock(orderData.id, storeId);
-      }
+      await deductOrderStock(orderData.id, storeId);
     }
     // --------------------
 
@@ -533,9 +485,9 @@ export async function processCustomCheckout(formData: FormData, customRequestId:
       }
     }
 
-    // 4. Jika TUNAI, langsung potong stok refill & return success
+    // 4. Jika TUNAI, langsung potong stok & return success
     if (paymentMethod === 'TUNAI') {
-      await deductRefillStock(orderData.id);
+      await deductOrderStock(orderData.id, storeId);
       return { url: `/checkout/success?id=${orderData.id}`, success: true };
     }
 

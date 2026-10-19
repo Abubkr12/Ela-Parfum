@@ -54,6 +54,9 @@ export async function addEmployee(formData: FormData) {
       }
     }
 
+    const rawStoreIds = formData.getAll("assigned_store_ids").map((id) => parseInt(id as string, 10)).filter(Boolean);
+    const assignedStoreIds = rawStoreIds.length > 0 ? rawStoreIds : [1, 2, 3];
+
     // 2. Insert into admin_users table
     const { error: dbError } = await supabaseAdmin
       .from("admin_users")
@@ -62,6 +65,7 @@ export async function addEmployee(formData: FormData) {
         email: email,
         full_name: fullName,
         role: role,
+        assigned_store_ids: assignedStoreIds,
       });
 
     if (dbError) {
@@ -70,6 +74,27 @@ export async function addEmployee(formData: FormData) {
         await supabaseAdmin.auth.admin.deleteUser(authUserId);
       }
       return { error: `Gagal menyimpan data profil: ${dbError.message}` };
+    }
+
+    revalidatePath("/admin/karyawan");
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || "Terjadi kesalahan internal" };
+  }
+}
+
+export async function updateEmployeeBranches(userId: string, storeIds: number[]) {
+  try {
+    const supabaseAdmin = createAdminClient();
+    const finalStoreIds = storeIds.length > 0 ? storeIds : [1, 2, 3];
+
+    const { error } = await supabaseAdmin
+      .from("admin_users")
+      .update({ assigned_store_ids: finalStoreIds })
+      .eq("id", userId);
+
+    if (error) {
+      return { error: `Gagal memperbarui cabang: ${error.message}` };
     }
 
     revalidatePath("/admin/karyawan");
