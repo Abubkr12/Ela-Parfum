@@ -308,8 +308,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
         height: "100vh",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#0B0E0D",
-        color: "#F3F4F6",
+        backgroundColor: "var(--c-bg, #0a0c0b)",
+        color: "var(--c-ink, #f0ede8)",
         fontFamily: "inherit",
         overflow: "hidden",
       }}
@@ -321,8 +321,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
         style={{
           height: "64px",
           padding: "0 1.25rem",
-          backgroundColor: "#121614",
-          borderBottom: "1px solid rgba(217, 119, 6, 0.25)",
+          backgroundColor: "var(--c-surface-1, #111614)",
+          borderBottom: "1px solid var(--c-border, rgba(255, 255, 255, 0.08))",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -331,24 +331,32 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
       >
         {/* Brand & Store Selector */}
         <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <div
               style={{
                 width: "36px",
                 height: "36px",
                 borderRadius: "10px",
-                background: "linear-gradient(135deg, rgba(217, 119, 6, 0.3) 0%, rgba(180, 83, 9, 0.1) 100%)",
-                border: "1px solid rgba(217, 119, 6, 0.4)",
+                background: "var(--c-gold-dim, rgba(59, 130, 246, 0.12))",
+                border: "1px solid var(--c-gold, #3b82f6)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#F59E0B",
+                color: "var(--c-gold, #3b82f6)",
               }}
             >
               <Store size={18} />
             </div>
             <div>
-              <span style={{ fontSize: "1.05rem", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.01em" }}>
+              <span
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: 700,
+                  color: "var(--c-ink, #ffffff)",
+                  fontFamily: "var(--font-display, serif)",
+                  letterSpacing: "0.02em",
+                }}
+              >
                 ELA PARFUM POS
               </span>
             </div>
@@ -365,12 +373,13 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                 gap: "0.5rem",
                 padding: "0.4rem 0.85rem",
                 borderRadius: "999px",
-                background: "rgba(217, 119, 6, 0.15)",
-                border: "1px solid rgba(217, 119, 6, 0.35)",
-                color: "#FBBF24",
+                background: "var(--c-surface-2, #181e1c)",
+                border: "1px solid var(--c-border-mid, rgba(255, 255, 255, 0.13))",
+                color: "var(--c-gold-light, #60a5fa)",
                 fontSize: "0.8rem",
-                fontWeight: 700,
+                fontWeight: 600,
                 cursor: "pointer",
+                transition: "all 0.15s ease",
               }}
             >
               <MapPin size={13} />
@@ -385,8 +394,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   position: "absolute",
                   left: 0,
                   top: "calc(100% + 8px)",
-                  backgroundColor: "#161B18",
-                  border: "1px solid rgba(217, 119, 6, 0.35)",
+                  backgroundColor: "var(--c-surface-1, #111614)",
+                  border: "1px solid var(--c-border-mid, rgba(255, 255, 255, 0.13))",
                   borderRadius: "14px",
                   padding: "0.5rem",
                   width: "220px",
@@ -394,7 +403,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   boxShadow: "0 10px 25px rgba(0,0,0,0.7)",
                 }}
               >
-                <div style={{ fontSize: "0.7rem", color: "#9CA3AF", padding: "4px 8px", textTransform: "uppercase", fontWeight: 700 }}>
+                <div style={{ fontSize: "0.7rem", color: "var(--c-ink-dim, #5a6662)", padding: "4px 8px", textTransform: "uppercase", fontWeight: 700 }}>
                   Ganti Cabang Shift:
                 </div>
                 {data.stores.map((s) => (
@@ -406,8 +415,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                       width: "100%",
                       padding: "8px 12px",
                       borderRadius: "8px",
-                      background: s.id === activeStoreId ? "rgba(217, 119, 6, 0.2)" : "transparent",
-                      color: s.id === activeStoreId ? "#FBBF24" : "#D1D5DB",
+                      background: s.id === activeStoreId ? "var(--c-gold-dim, rgba(59, 130, 246, 0.12))" : "transparent",
+                      color: s.id === activeStoreId ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink, #ffffff)",
                       border: "none",
                       display: "flex",
                       alignItems: "center",
@@ -419,7 +428,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     }}
                   >
                     <span>{s.name}</span>
-                    {s.id === activeStoreId && <Check size={14} color="#FBBF24" />}
+                    {s.id === activeStoreId && <Check size={14} color="var(--c-gold, #3b82f6)" />}
                   </button>
                 ))}
               </div>
@@ -510,17 +519,17 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
             flex: "1 1 65%",
             display: "flex",
             flexDirection: "column",
-            borderRight: "1px solid rgba(255, 255, 255, 0.1)",
+            borderRight: "1px solid var(--c-border)",
             overflow: "hidden",
-            backgroundColor: "#0D100F",
+            backgroundColor: "var(--c-bg, #0a0c0b)",
           }}
         >
           {/* Search & Category Filter Bar */}
           <div
             style={{
               padding: "1rem 1.25rem",
-              backgroundColor: "#121614",
-              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              backgroundColor: "var(--c-surface-1, #111614)",
+              borderBottom: "1px solid var(--c-border)",
               display: "flex",
               flexDirection: "column",
               gap: "0.75rem",
@@ -535,7 +544,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   left: "1rem",
                   top: "50%",
                   transform: "translateY(-50%)",
-                  color: "#6B7280",
+                  color: "var(--c-ink-dim, #5a6662)",
                 }}
               />
               <input
@@ -547,10 +556,10 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                 style={{
                   width: "100%",
                   padding: "0.75rem 2.5rem 0.75rem 2.85rem",
-                  backgroundColor: "#0A0D0C",
-                  border: "1px solid rgba(217, 119, 6, 0.3)",
+                  backgroundColor: "var(--c-bg, #0a0c0b)",
+                  border: "1px solid var(--c-border-mid)",
                   borderRadius: "12px",
-                  color: "#FFFFFF",
+                  color: "var(--c-ink, #ffffff)",
                   fontSize: "0.95rem",
                   outline: "none",
                   boxSizing: "border-box",
@@ -567,7 +576,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     transform: "translateY(-50%)",
                     background: "transparent",
                     border: "none",
-                    color: "#9CA3AF",
+                    color: "var(--c-ink-dim)",
                     cursor: "pointer",
                   }}
                 >
@@ -597,12 +606,13 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                       gap: 6,
                       padding: "0.5rem 1rem",
                       borderRadius: "10px",
-                      border: isActive ? "1.5px solid #F59E0B" : "1px solid rgba(255,255,255,0.08)",
-                      background: isActive ? "rgba(217, 119, 6, 0.2)" : "rgba(255,255,255,0.03)",
-                      color: isActive ? "#FBBF24" : "#D1D5DB",
+                      border: isActive ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                      background: isActive ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
+                      color: isActive ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted, #8a9491)",
                       fontSize: "0.85rem",
-                      fontWeight: 700,
+                      fontWeight: 600,
                       cursor: "pointer",
+                      transition: "all 0.15s ease",
                     }}
                   >
                     <Icon size={15} />
@@ -612,9 +622,9 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                         padding: "1px 6px",
                         borderRadius: "999px",
                         fontSize: "0.7rem",
-                        background: isActive ? "#F59E0B" : "rgba(255,255,255,0.08)",
-                        color: isActive ? "#000" : "#9CA3AF",
-                        fontWeight: 800,
+                        background: isActive ? "var(--c-gold, #3b82f6)" : "var(--c-surface-3, #1f2724)",
+                        color: isActive ? "#ffffff" : "var(--c-ink-dim)",
+                        fontWeight: 700,
                       }}
                     >
                       {tab.count}
@@ -644,8 +654,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   key={`bibit-${b.id}`}
                   onClick={() => setMixingBibit(b)}
                   style={{
-                    backgroundColor: "#141816",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    backgroundColor: "var(--c-surface-2, #181e1c)",
+                    border: "1px solid var(--c-border)",
                     borderRadius: "14px",
                     padding: "1rem",
                     cursor: "pointer",
@@ -656,12 +666,12 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     position: "relative",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(217, 119, 6, 0.5)";
+                    e.currentTarget.style.borderColor = "var(--c-gold, #3b82f6)";
                     e.currentTarget.style.transform = "translateY(-2px)";
                     e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.5)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.borderColor = "var(--c-border)";
                     e.currentTarget.style.transform = "none";
                     e.currentTarget.style.boxShadow = "none";
                   }}
@@ -675,36 +685,36 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                           textTransform: "uppercase",
                           padding: "2px 6px",
                           borderRadius: "4px",
-                          background: "rgba(217, 119, 6, 0.15)",
-                          color: "#FBBF24",
+                          background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
+                          color: "var(--c-gold-light, #60a5fa)",
                         }}
                       >
                         Bibit Racik
                       </span>
-                      <span style={{ fontSize: "0.75rem", color: b.stock_ml < 500 ? "#F87171" : "#10B981", fontWeight: 600 }}>
-                        {b.stock_ml} ml
+                      <span style={{ fontSize: "0.75rem", color: b.stock_ml < 500 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+                        {b.stock_ml.toLocaleString("id-ID")} ml
                       </span>
                     </div>
 
-                    <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "#FFFFFF", lineHeight: 1.3 }}>
+                    <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
                       {b.name}
                     </h4>
-                    <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
                       {b.collection} • {b.main_accord || "Artisan"}
                     </span>
                   </div>
 
-                  <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "0.6rem" }}>
-                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#FBBF24" }}>
+                  <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
+                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
                       {formatRupiah(b.price_per_ml)}
-                      <small style={{ fontSize: "0.7rem", color: "#9CA3AF", fontWeight: 500 }}>/ml</small>
+                      <small style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)", fontWeight: 500 }}>/ml</small>
                     </span>
                     <button
                       type="button"
                       style={{
-                        padding: "4px 8px",
-                        background: "var(--c-gold)",
-                        color: "#000",
+                        padding: "5px 10px",
+                        background: "var(--c-gold, #3b82f6)",
+                        color: "#ffffff",
                         border: "none",
                         borderRadius: "8px",
                         fontSize: "0.75rem",
@@ -731,8 +741,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     key={`prod-${p.id}`}
                     onClick={() => setSelectedProductForSize(p)}
                     style={{
-                      backgroundColor: "#141816",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      backgroundColor: "var(--c-surface-2, #181e1c)",
+                      border: "1px solid var(--c-border)",
                       borderRadius: "14px",
                       padding: "1rem",
                       cursor: "pointer",
@@ -742,11 +752,11 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                       transition: "transform 0.15s, border-color 0.15s",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(16, 185, 129, 0.5)";
+                      e.currentTarget.style.borderColor = "var(--c-teal, #0ea5e9)";
                       e.currentTarget.style.transform = "translateY(-2px)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)";
+                      e.currentTarget.style.borderColor = "var(--c-border)";
                       e.currentTarget.style.transform = "none";
                     }}
                   >
@@ -759,35 +769,35 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                             textTransform: "uppercase",
                             padding: "2px 6px",
                             borderRadius: "4px",
-                            background: "rgba(16, 185, 129, 0.15)",
-                            color: "#10B981",
+                            background: "rgba(14, 165, 233, 0.15)",
+                            color: "#38bdf8",
                           }}
                         >
                           Produk Jadi
                         </span>
-                        <span style={{ fontSize: "0.75rem", color: totalStock <= 0 ? "#F87171" : "#10B981", fontWeight: 600 }}>
+                        <span style={{ fontSize: "0.75rem", color: totalStock <= 0 ? "#f87171" : "#34d399", fontWeight: 600 }}>
                           Stok: {totalStock} pcs
                         </span>
                       </div>
 
-                      <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "#FFFFFF", lineHeight: 1.3 }}>
+                      <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
                         {p.name}
                       </h4>
-                      <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
                         {p.collection} ({p.sizes.length} varian ukuran)
                       </span>
                     </div>
 
-                    <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "0.6rem" }}>
-                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#10B981" }}>
+                    <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
+                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#38bdf8" }}>
                         Mulai {formatRupiah(minPrice)}
                       </span>
                       <button
                         type="button"
                         style={{
-                          padding: "4px 8px",
-                          background: "#10B981",
-                          color: "#000",
+                          padding: "5px 10px",
+                          background: "var(--c-teal, #0ea5e9)",
+                          color: "#ffffff",
                           border: "none",
                           borderRadius: "8px",
                           fontSize: "0.75rem",
@@ -812,8 +822,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   key={`bottle-${bt.id}`}
                   onClick={() => handleAddBottle(bt)}
                   style={{
-                    backgroundColor: "#141816",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    backgroundColor: "var(--c-surface-2, #181e1c)",
+                    border: "1px solid var(--c-border)",
                     borderRadius: "14px",
                     padding: "1rem",
                     cursor: "pointer",
@@ -823,11 +833,11 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     transition: "transform 0.15s, border-color 0.15s",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(59, 130, 246, 0.5)";
+                    e.currentTarget.style.borderColor = "var(--c-border-mid)";
                     e.currentTarget.style.transform = "translateY(-2px)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.borderColor = "var(--c-border)";
                     e.currentTarget.style.transform = "none";
                   }}
                 >
@@ -840,36 +850,36 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                           textTransform: "uppercase",
                           padding: "2px 6px",
                           borderRadius: "4px",
-                          background: "rgba(59, 130, 246, 0.15)",
-                          color: "#60A5FA",
+                          background: "rgba(255, 255, 255, 0.08)",
+                          color: "var(--c-ink-muted)",
                         }}
                       >
                         Botol Kemasan
                       </span>
-                      <span style={{ fontSize: "0.75rem", color: bt.stock < 10 ? "#F87171" : "#10B981", fontWeight: 600 }}>
-                        {bt.stock} pcs
+                      <span style={{ fontSize: "0.75rem", color: bt.stock < 10 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+                        Stok: {bt.stock} pcs
                       </span>
                     </div>
 
-                    <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "#FFFFFF", lineHeight: 1.3 }}>
+                    <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
                       {bt.name}
                     </h4>
-                    <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
                       Kapasitas {bt.capacity_ml}ml
                     </span>
                   </div>
 
-                  <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "0.6rem" }}>
-                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#60A5FA" }}>
+                  <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
+                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-ink)" }}>
                       {formatRupiah(bt.price)}
                     </span>
                     <button
                       type="button"
                       style={{
-                        padding: "4px 8px",
-                        background: "#3B82F6",
-                        color: "#FFFFFF",
-                        border: "none",
+                        padding: "5px 10px",
+                        background: "var(--c-surface-3, #1f2724)",
+                        color: "var(--c-ink, #ffffff)",
+                        border: "1px solid var(--c-border)",
                         borderRadius: "8px",
                         fontSize: "0.75rem",
                         fontWeight: 700,
@@ -893,26 +903,27 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
             flex: "1 1 35%",
             minWidth: "380px",
             maxWidth: "460px",
-            backgroundColor: "#111413",
+            backgroundColor: "var(--c-surface-1, #111614)",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
+            borderLeft: "1px solid var(--c-border)",
           }}
         >
           {/* Customer Fast Bar */}
           <div
             style={{
               padding: "1rem 1.25rem",
-              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-              backgroundColor: "#161B18",
+              borderBottom: "1px solid var(--c-border)",
+              backgroundColor: "var(--c-surface-2, #181e1c)",
               display: "flex",
               flexDirection: "column",
               gap: "0.6rem",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#D1D5DB", display: "flex", alignItems: "center", gap: 6 }}>
-                <User size={14} color="#F59E0B" />
+              <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--c-ink, #ffffff)", display: "flex", alignItems: "center", gap: 6 }}>
+                <User size={14} color="var(--c-gold, #3b82f6)" />
                 Informasi Pelanggan Toko
               </span>
               {billItems.length > 0 && (
@@ -922,7 +933,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#F87171",
+                    color: "#f87171",
                     fontSize: "0.75rem",
                     cursor: "pointer",
                     display: "flex",
@@ -944,10 +955,10 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                 onChange={(e) => setCustomerName(e.target.value)}
                 style={{
                   padding: "0.5rem 0.75rem",
-                  backgroundColor: "#0B0E0D",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  backgroundColor: "var(--c-bg, #0a0c0b)",
+                  border: "1px solid var(--c-border-mid)",
                   borderRadius: "8px",
-                  color: "#FFFFFF",
+                  color: "var(--c-ink, #ffffff)",
                   fontSize: "0.85rem",
                   outline: "none",
                 }}
@@ -959,10 +970,10 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 style={{
                   padding: "0.5rem 0.75rem",
-                  backgroundColor: "#0B0E0D",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  backgroundColor: "var(--c-bg, #0a0c0b)",
+                  border: "1px solid var(--c-border-mid)",
                   borderRadius: "8px",
-                  color: "#FFFFFF",
+                  color: "var(--c-ink, #ffffff)",
                   fontSize: "0.85rem",
                   outline: "none",
                 }}
@@ -990,7 +1001,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   alignItems: "center",
                   justifyContent: "center",
                   textAlign: "center",
-                  color: "#6B7280",
+                  color: "var(--c-ink-dim, #5a6662)",
                 }}
               >
                 <div
@@ -998,16 +1009,17 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     width: "60px",
                     height: "60px",
                     borderRadius: "50%",
-                    background: "rgba(255, 255, 255, 0.03)",
+                    background: "var(--c-surface-2, #181e1c)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     marginBottom: "1rem",
+                    border: "1px solid var(--c-border)",
                   }}
                 >
                   <ShoppingBag size={28} />
                 </div>
-                <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "#D1D5DB", margin: 0 }}>
+                <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink, #ffffff)", margin: 0 }}>
                   Bill Kasir Kosong
                 </h4>
                 <p style={{ fontSize: "0.8rem", maxWidth: "220px", marginTop: 4 }}>
@@ -1019,8 +1031,8 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                 <div
                   key={index}
                   style={{
-                    backgroundColor: "#161B18",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    backgroundColor: "var(--c-surface-2, #181e1c)",
+                    border: "1px solid var(--c-border)",
                     borderRadius: "12px",
                     padding: "0.75rem 1rem",
                     display: "flex",
@@ -1039,27 +1051,27 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                           borderRadius: "4px",
                           background:
                             item.type === "refill"
-                              ? "rgba(217, 119, 6, 0.2)"
+                              ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))"
                               : item.type === "product"
-                              ? "rgba(16, 185, 129, 0.2)"
-                              : "rgba(59, 130, 246, 0.2)",
+                              ? "rgba(14, 165, 233, 0.15)"
+                              : "rgba(255, 255, 255, 0.08)",
                           color:
                             item.type === "refill"
-                              ? "#FBBF24"
+                              ? "var(--c-gold-light, #60a5fa)"
                               : item.type === "product"
-                              ? "#10B981"
-                              : "#60A5FA",
+                              ? "#38bdf8"
+                              : "var(--c-ink-muted)",
                           display: "inline-block",
                           marginBottom: 2,
                         }}
                       >
                         {item.type === "refill" ? "Racikan" : item.type === "product" ? "Produk" : "Kemasan"}
                       </span>
-                      <h5 style={{ fontSize: "0.9rem", fontWeight: 700, margin: 0, color: "#FFFFFF" }}>
+                      <h5 style={{ fontSize: "0.9rem", fontWeight: 700, margin: 0, color: "var(--c-ink, #ffffff)" }}>
                         {item.title}
                       </h5>
                       {item.subtitle && (
-                        <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block", marginTop: 2 }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block", marginTop: 2 }}>
                           {item.subtitle}
                         </span>
                       )}
@@ -1071,7 +1083,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                       style={{
                         background: "transparent",
                         border: "none",
-                        color: "#6B7280",
+                        color: "var(--c-ink-dim)",
                         cursor: "pointer",
                         padding: "2px",
                       }}
@@ -1080,30 +1092,30 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     </button>
                   </div>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.5rem" }}>
                     {/* Stepper Qty */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#0B0E0D", borderRadius: "8px", padding: "2px 4px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--c-bg, #0a0c0b)", borderRadius: "8px", padding: "2px 4px", border: "1px solid var(--c-border)" }}>
                       <button
                         type="button"
                         onClick={() => handleUpdateQty(index, -1)}
-                        style={{ background: "transparent", border: "none", color: "#9CA3AF", cursor: "pointer", padding: "2px" }}
+                        style={{ background: "transparent", border: "none", color: "var(--c-ink-muted)", cursor: "pointer", padding: "2px" }}
                       >
                         <Minus size={12} />
                       </button>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "20px", textAlign: "center" }}>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "20px", textAlign: "center", color: "var(--c-ink)" }}>
                         {item.quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleUpdateQty(index, 1)}
-                        style={{ background: "transparent", border: "none", color: "#9CA3AF", cursor: "pointer", padding: "2px" }}
+                        style={{ background: "transparent", border: "none", color: "var(--c-ink-muted)", cursor: "pointer", padding: "2px" }}
                       >
                         <Plus size={12} />
                       </button>
                     </div>
 
                     <div style={{ textAlign: "right" }}>
-                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#FBBF24" }}>
+                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
                         {formatRupiah(item.subtotal)}
                       </span>
                     </div>
@@ -1117,23 +1129,23 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
           <div
             style={{
               padding: "1.25rem",
-              backgroundColor: "#161B18",
-              borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+              backgroundColor: "var(--c-surface-2, #181e1c)",
+              borderTop: "1px solid var(--c-border)",
               display: "flex",
               flexDirection: "column",
               gap: "0.75rem",
             }}
           >
             {/* Subtotal Row */}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "#D1D5DB" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-muted)" }}>
               <span>Subtotal ({billItems.reduce((acc, it) => acc + it.quantity, 0)} item):</span>
-              <span style={{ fontWeight: 600 }}>{formatRupiah(subtotal)}</span>
+              <span style={{ fontWeight: 600, color: "var(--c-ink)" }}>{formatRupiah(subtotal)}</span>
             </div>
 
             {/* Discount Row */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.85rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "#D1D5DB" }}>Diskon:</span>
+                <span style={{ color: "var(--c-ink-muted)" }}>Diskon:</span>
                 <button
                   type="button"
                   onClick={() => setDiscountType(discountType === "nominal" ? "percent" : "nominal")}
@@ -1141,9 +1153,9 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                     fontSize: "0.7rem",
                     padding: "1px 6px",
                     borderRadius: "4px",
-                    background: "rgba(255,255,255,0.08)",
-                    border: "none",
-                    color: "#FBBF24",
+                    background: "var(--c-surface-3, #1f2724)",
+                    border: "1px solid var(--c-border)",
+                    color: "var(--c-gold-light, #60a5fa)",
                     cursor: "pointer",
                     fontWeight: 700,
                   }}
@@ -1161,17 +1173,17 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                   style={{
                     width: "80px",
                     padding: "2px 6px",
-                    backgroundColor: "#0B0E0D",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    backgroundColor: "var(--c-bg, #0a0c0b)",
+                    border: "1px solid var(--c-border-mid)",
                     borderRadius: "6px",
-                    color: "#FFFFFF",
+                    color: "var(--c-ink, #ffffff)",
                     fontSize: "0.8rem",
                     textAlign: "right",
                     outline: "none",
                   }}
                 />
                 {discountAmount > 0 && (
-                  <span style={{ color: "#F87171", fontWeight: 600 }}>
+                  <span style={{ color: "#f87171", fontWeight: 600 }}>
                     -{formatRupiah(discountAmount)}
                   </span>
                 )}
@@ -1184,15 +1196,22 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                borderTop: "1px solid var(--c-border)",
                 paddingTop: "0.6rem",
               }}
             >
               <div>
-                <span style={{ fontSize: "0.75rem", color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.04em", display: "block" }}>
+                <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block" }}>
                   Total Bayar
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 900, color: "#FBBF24" }}>
+                <span
+                  style={{
+                    fontSize: "1.5rem",
+                    fontWeight: 800,
+                    color: "var(--c-gold-light, #60a5fa)",
+                    fontFamily: "var(--font-display, serif)",
+                  }}
+                >
                   {formatRupiah(grandTotal)}
                 </span>
               </div>
@@ -1203,19 +1222,20 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
                 disabled={billItems.length === 0}
                 onClick={() => setShowPaymentModal(true)}
                 style={{
-                  padding: "0.85rem 1.25rem",
-                  background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
-                  color: "#0B0D0C",
+                  padding: "0.85rem 1.35rem",
+                  background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
+                  color: "#ffffff",
                   border: "none",
                   borderRadius: "12px",
                   fontSize: "0.95rem",
-                  fontWeight: 800,
+                  fontWeight: 700,
                   cursor: billItems.length === 0 ? "not-allowed" : "pointer",
                   opacity: billItems.length === 0 ? 0.5 : 1,
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  boxShadow: "0 8px 20px -4px rgba(217, 119, 6, 0.4)",
+                  boxShadow: "0 8px 24px -4px var(--c-gold-glow, rgba(59, 130, 246, 0.3))",
+                  transition: "all 0.15s ease",
                 }}
               >
                 <Banknote size={18} />

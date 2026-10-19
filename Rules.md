@@ -158,4 +158,20 @@ Minyak Wangi/
       - Menerapkan **Pre-Aggregation Map** (akumulasi produk, botol, bibit, pelarut sebelum eksekusi mutasi) untuk memastikan pesanan yang memiliki lebih dari satu racikan sejenis (botol/pelarut/bibit sama) terpotong 100% presisi tanpa risiko under-deduction.
       - Seluruh transaksi kasir tunai, QRIS, web checkout tunai, dan aksi admin pesanan (`markAsPaid`, `confirmCashPaymentAndComplete`) terhubung ke engine terpadu ini.
 
+12. **Standar Manajemen Kasir POS di Admin (/admin/kasir) & Pencegahan Duplikasi Domain**:
+    - **Pencegahan Duplikasi Rute & Domain Routing**:
+      - Rute `/kasir` di domain utama `elaparfum.web.id` otomatis di-redirect (HTTP 307) ke subdomain kasir `https://cashier.elaparfum.web.id/`.
+      - Rute `/kasir` di subdomain kasir otomatis di-redirect ke root `/` agar URL tetap bersih.
+    - **Laporan & Manajemen Kasir Admin (`/admin/kasir`)**:
+      - Menu "Kasir (POS)" di sidebar admin mengarah ke `/admin/kasir` sebagai pusat audit dan pelacakan transaksi kasir toko.
+      - Fitur: Metric card omzet kasir (real-time hari ini / rentang waktu), total struk, rincian tunai vs QRIS/non-tunai, filter cabang toko (Condet, Rawa Belong, Tangerang), filter metode pembayaran, search transaksi (no nota, kasir, pelanggan), serta modal detail struk untuk cetak ulang thermal (`window.print()`) dan kirim ulang WhatsApp.
+      - Tombol shortcut eksternal: *"Buka Terminal Kasir (cashier.elaparfum.web.id)"* membuka POS terminal di tab baru.
+    - **Harmonisasi Estetika Luxury & UI Presisi Racik**:
+      - Seluruh modul kasir POS (login, main POS terminal, mix modal, payment modal, receipt modal) menggunakan palet Obsidian Dark Luxury & Gold Ela Parfum (`var(--c-bg)`, `var(--c-surface-1)`, `var(--c-surface-2)`, `var(--c-border)`, `var(--c-gold)`, font `Cormorant Garamond`).
+      - Pilihan rasio konsentrasi mencakup preset lengkap: **Elixir Murni (100/0)**, **Extrait (70/30)**, **Eau de Parfum (EDP 50/50)**, dan **Eau de Toilette (EDT 30/70)**.
+      - Slider Custom Rasio memiliki granularitas halus 1% (`step={1}`, rentang 1%–100%) tanpa gap kelipatan 5%.
+      - Rekomendasi AI Nove bersifat kontekstual: tombol advisor hanya tampil saat memilih Custom % (konsentrasi) atau saat meracik/memilih Bibit #2 (layering).
+      - Modal Bibit #2 berupa floating popover terukur (`maxWidth: 540px`) dilengkapi filter kategori segmented pills (`Semua`, `Global Parfume`, `Arabian Parfume`), tombol batal/silang aman, dan tombol hapus bibit ke-2.
+      - Stok cabang riil ditampilkan transparan pada setiap kartu botol (`Stok: X pcs`) dan bibit (`Stok Cabang: X ml`).
+
 

@@ -9,6 +9,26 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Revamp Estetika Luxury Kasir POS, Presisi Racik & Halaman Admin Manajemen Kasir (/admin/kasir):**
+  - [x] **Harmonisasi Estetika & Visual Kasir POS:** Selaraskan tema warna seluruh touchpoint POS (`/kasir`, modal racik, modal pembayaran, modal struk, dan login) dengan tema Dark Luxury Obsidian Ela Parfum (`var(--c-bg)`, `var(--c-surface-1)`, `var(--c-surface-2)`, `var(--c-border)`, `var(--c-gold)`, font `Cormorant Garamond`), mengeliminasi warna oranye/kuning kaku.
+  - [x] **Kembalikan Preset Eau de Toilette (EDT 30/70):** Menambahkan pilihan rasio konsentrasi 30% Bibit · 70% Pelarut ke grid preset modal racik kasir bersama EDP, Extrait, dan Murni.
+  - [x] **Slider Custom Rasio 1%:** Mengubah step slider custom persentase bibit menjadi 1% (`step={1}`, rentang 1%–100%) tanpa gap kelipatan 5%.
+  - [x] **AI Scent Advisor Kontekstual:** Tombol asisten Nove AI hanya muncul saat dibutuhkan (yaitu saat memilih Custom % konsentrasi atau saat meracik/menambah Bibit #2 untuk layering).
+  - [x] **Revamp Modal Bibit #2 (Layering):**
+    - Mengubah picker bibit ke-2 dari takeover 1 frame penuh (`inset: 0`) menjadi floating popover dialog elegan berdimensi proporsional (`maxWidth: 540px`, `maxHeight: 82vh`).
+    - Menambahkan filter segmented pills: `Semua`, `Global Parfume`, dan `Arabian Parfume`.
+    - Tombol silang/batal membersihkan state pemilihan bibit, serta menyediakan tombol hapus eksplisit (`Trash2`) pada kartu Bibit #2.
+  - [x] **Visibilitas Stok Cabang Real-time:** Menampilkan stok riil cabang aktif pada setiap kartu botol (`Stok: X pcs`) dan pada setiap kartu bibit (`Stok Cabang: X ml`).
+  - [x] **Eliminasi Duplikasi URL & Domain Redirect:** Mengatur Next.js middleware agar rute `/kasir` di domain utama `elaparfum.web.id` otomatis 307 redirect ke `cashier.elaparfum.web.id`, dan akses `/kasir` di subdomain kasir otomatis redirect ke root `/`.
+  - [x] **Halaman Admin Manajemen & Laporan Kasir (`/admin/kasir`):**
+    - Mengarahkan menu "Kasir (POS)" di sidebar admin ke `/admin/kasir`.
+    - Dashboard metrik: Total Omzet Kasir (Real-time hari ini / rentang filter), Total Struk, Total Uang Tunai Masuk, dan Total Non-Tunai (QRIS/Transfer).
+    - Filter controls: Filter Cabang (Semua Cabang, Condet, Rawa Belong, Tangerang), Filter Rentang Tanggal (Hari Ini, 7 Hari, Bulan Ini, Semua), Filter Metode Bayar, dan Search Box (No Nota, Kasir, Pelanggan).
+    - Tabel Transaksi Kasir POS: No Nota (`order_code`), Waktu WIB, Cabang & Kasir, Pelanggan, Item Belanja, Metode Bayar & Status Lunas, Total (Rp), dan Aksi.
+    - Modal Detail Struk & Cetak Ulang: Pratinjau struk thermal kasir dengan aksi Cetak Ulang Thermal (`window.print()`) dan Kirim Ulang Nota via WhatsApp.
+    - Shortcut Eksternal: Tombol *"Buka Terminal Kasir (cashier.elaparfum.web.id)"* membuka POS terminal di tab baru.
+  - [x] **Verifikasi & Build Produksi:** Lolos uji typecheck TypeScript `npx tsc --noEmit` (0 error), uji build Next.js Turbopack `npm run build` (71 rute dinamis), dan uji compile OpenNext Cloudflare Worker `npm run build:worker` (`.open-next/worker.js`).
+
 - [x] **Sinkronisasi Menyeluruh & Penguatan Idempotensi Alur Stok Multi-Cabang (Produk, Bibit, Botol, Pelarut):**
   - [x] Bangun engine pemotongan stok terpadu `deductOrderStock` di `src/lib/stock/refill-stock.ts` yang mencakup Produk Jadi (`product_stocks` + sync `perfume_sizes.stock`), Botol Kemasan (`bottle_stocks` + sync `bottles.stock`), Bibit Racik (`bibit_stocks.stock_ml` presisi ml), dan Pelarut (`solvent_stocks.stock_ml`) dengan proteksi idempotensi berlapis via `stock_changelog`.
   - [x] Terapkan pola Pre-aggregation Map pada `deductOrderStock` untuk mengakumulasikan total kebutuhan per entitas (mencegah under-deduction pada pesanan yang mengandung item kembar/multiple racikan sejenis) dan top-level idempotency guard untuk eliminasi race-condition antar webhook vs polling kasir.

@@ -40,7 +40,7 @@ export default function KasirLoginPage() {
         padding: "1.5rem",
         backgroundColor: "#0B0D0C",
         backgroundImage:
-          "radial-gradient(circle at 50% 15%, rgba(217, 119, 6, 0.12) 0%, transparent 60%), radial-gradient(circle at 80% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)",
+          "radial-gradient(circle at 50% 15%, rgba(212, 175, 55, 0.12) 0%, transparent 60%), radial-gradient(circle at 80% 85%, rgba(212, 175, 55, 0.04) 0%, transparent 50%)",
         color: "#F3F4F6",
         fontFamily: "inherit",
       }}
@@ -49,12 +49,12 @@ export default function KasirLoginPage() {
         style={{
           width: "100%",
           maxWidth: "440px",
-          backgroundColor: "rgba(18, 22, 20, 0.88)",
+          backgroundColor: "rgba(18, 22, 20, 0.92)",
           backdropFilter: "blur(20px)",
-          border: "1px solid rgba(217, 119, 6, 0.28)",
+          border: "1px solid rgba(212, 175, 55, 0.3)",
           borderRadius: "24px",
           padding: "2.5rem 2rem",
-          boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px -5px rgba(217, 119, 6, 0.15)",
+          boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px -5px rgba(212, 175, 55, 0.15)",
         }}
       >
         {/* Brand Header */}
@@ -67,11 +67,11 @@ export default function KasirLoginPage() {
               width: "60px",
               height: "60px",
               borderRadius: "18px",
-              background: "linear-gradient(135deg, rgba(217, 119, 6, 0.25) 0%, rgba(180, 83, 9, 0.1) 100%)",
-              border: "1px solid rgba(217, 119, 6, 0.4)",
-              color: "#F59E0B",
+              background: "linear-gradient(135deg, rgba(212, 175, 55, 0.22) 0%, rgba(184, 151, 46, 0.1) 100%)",
+              border: "1px solid rgba(212, 175, 55, 0.4)",
+              color: "var(--c-gold, #D4AF37)",
               marginBottom: "1rem",
-              boxShadow: "0 0 20px rgba(217, 119, 6, 0.2)",
+              boxShadow: "0 0 24px rgba(212, 175, 55, 0.2)",
             }}
           >
             <Store size={28} />
@@ -82,8 +82,8 @@ export default function KasirLoginPage() {
               display: "inline-flex",
               alignItems: "center",
               gap: "0.35rem",
-              backgroundColor: "rgba(217, 119, 6, 0.12)",
-              color: "#FBBF24",
+              backgroundColor: "rgba(212, 175, 55, 0.1)",
+              color: "var(--c-gold, #D4AF37)",
               padding: "0.25rem 0.75rem",
               borderRadius: "999px",
               fontSize: "0.75rem",
@@ -91,7 +91,7 @@ export default function KasirLoginPage() {
               letterSpacing: "0.06em",
               textTransform: "uppercase",
               marginBottom: "0.6rem",
-              border: "1px solid rgba(217, 119, 6, 0.25)",
+              border: "1px solid rgba(212, 175, 55, 0.25)",
             }}
           >
             <Sparkles size={12} />
@@ -100,9 +100,10 @@ export default function KasirLoginPage() {
 
           <h1
             style={{
-              fontSize: "1.75rem",
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
+              fontFamily: "var(--font-display, 'Cormorant Garamond', Georgia, serif)",
+              fontSize: "2rem",
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
               margin: 0,
               color: "#FFFFFF",
             }}
@@ -188,8 +189,8 @@ export default function KasirLoginPage() {
                   boxSizing: "border-box",
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = "rgba(217, 119, 6, 0.6)";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(217, 119, 6, 0.18)";
+                  e.target.style.borderColor = "var(--c-gold, #D4AF37)";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(212, 175, 55, 0.2)";
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = "rgba(255, 255, 255, 0.12)";
@@ -243,8 +244,8 @@ export default function KasirLoginPage() {
                   boxSizing: "border-box",
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = "rgba(217, 119, 6, 0.6)";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(217, 119, 6, 0.18)";
+                  e.target.style.borderColor = "var(--c-gold, #D4AF37)";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(212, 175, 55, 0.2)";
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = "rgba(255, 255, 255, 0.12)";
@@ -261,7 +262,7 @@ export default function KasirLoginPage() {
               marginTop: "0.5rem",
               width: "100%",
               padding: "0.95rem",
-              background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+              background: "linear-gradient(135deg, var(--c-gold, #D4AF37) 0%, #B8972E 100%)",
               color: "#0B0D0C",
               border: "none",
               borderRadius: "14px",
@@ -272,7 +273,7 @@ export default function KasirLoginPage() {
               alignItems: "center",
               justifyContent: "center",
               gap: "0.5rem",
-              boxShadow: "0 10px 25px -5px rgba(217, 119, 6, 0.4)",
+              boxShadow: "0 10px 25px -5px rgba(212, 175, 55, 0.35)",
               transition: "transform 0.15s, opacity 0.15s",
               opacity: loading ? 0.75 : 1,
             }}

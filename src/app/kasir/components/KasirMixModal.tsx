@@ -16,6 +16,7 @@ import {
   Bot,
   Loader2,
   ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
 
@@ -44,6 +45,7 @@ export default function KasirMixModal({
   const [hasBibit2, setHasBibit2] = useState<boolean>(false);
   const [bibit2, setBibit2] = useState<PosBibitItem | null>(null);
   const [bibit2Search, setBibit2Search] = useState<string>("");
+  const [bibit2Category, setBibit2Category] = useState<"all" | "Global Parfume" | "Arabian Parfume">("all");
   const [showBibit2Picker, setShowBibit2Picker] = useState<boolean>(false);
   const [bibitSplitPercent, setBibitSplitPercent] = useState<number>(50); // 50:50
 
@@ -95,27 +97,43 @@ export default function KasirMixModal({
 
   // Filter pencarian Bibit #2
   const filteredBibit2 = useMemo(() => {
-    if (!bibit2Search.trim()) return allBibits.slice(0, 15);
-    const q = bibit2Search.toLowerCase();
-    return allBibits
-      .filter((b) => b.id !== bibit1.id && (b.name.toLowerCase().includes(q) || b.collection.toLowerCase().includes(q)))
-      .slice(0, 20);
-  }, [allBibits, bibit2Search, bibit1.id]);
+    let list = allBibits.filter((b) => b.id !== bibit1.id);
 
-  // Konsultasi AI Scent Advisor
-  const handleConsultAi = async () => {
-    if (!hasBibit2 || !bibit2) {
-      setAiAdvice(`Aroma tunggal ${bibit1.name} dengan konsentrasi ${bibitRatioPercent}% (${ratioPreset === "70/30" ? "Extrait" : "Eau de Parfum"}) memberikan proyeksi aroma yang solid dan tahan lama.`);
-      return;
+    if (bibit2Category !== "all") {
+      list = list.filter((b) => b.collection === bibit2Category);
     }
 
+    if (bibit2Search.trim()) {
+      const q = bibit2Search.toLowerCase();
+      list = list.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.collection.toLowerCase().includes(q) ||
+          (b.main_accord && b.main_accord.toLowerCase().includes(q))
+      );
+    }
+
+    return list.slice(0, 30);
+  }, [allBibits, bibit2Search, bibit1.id, bibit2Category]);
+
+  // Konsultasi AI Scent Advisor
+  const showAiAdvisor = ratioPreset === "custom" || (hasBibit2 && !!bibit2);
+
+  const handleConsultAi = async () => {
     setAiLoading(true);
     setAiAdvice(null);
     try {
-      const prompt = `Kombinasi racikan kasir Ela Parfum:
-Bibit 1: ${bibit1.name} (Accord: ${bibit1.main_accord || "aromatic"})
-Bibit 2: ${bibit2.name} (Accord: ${bibit2.main_accord || "fresh"})
-Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang dan mewah.`;
+      let prompt = "";
+      if (hasBibit2 && bibit2) {
+        prompt = `Kombinasi layering kasir Ela Parfum:
+Bibit 1: ${bibit1.name} (Koleksi: ${bibit1.collection}, Accord: ${bibit1.main_accord || "aromatic"})
+Bibit 2: ${bibit2.name} (Koleksi: ${bibit2.collection}, Accord: ${bibit2.main_accord || "fresh"})
+Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik antara Bibit 1 dan Bibit 2 agar aromanya harmonis, mewah, dan tidak tumpang tindih.`;
+      } else {
+        prompt = `Rekomendasi rasio konsentrasi parfum Ela Parfum:
+Varian: ${bibit1.name} (Koleksi: ${bibit1.collection}, Accord: ${bibit1.main_accord || "aromatic"})
+Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom agar ketahanan dan proyeksi aroma optimal.`;
+      }
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -126,10 +144,18 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
       if (data?.response) {
         setAiAdvice(data.response);
       } else {
-        setAiAdvice(`Rekomendasi rasio seimbang: 60% ${bibit1.name} (Top/Body) dan 40% ${bibit2.name} (Base) untuk harmoni aroma yang elegan.`);
+        setAiAdvice(
+          hasBibit2 && bibit2
+            ? `Rekomendasi perpaduan: 60% ${bibit1.name} (Top/Body) dan 40% ${bibit2.name} (Base) untuk harmoni aroma yang elegan dan seimbang.`
+            : `Konsentrasi ${bibitRatioPercent}% (${ratioPreset === "70/30" ? "Extrait" : "EDP"}) sangat ideal untuk varian ${bibit1.name} agar karakter aromanya tahan lama.`
+        );
       }
     } catch {
-      setAiAdvice(`Saran racikan: 60% ${bibit1.name} & 40% ${bibit2.name} menghasilkan transisi aroma yang mulus dan tahan lama.`);
+      setAiAdvice(
+        hasBibit2 && bibit2
+          ? `Saran racikan: 60% ${bibit1.name} & 40% ${bibit2.name} menghasilkan transisi aroma yang mulus dan tahan lama.`
+          : `Rasio bibit ${bibitRatioPercent}% memberikan proyeksi yang solid dan ketahanan 6-8 jam.`
+      );
     } finally {
       setAiLoading(false);
     }
@@ -192,8 +218,9 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(8px)",
+        backgroundColor: "rgba(0, 0, 0, 0.78)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -204,51 +231,62 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
       <div
         style={{
           width: "100%",
-          maxWidth: "680px",
+          maxWidth: "700px",
           maxHeight: "92vh",
-          backgroundColor: "#121614",
-          border: "1px solid rgba(217, 119, 6, 0.35)",
+          backgroundColor: "var(--c-surface-1, #111614)",
+          border: "1px solid var(--c-border-mid, rgba(255, 255, 255, 0.13))",
           borderRadius: "20px",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.85), 0 0 40px rgba(217, 119, 6, 0.12)",
-          color: "#F3F4F6",
+          boxShadow: "0 25px 60px rgba(0,0,0,0.85), 0 0 35px var(--c-gold-glow, rgba(59,130,246,0.15))",
+          color: "var(--c-ink, #f0ede8)",
+          position: "relative",
         }}
       >
         {/* Modal Header */}
         <div
           style={{
             padding: "1.25rem 1.5rem",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+            borderBottom: "1px solid var(--c-border, rgba(255, 255, 255, 0.08))",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            background: "linear-gradient(90deg, rgba(217, 119, 6, 0.12) 0%, transparent 100%)",
+            background: "linear-gradient(90deg, var(--c-gold-dim, rgba(59, 130, 246, 0.1)) 0%, transparent 100%)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
             <div
               style={{
-                width: "40px",
-                height: "40px",
+                width: "42px",
+                height: "42px",
                 borderRadius: "12px",
-                background: "rgba(217, 119, 6, 0.2)",
-                border: "1px solid rgba(217, 119, 6, 0.4)",
+                background: "var(--c-gold-dim, rgba(59, 130, 246, 0.12))",
+                border: "1px solid var(--c-gold, #3b82f6)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#F59E0B",
+                color: "var(--c-gold, #3b82f6)",
               }}
             >
               <FlaskConical size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: "1.2rem", fontWeight: 700, margin: 0, color: "#FFFFFF" }}>
+              <h2
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 600,
+                  margin: 0,
+                  color: "var(--c-ink, #ffffff)",
+                  fontFamily: "var(--font-display, serif)",
+                  letterSpacing: "0.01em",
+                }}
+              >
                 Form Racik Kasir: {bibit1.name}
               </h2>
-              <span style={{ fontSize: "0.8rem", color: "#9CA3AF" }}>
-                Koleksi {bibit1.collection} • {formatRupiah(bibit1.price_per_ml)}/ml
+              <span style={{ fontSize: "0.8rem", color: "var(--c-ink-muted, #8a9491)" }}>
+                Koleksi {bibit1.collection} • {formatRupiah(bibit1.price_per_ml)}/ml • Stok Cabang:{" "}
+                <strong style={{ color: "var(--c-ink, #ffffff)" }}>{bibit1.stock_ml.toLocaleString("id-ID")} ml</strong>
               </span>
             </div>
           </div>
@@ -256,15 +294,18 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
           <button
             onClick={onClose}
             style={{
-              background: "transparent",
-              border: "none",
-              color: "#9CA3AF",
+              background: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid var(--c-border, rgba(255, 255, 255, 0.08))",
+              color: "var(--c-ink-muted, #8a9491)",
               cursor: "pointer",
               padding: "6px",
               borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
@@ -281,8 +322,19 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
           {/* Section 1: Pilihan Kemasan Botol */}
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-              <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "#E5E7EB", textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
-                <Wine size={16} color="#F59E0B" />
+              <label
+                style={{
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  color: "var(--c-ink, #f0ede8)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Wine size={16} color="var(--c-gold, #3b82f6)" />
                 1. Pilih Wadah / Kemasan Botol
               </label>
               <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -290,14 +342,15 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
                   type="button"
                   onClick={() => setContainerType("ela_bottle")}
                   style={{
-                    padding: "4px 10px",
+                    padding: "5px 12px",
                     borderRadius: "8px",
                     fontSize: "0.75rem",
                     fontWeight: 600,
                     cursor: "pointer",
-                    border: containerType === "ela_bottle" ? "1px solid #D97706" : "1px solid rgba(255,255,255,0.1)",
-                    background: containerType === "ela_bottle" ? "rgba(217, 119, 6, 0.2)" : "rgba(255,255,255,0.04)",
-                    color: containerType === "ela_bottle" ? "#FBBF24" : "#9CA3AF",
+                    border: containerType === "ela_bottle" ? "1px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                    background: containerType === "ela_bottle" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2)",
+                    color: containerType === "ela_bottle" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
+                    transition: "all 0.15s ease",
                   }}
                 >
                   Botol Ela Parfum
@@ -306,14 +359,15 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
                   type="button"
                   onClick={() => setContainerType("own_bottle")}
                   style={{
-                    padding: "4px 10px",
+                    padding: "5px 12px",
                     borderRadius: "8px",
                     fontSize: "0.75rem",
                     fontWeight: 600,
                     cursor: "pointer",
-                    border: containerType === "own_bottle" ? "1px solid #D97706" : "1px solid rgba(255,255,255,0.1)",
-                    background: containerType === "own_bottle" ? "rgba(217, 119, 6, 0.2)" : "rgba(255,255,255,0.04)",
-                    color: containerType === "own_bottle" ? "#FBBF24" : "#9CA3AF",
+                    border: containerType === "own_bottle" ? "1px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                    background: containerType === "own_bottle" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2)",
+                    color: containerType === "own_bottle" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
+                    transition: "all 0.15s ease",
                   }}
                 >
                   Bawa Botol Sendiri
@@ -322,9 +376,19 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
             </div>
 
             {containerType === "ela_bottle" ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "0.5rem", maxHeight: "160px", overflowY: "auto", padding: "4px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+                  gap: "0.5rem",
+                  maxHeight: "170px",
+                  overflowY: "auto",
+                  padding: "2px",
+                }}
+              >
                 {bottles.map((b) => {
                   const isSelected = selectedBottleId === b.id;
+                  const bottleStock = b.stock ?? (b as any).stock_qty ?? 0;
                   return (
                     <button
                       key={b.id}
@@ -335,36 +399,50 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
                         borderRadius: "10px",
                         textAlign: "left",
                         cursor: "pointer",
-                        border: isSelected ? "1.5px solid #F59E0B" : "1px solid rgba(255,255,255,0.08)",
-                        background: isSelected ? "rgba(217, 119, 6, 0.15)" : "rgba(20, 24, 22, 0.6)",
-                        color: "#FFFFFF",
+                        border: isSelected ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                        background: isSelected ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
+                        color: "var(--c-ink, #ffffff)",
                         display: "flex",
                         flexDirection: "column",
                         gap: "2px",
+                        transition: "all 0.15s ease",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: isSelected ? "#FBBF24" : "#FFFFFF" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: isSelected ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink)" }}>
                           {b.capacity_ml}ml
                         </span>
-                        <span style={{ fontSize: "0.7rem", color: "#9CA3AF" }}>
+                        <span style={{ fontSize: "0.7rem", color: "var(--c-ink-muted)" }}>
                           {formatRupiah(b.price)}
                         </span>
                       </div>
-                      <span style={{ fontSize: "0.75rem", color: "#D1D5DB", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--c-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {b.name}
+                      </span>
+                      <span style={{ fontSize: "0.68rem", color: bottleStock < 10 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+                        Stok: {bottleStock} pcs
                       </span>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(20, 24, 22, 0.6)", padding: "1rem", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: "0.85rem", color: "#D1D5DB", display: "block", marginBottom: 4 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "var(--c-surface-2, #181e1c)",
+                  padding: "1rem 1.25rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--c-border)",
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: "0.85rem", color: "var(--c-ink-muted)", display: "block", marginBottom: 6 }}>
                     Kapasitas Botol Pelanggan (ml):
                   </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <input
                       type="number"
                       min={1}
@@ -374,19 +452,30 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
                       style={{
                         width: "120px",
                         padding: "0.5rem 0.75rem",
-                        backgroundColor: "#0B0D0C",
-                        border: "1px solid rgba(217, 119, 6, 0.4)",
+                        backgroundColor: "var(--c-bg, #0a0c0b)",
+                        border: "1px solid var(--c-gold, #3b82f6)",
                         borderRadius: "8px",
-                        color: "#FFFFFF",
+                        color: "var(--c-ink, #ffffff)",
                         fontSize: "1rem",
                         fontWeight: 700,
+                        outline: "none",
                       }}
                     />
-                    <span style={{ fontSize: "0.85rem", color: "#9CA3AF" }}>Mililiter</span>
+                    <span style={{ fontSize: "0.85rem", color: "var(--c-ink-muted)" }}>Mililiter (ml)</span>
                   </div>
                 </div>
-                <div style={{ padding: "0.5rem 1rem", borderRadius: "8px", background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.3)", color: "#10B981", fontSize: "0.75rem", fontWeight: 600 }}>
-                  Harga Kemasan: Rp 0 (Gratis)
+                <div
+                  style={{
+                    padding: "0.5rem 1rem",
+                    borderRadius: "8px",
+                    background: "rgba(16, 185, 129, 0.12)",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    color: "#10b981",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Harga Wadah: Rp 0 (Gratis)
                 </div>
               </div>
             )}
@@ -395,8 +484,19 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
           {/* Section 2: Komposisi Bibit (1 atau 2 Bibit Layering) */}
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-              <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "#E5E7EB", textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
-                <Droplets size={16} color="#F59E0B" />
+              <label
+                style={{
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  color: "var(--c-ink, #f0ede8)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Droplets size={16} color="var(--c-gold, #3b82f6)" />
                 2. Komposisi Bibit Parfum
               </label>
 
@@ -410,15 +510,16 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 4,
-                    padding: "4px 10px",
+                    gap: 6,
+                    padding: "5px 12px",
                     borderRadius: "8px",
                     fontSize: "0.75rem",
                     fontWeight: 600,
                     cursor: "pointer",
-                    border: "1px solid rgba(217, 119, 6, 0.3)",
-                    background: "rgba(217, 119, 6, 0.15)",
-                    color: "#FBBF24",
+                    border: "1px solid var(--c-gold, #3b82f6)",
+                    background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
+                    color: "var(--c-gold-light, #60a5fa)",
+                    transition: "all 0.15s ease",
                   }}
                 >
                   <Plus size={14} />
@@ -434,33 +535,62 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 4,
-                    padding: "4px 8px",
+                    gap: 6,
+                    padding: "5px 10px",
                     borderRadius: "8px",
                     fontSize: "0.75rem",
                     cursor: "pointer",
                     border: "1px solid rgba(239, 68, 68, 0.3)",
                     background: "rgba(239, 68, 68, 0.1)",
-                    color: "#F87171",
+                    color: "#f87171",
+                    fontWeight: 600,
                   }}
                 >
-                  <Trash2 size={12} />
-                  <span>Hapus Bibit #2</span>
+                  <Trash2 size={13} />
+                  <span>Batal Campur Bibit #2</span>
                 </button>
               )}
             </div>
 
             {/* Bibit #1 Card */}
-            <div style={{ background: "rgba(20, 24, 22, 0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                background: "var(--c-surface-2, #181e1c)",
+                border: "1px solid var(--c-border)",
+                borderRadius: "12px",
+                padding: "0.85rem 1.15rem",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <div>
-                <span style={{ fontSize: "0.7rem", color: "#F59E0B", fontWeight: 700, textTransform: "uppercase", display: "block" }}>Bibit Utama #1</span>
-                <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFFFFF" }}>{bibit1.name}</span>
-                <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>{formatRupiah(bibit1.price_per_ml)}/ml</span>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--c-gold, #3b82f6)",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    display: "block",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  Bibit Utama #1
+                </span>
+                <span style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink, #ffffff)" }}>{bibit1.name}</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block", marginTop: 2 }}>
+                  {bibit1.collection} • {formatRupiah(bibit1.price_per_ml)}/ml • Stok Cabang:{" "}
+                  <strong style={{ color: "#34d399" }}>{bibit1.stock_ml.toLocaleString("id-ID")} ml</strong>
+                </span>
               </div>
               <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "#FBBF24" }}>{bibit1Ml} ml</span>
+                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
+                  {bibit1Ml} ml
+                </span>
                 {hasBibit2 && (
-                  <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>({100 - bibitSplitPercent}%)</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", display: "block" }}>
+                    ({100 - bibitSplitPercent}%)
+                  </span>
                 )}
               </div>
             </div>
@@ -469,56 +599,170 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
             {hasBibit2 && (
               <div style={{ marginTop: "0.75rem" }}>
                 {bibit2 ? (
-                  <div style={{ background: "rgba(20, 24, 22, 0.7)", border: "1px solid rgba(217, 119, 6, 0.3)", borderRadius: "12px", padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div
+                    style={{
+                      background: "var(--c-surface-2, #181e1c)",
+                      border: "1px solid var(--c-border-mid)",
+                      borderRadius: "12px",
+                      padding: "0.85rem 1.15rem",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <div>
-                      <span style={{ fontSize: "0.7rem", color: "#10B981", fontWeight: 700, textTransform: "uppercase", display: "block" }}>Bibit Campuran #2</span>
-                      <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFFFFF" }}>{bibit2.name}</span>
-                      <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>{formatRupiah(bibit2.price_per_ml)}/ml</span>
+                      <span
+                        style={{
+                          fontSize: "0.7rem",
+                          color: "#10b981",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          display: "block",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        Bibit Campuran #2 (Layering)
+                      </span>
+                      <span style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink, #ffffff)" }}>
+                        {bibit2.name}
+                      </span>
+                      <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block", marginTop: 2 }}>
+                        {bibit2.collection} • {formatRupiah(bibit2.price_per_ml)}/ml • Stok Cabang:{" "}
+                        <strong style={{ color: "#34d399" }}>{bibit2.stock_ml.toLocaleString("id-ID")} ml</strong>
+                      </span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                       <div style={{ textAlign: "right" }}>
-                        <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "#10B981" }}>{bibit2Ml} ml</span>
-                        <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>({bibitSplitPercent}%)</span>
+                        <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#10b981" }}>
+                          {bibit2Ml} ml
+                        </span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", display: "block" }}>
+                          ({bibitSplitPercent}%)
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowBibit2Picker(true)}
-                        style={{ padding: "4px 8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "6px", color: "#D1D5DB", cursor: "pointer", fontSize: "0.75rem" }}
-                      >
-                        Ganti
-                      </button>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowBibit2Picker(true)}
+                          style={{
+                            padding: "5px 10px",
+                            background: "var(--c-surface-3, #1f2724)",
+                            border: "1px solid var(--c-border)",
+                            borderRadius: "8px",
+                            color: "var(--c-ink)",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Ganti
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBibit2(null);
+                            setHasBibit2(false);
+                          }}
+                          title="Hapus Bibit #2"
+                          style={{
+                            padding: "5px 8px",
+                            background: "rgba(239, 68, 68, 0.1)",
+                            border: "1px solid rgba(239, 68, 68, 0.25)",
+                            borderRadius: "8px",
+                            color: "#f87171",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ padding: "1rem", borderRadius: "12px", border: "1px dashed rgba(217, 119, 6, 0.4)", textAlign: "center", background: "rgba(217, 119, 6, 0.05)" }}>
-                    <span style={{ fontSize: "0.85rem", color: "#FBBF24", display: "block", marginBottom: 6 }}>
-                      Pilih bibit kedua dari katalog:
+                  <div
+                    style={{
+                      padding: "1.25rem",
+                      borderRadius: "12px",
+                      border: "1px dashed var(--c-gold, #3b82f6)",
+                      textAlign: "center",
+                      background: "var(--c-gold-dim, rgba(59, 130, 246, 0.06))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span style={{ fontSize: "0.85rem", color: "var(--c-ink-muted)" }}>
+                      Bibit #2 belum dipilih. Pilih dari katalog:
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowBibit2Picker(true)}
-                      style={{ padding: "6px 14px", background: "var(--c-gold)", border: "none", color: "#000", borderRadius: "8px", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer" }}
-                    >
-                      Buka Katalog Bibit #2
-                    </button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasBibit2(false);
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: "transparent",
+                          border: "1px solid var(--c-border)",
+                          color: "var(--c-ink-dim)",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowBibit2Picker(true)}
+                        style={{
+                          padding: "6px 14px",
+                          background: "var(--c-gold, #3b82f6)",
+                          border: "none",
+                          color: "#ffffff",
+                          borderRadius: "8px",
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <Search size={14} />
+                        <span>Pilih Bibit #2</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Slider Proporsi Bibit 1 vs Bibit 2 */}
                 {bibit2 && (
-                  <div style={{ marginTop: "0.75rem", background: "rgba(10, 13, 11, 0.6)", padding: "0.75rem 1rem", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: 6 }}>
-                      <span style={{ color: "#FBBF24" }}>{bibit1.name}: {100 - bibitSplitPercent}%</span>
-                      <span style={{ color: "#10B981" }}>{bibit2.name}: {bibitSplitPercent}%</span>
+                  <div
+                    style={{
+                      marginTop: "0.75rem",
+                      background: "var(--c-surface-2, #181e1c)",
+                      padding: "0.85rem 1.15rem",
+                      borderRadius: "10px",
+                      border: "1px solid var(--c-border)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: 8 }}>
+                      <span style={{ color: "var(--c-gold-light, #60a5fa)", fontWeight: 600 }}>
+                        {bibit1.name}: {100 - bibitSplitPercent}%
+                      </span>
+                      <span style={{ color: "#10b981", fontWeight: 600 }}>
+                        {bibit2.name}: {bibitSplitPercent}%
+                      </span>
                     </div>
                     <input
                       type="range"
                       min={10}
                       max={90}
-                      step={5}
+                      step={1}
                       value={bibitSplitPercent}
                       onChange={(e) => setBibitSplitPercent(parseInt(e.target.value, 10))}
-                      style={{ width: "100%", accentColor: "#F59E0B" }}
+                      style={{ width: "100%", accentColor: "var(--c-gold, #3b82f6)" }}
                     />
                   </div>
                 )}
@@ -528,13 +772,27 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
 
           {/* Section 3: Rasio Konsentrasi & Pelarut */}
           <div>
-            <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "#E5E7EB", textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6, marginBottom: "0.75rem" }}>
-              <Percent size={16} color="#F59E0B" />
+            <label
+              style={{
+                fontSize: "0.82rem",
+                fontWeight: 700,
+                color: "var(--c-ink, #f0ede8)",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginBottom: "0.75rem",
+              }}
+            >
+              <Percent size={16} color="var(--c-gold, #3b82f6)" />
               3. Rasio Konsentrasi (Bibit vs Pelarut)
             </label>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem" }}>
+            {/* 5 Preset buttons: EDT, EDP, Extrait, Murni, Custom */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem" }}>
               {[
+                { id: "30/70", label: "30/70 EDT", desc: "30% Bibit" },
                 { id: "50/50", label: "50/50 EDP", desc: "50% Bibit" },
                 { id: "70/30", label: "70/30 Extrait", desc: "70% Bibit" },
                 { id: "100/0", label: "100/0 Murni", desc: "100% Bibit" },
@@ -547,109 +805,165 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
                     type="button"
                     onClick={() => setRatioPreset(r.id as any)}
                     style={{
-                      padding: "0.6rem 0.5rem",
+                      padding: "0.65rem 0.4rem",
                       borderRadius: "10px",
-                      border: isSelected ? "1.5px solid #F59E0B" : "1px solid rgba(255,255,255,0.08)",
-                      background: isSelected ? "rgba(217, 119, 6, 0.18)" : "rgba(20, 24, 22, 0.6)",
-                      color: isSelected ? "#FBBF24" : "#D1D5DB",
+                      border: isSelected ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                      background: isSelected ? "var(--c-gold-dim, rgba(59, 130, 246, 0.18))" : "var(--c-surface-2, #181e1c)",
+                      color: isSelected ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
                       cursor: "pointer",
                       textAlign: "center",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <span style={{ fontSize: "0.85rem", fontWeight: 700, display: "block" }}>{r.label}</span>
-                    <span style={{ fontSize: "0.7rem", color: "#9CA3AF" }}>{r.desc}</span>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, display: "block" }}>{r.label}</span>
+                    <span style={{ fontSize: "0.68rem", color: "var(--c-ink-dim)" }}>{r.desc}</span>
                   </button>
                 );
               })}
             </div>
 
             {ratioPreset === "custom" && (
-              <div style={{ marginTop: "0.75rem", background: "rgba(10, 13, 11, 0.6)", padding: "0.75rem 1rem", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: 6 }}>
-                  <span>Persentase Bibit: <strong style={{ color: "#FBBF24" }}>{customBibitPercent}%</strong></span>
-                  <span>Pelarut: <strong style={{ color: "#9CA3AF" }}>{100 - customBibitPercent}%</strong></span>
+              <div
+                style={{
+                  marginTop: "0.75rem",
+                  background: "var(--c-surface-2, #181e1c)",
+                  padding: "0.85rem 1.15rem",
+                  borderRadius: "10px",
+                  border: "1px solid var(--c-border)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", marginBottom: 8 }}>
+                  <span>
+                    Persentase Bibit: <strong style={{ color: "var(--c-gold-light, #60a5fa)" }}>{customBibitPercent}%</strong>
+                  </span>
+                  <span>
+                    Pelarut: <strong style={{ color: "var(--c-ink-muted)" }}>{100 - customBibitPercent}%</strong>
+                  </span>
                 </div>
                 <input
                   type="range"
-                  min={10}
+                  min={1}
                   max={100}
-                  step={5}
+                  step={1}
                   value={customBibitPercent}
                   onChange={(e) => setCustomBibitPercent(parseInt(e.target.value, 10))}
-                  style={{ width: "100%", accentColor: "#F59E0B" }}
+                  style={{ width: "100%", accentColor: "var(--c-gold, #3b82f6)" }}
                 />
               </div>
             )}
           </div>
 
-          {/* Section 4: AI Advisor Button & Box */}
-          <div style={{ background: "rgba(18, 22, 20, 0.8)", border: "1px solid rgba(217, 119, 6, 0.2)", borderRadius: "12px", padding: "0.85rem 1rem" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Bot size={18} color="#F59E0B" />
-                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#FFFFFF" }}>AI Scent Advisor (Nove AI)</span>
+          {/* Section 4: AI Advisor Button & Box (Kontekstual: Hanya saat custom rasio ATAU bibit kedua aktif) */}
+          {showAiAdvisor && (
+            <div
+              style={{
+                background: "var(--c-surface-2, #181e1c)",
+                border: "1px solid var(--c-border-mid)",
+                borderRadius: "12px",
+                padding: "0.85rem 1rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Bot size={18} color="var(--c-gold, #3b82f6)" />
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink, #ffffff)" }}>
+                    {hasBibit2 && bibit2 ? "AI Layering Advisor (Nove AI)" : "AI Ratio Advisor (Nove AI)"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleConsultAi}
+                  disabled={aiLoading}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "5px 12px",
+                    borderRadius: "8px",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
+                    border: "1px solid var(--c-gold, #3b82f6)",
+                    color: "var(--c-gold-light, #60a5fa)",
+                  }}
+                >
+                  {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  <span>{aiLoading ? "Menganalisis..." : "Saran Racikan AI"}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleConsultAi}
-                disabled={aiLoading}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 10px",
-                  borderRadius: "8px",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  background: "linear-gradient(135deg, rgba(217, 119, 6, 0.3) 0%, rgba(180, 83, 9, 0.15) 100%)",
-                  border: "1px solid rgba(217, 119, 6, 0.4)",
-                  color: "#FBBF24",
-                }}
-              >
-                {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                <span>{aiLoading ? "Menganalisis..." : "Saran Racikan AI"}</span>
-              </button>
-            </div>
 
-            {aiAdvice && (
-              <p style={{ marginTop: "0.6rem", fontSize: "0.8rem", color: "#D1D5DB", lineHeight: 1.5, marginBottom: 0, fontStyle: "italic", background: "rgba(0,0,0,0.25)", padding: "8px 12px", borderRadius: "8px" }}>
-                "{aiAdvice}"
-              </p>
-            )}
-          </div>
+              {aiAdvice && (
+                <p
+                  style={{
+                    marginTop: "0.6rem",
+                    fontSize: "0.8rem",
+                    color: "var(--c-ink, #f0ede8)",
+                    lineHeight: 1.5,
+                    marginBottom: 0,
+                    fontStyle: "italic",
+                    background: "rgba(0,0,0,0.3)",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    borderLeft: "2px solid var(--c-gold, #3b82f6)",
+                  }}
+                >
+                  "{aiAdvice}"
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Section 5: Rincian Kalkulasi Volume & Harga */}
           <div
             style={{
-              background: "linear-gradient(135deg, rgba(217, 119, 6, 0.15) 0%, rgba(20, 24, 22, 0.8) 100%)",
-              border: "1px solid rgba(217, 119, 6, 0.35)",
+              background: "var(--c-surface-2, #181e1c)",
+              border: "1px solid var(--c-border-mid)",
               borderRadius: "14px",
               padding: "1rem 1.25rem",
             }}
           >
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.82rem", marginBottom: "0.75rem" }}>
               <div>
-                <span style={{ color: "#9CA3AF" }}>Total Wadah:</span>
-                <strong style={{ color: "#FFFFFF", marginLeft: 4 }}>{totalCapacityMl} ml</strong>
+                <span style={{ color: "var(--c-ink-dim)" }}>Total Wadah:</span>
+                <strong style={{ color: "var(--c-ink)", marginLeft: 6 }}>{totalCapacityMl} ml</strong>
               </div>
               <div>
-                <span style={{ color: "#9CA3AF" }}>Total Bibit:</span>
-                <strong style={{ color: "#FBBF24", marginLeft: 4 }}>{totalBibitMl} ml ({bibitRatioPercent}%)</strong>
+                <span style={{ color: "var(--c-ink-dim)" }}>Total Bibit:</span>
+                <strong style={{ color: "var(--c-gold-light, #60a5fa)", marginLeft: 6 }}>
+                  {totalBibitMl} ml ({bibitRatioPercent}%)
+                </strong>
               </div>
               <div>
-                <span style={{ color: "#9CA3AF" }}>Pelarut (Absolute):</span>
-                <strong style={{ color: "#10B981", marginLeft: 4 }}>{totalSolventMl} ml (Gratis)</strong>
+                <span style={{ color: "var(--c-ink-dim)" }}>Pelarut (Absolute):</span>
+                <strong style={{ color: "#34d399", marginLeft: 6 }}>{totalSolventMl} ml (Gratis)</strong>
               </div>
               <div>
-                <span style={{ color: "#9CA3AF" }}>Biaya Botol:</span>
-                <strong style={{ color: "#FFFFFF", marginLeft: 4 }}>{formatRupiah(bottlePrice)}</strong>
+                <span style={{ color: "var(--c-ink-dim)" }}>Biaya Botol:</span>
+                <strong style={{ color: "var(--c-ink)", marginLeft: 6 }}>{formatRupiah(bottlePrice)}</strong>
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "0.75rem" }}>
-              <span style={{ fontSize: "0.9rem", color: "#D1D5DB" }}>Total Harga Racikan:</span>
-              <span style={{ fontSize: "1.4rem", fontWeight: 800, color: "#FBBF24" }}>{formatRupiah(totalPrice)}</span>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderTop: "1px solid var(--c-border)",
+                paddingTop: "0.75rem",
+              }}
+            >
+              <span style={{ fontSize: "0.9rem", color: "var(--c-ink-muted)" }}>Total Harga Racikan:</span>
+              <span
+                style={{
+                  fontSize: "1.4rem",
+                  fontWeight: 800,
+                  color: "var(--c-gold-light, #60a5fa)",
+                  fontFamily: "var(--font-display, serif)",
+                }}
+              >
+                {formatRupiah(totalPrice)}
+              </span>
             </div>
           </div>
         </div>
@@ -658,11 +972,11 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
         <div
           style={{
             padding: "1rem 1.5rem",
-            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+            borderTop: "1px solid var(--c-border)",
             display: "flex",
             justifyContent: "flex-end",
             gap: "0.75rem",
-            background: "#0E1110",
+            background: "var(--c-surface-1, #111614)",
           }}
         >
           <button
@@ -671,8 +985,8 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
             style={{
               padding: "0.65rem 1.25rem",
               background: "transparent",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              color: "#9CA3AF",
+              border: "1px solid var(--c-border)",
+              color: "var(--c-ink-muted)",
               borderRadius: "10px",
               cursor: "pointer",
               fontSize: "0.875rem",
@@ -686,8 +1000,8 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
             onClick={handleAdd}
             style={{
               padding: "0.65rem 1.5rem",
-              background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
-              color: "#0B0D0C",
+              background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
+              color: "#ffffff",
               border: "none",
               borderRadius: "10px",
               cursor: "pointer",
@@ -696,7 +1010,7 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
               display: "flex",
               alignItems: "center",
               gap: 6,
-              boxShadow: "0 6px 20px -4px rgba(217, 119, 6, 0.4)",
+              boxShadow: "0 6px 20px -4px rgba(59, 130, 246, 0.4)",
             }}
           >
             <span>Tambah ke Bill Kasir</span>
@@ -704,89 +1018,196 @@ Berikan 1-2 kalimat rekomendasi perpaduan rasio terbaik agar wanginya seimbang d
           </button>
         </div>
 
-        {/* Sub-Modal: Picker Bibit #2 */}
+        {/* Sub-Modal: Centered Dialog Picker Bibit #2 */}
         {showBibit2Picker && (
           <div
             style={{
-              position: "absolute",
+              position: "fixed",
               inset: 0,
-              background: "rgba(10, 13, 11, 0.95)",
-              backdropFilter: "blur(6px)",
+              background: "rgba(0, 0, 0, 0.8)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
               display: "flex",
-              flexDirection: "column",
-              padding: "1.25rem",
-              zIndex: 250,
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 300,
+              padding: "1rem",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Search size={18} color="#F59E0B" />
-                <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#FFFFFF", margin: 0 }}>Pilih Bibit Campuran #2</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowBibit2Picker(false)}
-                style={{ background: "transparent", border: "none", color: "#9CA3AF", cursor: "pointer" }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <input
-              type="text"
-              placeholder="Ketik nama bibit atau aroma..."
-              value={bibit2Search}
-              onChange={(e) => setBibit2Search(e.target.value)}
-              autoFocus
+            <div
               style={{
                 width: "100%",
-                padding: "0.75rem 1rem",
-                backgroundColor: "#161B18",
-                border: "1px solid rgba(217, 119, 6, 0.4)",
-                borderRadius: "10px",
-                color: "#FFFFFF",
-                fontSize: "0.9rem",
-                outline: "none",
-                marginBottom: "1rem",
-                boxSizing: "border-box",
+                maxWidth: "540px",
+                maxHeight: "82vh",
+                background: "var(--c-surface-1, #111614)",
+                border: "1px solid var(--c-border-mid)",
+                borderRadius: "18px",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                boxShadow: "0 25px 60px rgba(0,0,0,0.9)",
               }}
-            />
-
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {filteredBibit2.map((b) => (
+            >
+              {/* Header Picker */}
+              <div
+                style={{
+                  padding: "1.25rem 1.5rem",
+                  borderBottom: "1px solid var(--c-border)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Search size={18} color="var(--c-gold, #3b82f6)" />
+                  <h3
+                    style={{
+                      fontSize: "1.15rem",
+                      fontWeight: 600,
+                      color: "var(--c-ink, #ffffff)",
+                      margin: 0,
+                      fontFamily: "var(--font-display, serif)",
+                    }}
+                  >
+                    Pilih Bibit Campuran #2
+                  </h3>
+                </div>
                 <button
-                  key={b.id}
                   type="button"
                   onClick={() => {
-                    setBibit2(b);
                     setShowBibit2Picker(false);
+                    if (!bibit2) setHasBibit2(false);
                   }}
                   style={{
-                    padding: "0.75rem 1rem",
-                    borderRadius: "10px",
-                    background: "rgba(255, 255, 255, 0.04)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    color: "#FFFFFF",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "none",
+                    color: "var(--c-ink-muted)",
                     cursor: "pointer",
-                    textAlign: "left",
+                    padding: "6px",
+                    borderRadius: "6px",
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
-                  <div>
-                    <span style={{ fontSize: "0.9rem", fontWeight: 600, display: "block" }}>{b.name}</span>
-                    <span style={{ fontSize: "0.75rem", color: "#9CA3AF" }}>
-                      {b.collection} • Stok: {b.stock_ml}ml
-                    </span>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#FBBF24" }}>
-                      {formatRupiah(b.price_per_ml)}/ml
-                    </span>
-                  </div>
+                  <X size={18} />
                 </button>
-              ))}
+              </div>
+
+              {/* Filter Tabs & Search */}
+              <div style={{ padding: "1rem 1.5rem 0.5rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {/* Collection Filter Tabs */}
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {[
+                    { id: "all", label: "Semua" },
+                    { id: "Global Parfume", label: "Global Parfume" },
+                    { id: "Arabian Parfume", label: "Arabian Parfume" },
+                  ].map((tab) => {
+                    const isActive = bibit2Category === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setBibit2Category(tab.id as any)}
+                        style={{
+                          padding: "5px 12px",
+                          borderRadius: "999px",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          border: isActive ? "1px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                          background: isActive ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2)",
+                          color: isActive ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search Input */}
+                <input
+                  type="text"
+                  placeholder="Ketik nama aroma bibit..."
+                  value={bibit2Search}
+                  onChange={(e) => setBibit2Search(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    backgroundColor: "var(--c-bg, #0a0c0b)",
+                    border: "1px solid var(--c-border)",
+                    borderRadius: "10px",
+                    color: "var(--c-ink, #ffffff)",
+                    fontSize: "0.9rem",
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              {/* Bibits List */}
+              <div
+                style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "0.5rem 1.5rem 1.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
+                {filteredBibit2.length === 0 ? (
+                  <div style={{ padding: "2rem", textAlign: "center", color: "var(--c-ink-dim)", fontSize: "0.85rem" }}>
+                    Tidak ada bibit yang cocok dengan pencarian.
+                  </div>
+                ) : (
+                  filteredBibit2.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setBibit2(b);
+                        setShowBibit2Picker(false);
+                      }}
+                      style={{
+                        padding: "0.8rem 1rem",
+                        borderRadius: "10px",
+                        background: "var(--c-surface-2, #181e1c)",
+                        border: "1px solid var(--c-border)",
+                        color: "var(--c-ink, #ffffff)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "var(--c-gold, #3b82f6)";
+                        e.currentTarget.style.transform = "translateX(2px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "var(--c-border)";
+                        e.currentTarget.style.transform = "none";
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontSize: "0.9rem", fontWeight: 600, display: "block" }}>{b.name}</span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>
+                          {b.collection} • Stok: <strong style={{ color: "#34d399" }}>{b.stock_ml.toLocaleString("id-ID")} ml</strong>
+                        </span>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--c-gold-light, #60a5fa)" }}>
+                          {formatRupiah(b.price_per_ml)}/ml
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

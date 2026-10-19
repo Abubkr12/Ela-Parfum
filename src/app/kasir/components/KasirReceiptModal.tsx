@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { PosBillItem } from "../actions";
-import { Printer, MessageCircle, PlusCircle, CheckCircle2, Store } from "lucide-react";
+import { Printer, MessageCircle, PlusCircle, CheckCircle2, Store, AlertCircle } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
 
 interface KasirReceiptModalProps {
@@ -40,6 +40,7 @@ export default function KasirReceiptModal({
   onNewTransaction,
 }: KasirReceiptModalProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [waNotice, setWaNotice] = useState<string | null>(null);
 
   const handlePrint = () => {
     window.print();
@@ -48,7 +49,8 @@ export default function KasirReceiptModal({
   const handleSendWhatsApp = () => {
     const cleanPhone = (customerPhone || "").replace(/\D/g, "");
     if (!cleanPhone) {
-      alert("Nomor WhatsApp pelanggan belum diisi pada saat transaksi.");
+      setWaNotice("Nomor WhatsApp pelanggan belum diisi pada saat transaksi.");
+      setTimeout(() => setWaNotice(null), 4000);
       return;
     }
     const formattedPhone = cleanPhone.startsWith("0") ? "62" + cleanPhone.slice(1) : cleanPhone;
@@ -96,7 +98,7 @@ export default function KasirReceiptModal({
           width: "100%",
           maxWidth: "460px",
           backgroundColor: "#121614",
-          border: "1px solid rgba(217, 119, 6, 0.4)",
+          border: "1px solid rgba(212, 175, 55, 0.35)",
           borderRadius: "22px",
           display: "flex",
           flexDirection: "column",
@@ -126,6 +128,25 @@ export default function KasirReceiptModal({
             </span>
           </div>
         </div>
+
+        {/* WhatsApp Notice Banner */}
+        {waNotice && (
+          <div
+            style={{
+              padding: "0.75rem 1rem",
+              backgroundColor: "rgba(239, 68, 68, 0.12)",
+              borderBottom: "1px solid rgba(239, 68, 68, 0.25)",
+              color: "#FCA5A5",
+              fontSize: "0.8rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <AlertCircle size={15} style={{ flexShrink: 0, color: "#EF4444" }} />
+            <span>{waNotice}</span>
+          </div>
+        )}
 
         {/* Scrollable Receipt Preview */}
         <div
@@ -306,7 +327,7 @@ export default function KasirReceiptModal({
             style={{
               padding: "0.9rem",
               borderRadius: "12px",
-              background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+              background: "linear-gradient(135deg, var(--c-gold, #D4AF37) 0%, #B8972E 100%)",
               border: "none",
               color: "#0B0D0C",
               fontWeight: 800,
@@ -316,7 +337,7 @@ export default function KasirReceiptModal({
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              boxShadow: "0 6px 20px -4px rgba(217, 119, 6, 0.4)",
+              boxShadow: "0 6px 20px -4px rgba(212, 175, 55, 0.4)",
             }}
           >
             <PlusCircle size={18} />

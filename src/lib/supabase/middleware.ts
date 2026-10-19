@@ -101,7 +101,12 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.rewrite(new URL('/kasir', request.url))
     }
 
-    // If already at '/kasir' or any subpath
+    // If accessed as '/kasir' directly on cashier subdomain, redirect to root '/'
+    if (pathname === '/kasir') {
+      return NextResponse.redirect(new URL('/', request.url), 307)
+    }
+
+    // Allow /kasir/* subpaths if any
     if (pathname.startsWith('/kasir')) {
       return supabaseResponse
     }
@@ -110,8 +115,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url), 307)
   }
 
-  // 2. Handle /kasir routes on main domain
+  // 2. Handle /kasir routes on main domain: eliminate duplicate URLs by redirecting to cashier subdomain
   if (isKasirRoute) {
+    if (host.includes('elaparfum.web.id')) {
+      return NextResponse.redirect(new URL('https://cashier.elaparfum.web.id/'), 307)
+    }
+
+    // Localhost development fallback
     if (request.nextUrl.pathname === '/kasir/login') {
       if (user) {
         const { data: adminUser } = await supabase.from('admin_users').select('id').eq('id', user.id).single()

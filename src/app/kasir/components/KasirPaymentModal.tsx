@@ -284,68 +284,84 @@ export default function KasirPaymentModal({
         style={{
           width: "100%",
           maxWidth: "560px",
-          backgroundColor: "#121614",
-          border: "1px solid rgba(217, 119, 6, 0.4)",
+          backgroundColor: "var(--c-surface-1, #111614)",
+          border: "1px solid var(--c-border-mid)",
           borderRadius: "22px",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.9), 0 0 50px rgba(217, 119, 6, 0.15)",
-          color: "#F3F4F6",
+          boxShadow: "0 25px 60px rgba(0,0,0,0.9), 0 0 40px var(--c-gold-glow, rgba(59, 130, 246, 0.15))",
+          color: "var(--c-ink, #f0ede8)",
         }}
       >
         {/* Header Modal */}
         <div
           style={{
             padding: "1.25rem 1.5rem",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+            borderBottom: "1px solid var(--c-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            background: "linear-gradient(90deg, rgba(217, 119, 6, 0.15) 0%, transparent 100%)",
+            background: "linear-gradient(90deg, var(--c-gold-dim, rgba(59, 130, 246, 0.12)) 0%, transparent 100%)",
           }}
         >
           <div>
-            <span style={{ fontSize: "0.75rem", color: "#F59E0B", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--c-gold-light, #60a5fa)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
               Terminal Kasir Pembayaran
             </span>
-            <h2 style={{ fontSize: "1.3rem", fontWeight: 700, margin: 0, color: "#FFFFFF" }}>
+            <h2
+              style={{
+                fontSize: "1.35rem",
+                fontWeight: 600,
+                margin: 0,
+                color: "var(--c-ink, #ffffff)",
+                fontFamily: "var(--font-display, serif)",
+              }}
+            >
               Pilih Metode Bayar
             </h2>
           </div>
           <button
             onClick={onClose}
             style={{
-              background: "transparent",
-              border: "none",
-              color: "#9CA3AF",
+              background: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid var(--c-border)",
+              color: "var(--c-ink-muted)",
               cursor: "pointer",
               padding: "6px",
+              borderRadius: "8px",
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Total Tagihan Bar */}
         <div
           style={{
-            backgroundColor: "#0A0D0C",
+            backgroundColor: "var(--c-surface-2, #181e1c)",
             padding: "1rem 1.5rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+            borderBottom: "1px solid var(--c-border)",
           }}
         >
           <div>
-            <span style={{ fontSize: "0.8rem", color: "#9CA3AF" }}>Total Tagihan:</span>
-            <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "#FBBF24" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)" }}>Total Tagihan:</span>
+            <div
+              style={{
+                fontSize: "1.6rem",
+                fontWeight: 800,
+                color: "var(--c-gold-light, #60a5fa)",
+                fontFamily: "var(--font-display, serif)",
+              }}
+            >
               {formatRupiah(payload.total)}
             </div>
           </div>
-          <div style={{ textAlign: "right", fontSize: "0.8rem", color: "#9CA3AF" }}>
-            <span>Pelanggan: <strong style={{ color: "#FFFFFF" }}>{payload.customerName || "Customer Toko"}</strong></span>
+          <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--c-ink-muted)" }}>
+            <span>Pelanggan: <strong style={{ color: "var(--c-ink)" }}>{payload.customerName || "Customer Toko"}</strong></span>
             <br />
             <span>{payload.items.length} jenis item</span>
           </div>
@@ -367,15 +383,16 @@ export default function KasirPaymentModal({
               padding: "0.75rem",
               borderRadius: "12px",
               cursor: "pointer",
-              border: activeTab === "CASH" ? "1.5px solid #F59E0B" : "1px solid rgba(255,255,255,0.08)",
-              background: activeTab === "CASH" ? "rgba(217, 119, 6, 0.18)" : "rgba(20, 24, 22, 0.5)",
-              color: activeTab === "CASH" ? "#FBBF24" : "#D1D5DB",
+              border: activeTab === "CASH" ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+              background: activeTab === "CASH" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
+              color: activeTab === "CASH" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
               fontSize: "0.85rem",
-              fontWeight: 700,
+              fontWeight: 600,
+              transition: "all 0.15s ease",
             }}
           >
             <Banknote size={18} />
@@ -389,15 +406,16 @@ export default function KasirPaymentModal({
               padding: "0.75rem",
               borderRadius: "12px",
               cursor: "pointer",
-              border: activeTab === "QRIS" ? "1.5px solid #F59E0B" : "1px solid rgba(255,255,255,0.08)",
-              background: activeTab === "QRIS" ? "rgba(217, 119, 6, 0.18)" : "rgba(20, 24, 22, 0.5)",
-              color: activeTab === "QRIS" ? "#FBBF24" : "#D1D5DB",
+              border: activeTab === "QRIS" ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+              background: activeTab === "QRIS" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
+              color: activeTab === "QRIS" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
               fontSize: "0.85rem",
-              fontWeight: 700,
+              fontWeight: 600,
+              transition: "all 0.15s ease",
             }}
           >
             <QrCode size={18} />
@@ -411,15 +429,16 @@ export default function KasirPaymentModal({
               padding: "0.75rem",
               borderRadius: "12px",
               cursor: "pointer",
-              border: activeTab === "TRANSFER" ? "1.5px solid #F59E0B" : "1px solid rgba(255,255,255,0.08)",
-              background: activeTab === "TRANSFER" ? "rgba(217, 119, 6, 0.18)" : "rgba(20, 24, 22, 0.5)",
-              color: activeTab === "TRANSFER" ? "#FBBF24" : "#D1D5DB",
+              border: activeTab === "TRANSFER" ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+              background: activeTab === "TRANSFER" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
+              color: activeTab === "TRANSFER" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
               fontSize: "0.85rem",
-              fontWeight: 700,
+              fontWeight: 600,
+              transition: "all 0.15s ease",
             }}
           >
             <Building2 size={18} />
@@ -440,7 +459,7 @@ export default function KasirPaymentModal({
               )}
 
               <div>
-                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#D1D5DB", marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink-muted)", marginBottom: 6 }}>
                   Uang Diterima dari Pelanggan (Rp):
                 </label>
                 <input
@@ -452,10 +471,10 @@ export default function KasirPaymentModal({
                   style={{
                     width: "100%",
                     padding: "0.85rem 1rem",
-                    backgroundColor: "#0B0D0C",
-                    border: "1.5px solid rgba(217, 119, 6, 0.5)",
+                    backgroundColor: "var(--c-bg, #0a0c0b)",
+                    border: "1.5px solid var(--c-gold, #3b82f6)",
                     borderRadius: "12px",
-                    color: "#FFFFFF",
+                    color: "var(--c-ink, #ffffff)",
                     fontSize: "1.25rem",
                     fontWeight: 800,
                     outline: "none",
@@ -466,7 +485,7 @@ export default function KasirPaymentModal({
 
               {/* Shortcut Pecahan Uang Cepat */}
               <div>
-                <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block", marginBottom: 6 }}>
+                <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", display: "block", marginBottom: 6 }}>
                   Pilihan Cepat Nominal Uang:
                 </span>
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -476,9 +495,9 @@ export default function KasirPaymentModal({
                     style={{
                       padding: "6px 12px",
                       borderRadius: "8px",
-                      background: cashReceived === payload.total ? "var(--c-gold)" : "rgba(255,255,255,0.06)",
-                      color: cashReceived === payload.total ? "#000" : "#D1D5DB",
-                      border: "none",
+                      background: cashReceived === payload.total ? "var(--c-gold, #3b82f6)" : "var(--c-surface-2, #181e1c)",
+                      color: cashReceived === payload.total ? "#ffffff" : "var(--c-ink)",
+                      border: "1px solid var(--c-border)",
                       fontSize: "0.8rem",
                       fontWeight: 600,
                       cursor: "pointer",
@@ -496,9 +515,9 @@ export default function KasirPaymentModal({
                         style={{
                           padding: "6px 12px",
                           borderRadius: "8px",
-                          background: cashReceived === amt ? "var(--c-gold)" : "rgba(255,255,255,0.06)",
-                          color: cashReceived === amt ? "#000" : "#D1D5DB",
-                          border: "none",
+                          background: cashReceived === amt ? "var(--c-gold, #3b82f6)" : "var(--c-surface-2, #181e1c)",
+                          color: cashReceived === amt ? "#ffffff" : "var(--c-ink)",
+                          border: "1px solid var(--c-border)",
                           fontSize: "0.8rem",
                           fontWeight: 600,
                           cursor: "pointer",
@@ -524,14 +543,14 @@ export default function KasirPaymentModal({
                 }}
               >
                 <div>
-                  <span style={{ fontSize: "0.8rem", color: isCashSufficient ? "#A7F3D0" : "#FCA5A5" }}>
+                  <span style={{ fontSize: "0.8rem", color: isCashSufficient ? "#a7f3d0" : "#fca5a5" }}>
                     {isCashSufficient ? "Kembalian untuk Pelanggan:" : "Kurang Bayar:"}
                   </span>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: isCashSufficient ? "#10B981" : "#EF4444" }}>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: isCashSufficient ? "#10b981" : "#ef4444" }}>
                     {formatRupiah(isCashSufficient ? cashChange : payload.total - cashReceived)}
                   </div>
                 </div>
-                {isCashSufficient && <CheckCircle2 size={32} color="#10B981" />}
+                {isCashSufficient && <CheckCircle2 size={32} color="#10b981" />}
               </div>
 
               <button
@@ -541,8 +560,8 @@ export default function KasirPaymentModal({
                 style={{
                   width: "100%",
                   padding: "0.95rem",
-                  background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
-                  color: "#0B0D0C",
+                  background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
+                  color: "#ffffff",
                   border: "none",
                   borderRadius: "14px",
                   fontSize: "1rem",
@@ -553,7 +572,7 @@ export default function KasirPaymentModal({
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  boxShadow: "0 10px 25px -5px rgba(217, 119, 6, 0.4)",
+                  boxShadow: "0 10px 25px -5px var(--c-gold-glow, rgba(59, 130, 246, 0.4))",
                 }}
               >
                 {cashSubmitting ? (
@@ -576,21 +595,21 @@ export default function KasirPaymentModal({
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
               {qrisLoading && (
                 <div style={{ padding: "3rem 1rem" }}>
-                  <Loader2 size={36} className="animate-spin" color="#F59E0B" style={{ margin: "0 auto 1rem" }} />
-                  <p style={{ color: "#D1D5DB", fontSize: "0.95rem", fontWeight: 600 }}>
+                  <Loader2 size={36} className="animate-spin" color="var(--c-gold, #3b82f6)" style={{ margin: "0 auto 1rem" }} />
+                  <p style={{ color: "var(--c-ink-muted)", fontSize: "0.95rem", fontWeight: 600 }}>
                     Menghubungkan ke Mayar & Membuat QRIS Dinamis...
                   </p>
                 </div>
               )}
 
               {qrisError && (
-                <div style={{ padding: "1.5rem", borderRadius: "12px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#FCA5A5", width: "100%", boxSizing: "border-box" }}>
+                <div style={{ padding: "1.5rem", borderRadius: "12px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fca5a5", width: "100%", boxSizing: "border-box" }}>
                   <AlertCircle size={28} style={{ margin: "0 auto 0.5rem" }} />
                   <p style={{ fontSize: "0.9rem", margin: "0 0 1rem" }}>{qrisError}</p>
                   <button
                     type="button"
                     onClick={handleGenerateQris}
-                    style={{ padding: "8px 16px", background: "var(--c-gold)", border: "none", color: "#000", borderRadius: "8px", fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}
+                    style={{ padding: "8px 16px", background: "var(--c-gold, #3b82f6)", border: "none", color: "#ffffff", borderRadius: "8px", fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}
                   >
                     Coba Lagi
                   </button>
@@ -605,20 +624,20 @@ export default function KasirPaymentModal({
                       height: "72px",
                       borderRadius: "50%",
                       backgroundColor: "rgba(16, 185, 129, 0.2)",
-                      border: "2px solid #10B981",
+                      border: "2px solid #10b981",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#10B981",
+                      color: "#10b981",
                       marginBottom: "1rem",
                     }}
                   >
                     <CheckCircle2 size={44} />
                   </div>
-                  <h3 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10B981", margin: 0 }}>
+                  <h3 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10b981", margin: 0, fontFamily: "var(--font-display, serif)" }}>
                     PEMBAYARAN LUNAS!
                   </h3>
-                  <p style={{ color: "#D1D5DB", fontSize: "0.9rem", marginTop: 6 }}>
+                  <p style={{ color: "var(--c-ink-muted)", fontSize: "0.9rem", marginTop: 6 }}>
                     Sistem otomatis memverifikasi pembayaran QRIS Mayar. Menyiapkan struk...
                   </p>
                 </div>
@@ -634,9 +653,9 @@ export default function KasirPaymentModal({
                       gap: 6,
                       padding: "4px 12px",
                       borderRadius: "999px",
-                      background: secondsLeft < 120 ? "rgba(239, 68, 68, 0.2)" : "rgba(217, 119, 6, 0.15)",
-                      border: secondsLeft < 120 ? "1px solid #EF4444" : "1px solid rgba(217, 119, 6, 0.3)",
-                      color: secondsLeft < 120 ? "#F87171" : "#FBBF24",
+                      background: secondsLeft < 120 ? "rgba(239, 68, 68, 0.2)" : "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
+                      border: secondsLeft < 120 ? "1px solid #ef4444" : "1px solid var(--c-gold, #3b82f6)",
+                      color: secondsLeft < 120 ? "#f87171" : "var(--c-gold-light, #60a5fa)",
                       fontSize: "0.8rem",
                       fontWeight: 700,
                       marginBottom: "1rem",
@@ -677,7 +696,7 @@ export default function KasirPaymentModal({
                       alignItems: "center",
                       gap: 8,
                       fontSize: "0.85rem",
-                      color: "#A7F3D0",
+                      color: "#a7f3d0",
                       background: "rgba(16, 185, 129, 0.1)",
                       border: "1px solid rgba(16, 185, 129, 0.25)",
                       padding: "0.5rem 1rem",
@@ -690,15 +709,15 @@ export default function KasirPaymentModal({
                         width: 8,
                         height: 8,
                         borderRadius: "50%",
-                        backgroundColor: "#10B981",
+                        backgroundColor: "#10b981",
                         display: "inline-block",
-                        boxShadow: "0 0 10px #10B981",
+                        boxShadow: "0 0 10px #10b981",
                       }}
                     />
                     <span>Menunggu scan & pembayaran pelanggan (Auto-Detect)...</span>
                   </div>
 
-                  <p style={{ fontSize: "0.75rem", color: "#9CA3AF", margin: 0 }}>
+                  <p style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", margin: 0 }}>
                     Pelanggan dapat scan QRIS menggunakan BCA, Mandiri, GoPay, OVO, ShopeePay, DANA, atau seluruh e-wallet/m-banking.
                   </p>
                 </div>
@@ -710,28 +729,30 @@ export default function KasirPaymentModal({
           {activeTab === "TRANSFER" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               {transferError && (
-                <div style={{ padding: "0.75rem 1rem", borderRadius: "10px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#FCA5A5", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ padding: "0.75rem 1rem", borderRadius: "10px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fca5a5", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 8 }}>
                   <AlertCircle size={18} />
                   <span>{transferError}</span>
                 </div>
               )}
 
-              <div style={{ background: "rgba(20, 24, 22, 0.6)", padding: "1rem", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <span style={{ fontSize: "0.75rem", color: "#F59E0B", fontWeight: 700, textTransform: "uppercase" }}>Rekening Resmi Ela Parfum</span>
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ background: "var(--c-surface-2, #181e1c)", padding: "1.25rem", borderRadius: "14px", border: "1px solid var(--c-border)" }}>
+                <span style={{ fontSize: "0.75rem", color: "var(--c-gold-light, #60a5fa)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Rekening Resmi Ela Parfum
+                </span>
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "#D1D5DB", fontSize: "0.9rem" }}>Bank Central Asia (BCA):</span>
-                    <strong style={{ color: "#FFFFFF", fontSize: "1rem" }}>8415-XXXX-XX</strong>
+                    <span style={{ color: "var(--c-ink-muted)", fontSize: "0.9rem" }}>Bank Central Asia (BCA):</span>
+                    <strong style={{ color: "var(--c-ink, #ffffff)", fontSize: "1rem" }}>8415-XXXX-XX</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "#D1D5DB", fontSize: "0.9rem" }}>Atas Nama:</span>
-                    <strong style={{ color: "#FBBF24", fontSize: "0.9rem" }}>PT ELA PARFUM ARTISAN</strong>
+                    <span style={{ color: "var(--c-ink-muted)", fontSize: "0.9rem" }}>Atas Nama:</span>
+                    <strong style={{ color: "var(--c-gold-light, #60a5fa)", fontSize: "0.95rem" }}>PT ELA PARFUM ARTISAN</strong>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#D1D5DB", marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink-muted)", marginBottom: 6 }}>
                   Nomor Referensi Transfer / Nama Pengirim:
                 </label>
                 <input
@@ -742,10 +763,10 @@ export default function KasirPaymentModal({
                   style={{
                     width: "100%",
                     padding: "0.85rem 1rem",
-                    backgroundColor: "#0B0D0C",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    backgroundColor: "var(--c-bg, #0a0c0b)",
+                    border: "1px solid var(--c-border-mid)",
                     borderRadius: "12px",
-                    color: "#FFFFFF",
+                    color: "var(--c-ink, #ffffff)",
                     fontSize: "0.95rem",
                     outline: "none",
                     boxSizing: "border-box",
@@ -760,8 +781,8 @@ export default function KasirPaymentModal({
                 style={{
                   width: "100%",
                   padding: "0.95rem",
-                  background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
-                  color: "#0B0D0C",
+                  background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
+                  color: "#ffffff",
                   border: "none",
                   borderRadius: "14px",
                   fontSize: "1rem",
@@ -772,7 +793,7 @@ export default function KasirPaymentModal({
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  boxShadow: "0 10px 25px -5px rgba(217, 119, 6, 0.4)",
+                  boxShadow: "0 10px 25px -5px var(--c-gold-glow, rgba(59, 130, 246, 0.4))",
                 }}
               >
                 {transferSubmitting ? (
