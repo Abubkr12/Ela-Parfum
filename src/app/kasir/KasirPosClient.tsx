@@ -49,6 +49,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
   const [data, setData] = useState<PosInitialData>(initialData);
   const [activeStoreId, setActiveStoreId] = useState<number>(initialData.activeStoreId);
   const [loadingStore, setLoadingStore] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Tab & Search State
   const [activeCategory, setActiveCategory] = useState<"ALL" | "PRODUCT" | "BIBIT" | "BOTTLE">("BIBIT");
@@ -93,6 +94,45 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Background Auto-Sync Stok Cabang setiap 45 detik & saat tab kembali aktif
+  useEffect(() => {
+    const syncStock = async () => {
+      try {
+        const res = await getPosInitialData(activeStoreId);
+        if (res.data) {
+          setData(res.data);
+        }
+      } catch {
+        // Silent fail on background poll
+      }
+    };
+
+    const interval = setInterval(syncStock, 45000);
+    window.addEventListener("focus", syncStock);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", syncStock);
+    };
+  }, [activeStoreId]);
+
+  // Manual Trigger Sync Stok
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await getPosInitialData(activeStoreId);
+      if (res.data) {
+        setData(res.data);
+        toast.success(`Stok Cabang ${activeStore?.name} berhasil disinkronkan real-time.`);
+      } else {
+        toast.error(res.error || "Gagal menyinkronkan data stok.");
+      }
+    } catch {
+      toast.error("Gagal menyinkronkan data.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -452,7 +492,32 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
         </div>
 
         {/* Right User & Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          {/* Sinkron Stok Button */}
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            title="Segarkan & Sinkronkan Stok Cabang Real-time"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "#D1D5DB",
+              padding: "0.4rem 0.8rem",
+              borderRadius: "10px",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              cursor: isSyncing ? "not-allowed" : "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} style={{ color: "var(--c-gold, #D4AF37)" }} />
+            <span>{isSyncing ? "Sinkron..." : "Sinkron Stok"}</span>
+          </button>
+
           {/* Riwayat Shift Button */}
           <button
             type="button"
@@ -1354,6 +1419,10 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
             setShowPaymentModal(false);
             setCompletedOrder({
               ...result,
+            });
+            // Segera perbarui stok cabang real-time dari database
+            getPosInitialData(activeStoreId).then((res) => {
+              if (res.data) setData(res.data);
             });
           }}
         />
