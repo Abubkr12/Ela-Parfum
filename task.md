@@ -9,6 +9,12 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Resolusi Cloudflare Error 1102 (Worker Exceeded Resource Limits):**
+  - [x] **Eliminasi Infinite Redirect Loop:** Menghapus redirect melingkar antara `/` dan `/kasir` pada `isCashierHost` di `src/lib/supabase/middleware.ts` serta memproteksi rute kasir tanpa duplikasi call database di middleware.
+  - [x] **Decouple Heavy Catalog Query dari SSR:** Mengubah `src/app/kasir/page.tsx` menjadi shell SSR instan (<0.2ms CPU) dan memindahkan query 740+ bibit ke client-side mount di `KasirPosClient.tsx`, sehingga tidak pernah melanggar batas CPU 10ms Cloudflare Worker Free.
+  - [x] **Optimasi Query Paralel:** Mempercepat `getPosInitialData` di `src/app/kasir/actions.ts` dengan menjalankan query produk, bibit, botol, dan pesanan secara konkuren via `Promise.all`.
+  - [x] **Verifikasi & Deploy:** Sukses kompilasi `npm run build:worker` (`.open-next/worker.js`), lolos typecheck `npx tsc --noEmit` (0 error), commit dan push ke remote GitHub `main`. Endpoint `https://cashier.elaparfum.web.id/` dan `https://elaparfum.web.id/admin` normal kembali dengan HTTP 200 OK.
+
 - [x] **Revamp Estetika Luxury Kasir POS, Presisi Racik & Halaman Admin Manajemen Kasir (/admin/kasir):**
   - [x] **Harmonisasi Estetika & Visual Kasir POS:** Selaraskan tema warna seluruh touchpoint POS (`/kasir`, modal racik, modal pembayaran, modal struk, dan login) dengan tema Dark Luxury Obsidian Ela Parfum (`var(--c-bg)`, `var(--c-surface-1)`, `var(--c-surface-2)`, `var(--c-border)`, `var(--c-gold)`, font `Cormorant Garamond`), mengeliminasi warna oranye/kuning kaku.
   - [x] **Kembalikan Preset Eau de Toilette (EDT 30/70):** Menambahkan pilihan rasio konsentrasi 30% Bibit · 70% Pelarut ke grid preset modal racik kasir bersama EDP, Extrait, dan Murni.
