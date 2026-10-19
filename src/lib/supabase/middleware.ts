@@ -54,43 +54,60 @@ export async function updateSession(request: NextRequest) {
 
   // 1. Handle Cashier Subdomain (cashier.elaparfum.web.id)
   if (isCashierHost) {
-    const isLoginPath = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/kasir/login'
+    const pathname = request.nextUrl.pathname
 
-    if (isLoginPath) {
+    // Allow static files, Next.js internal assets, and API routes
+    if (
+      pathname.startsWith('/_next') ||
+      pathname.startsWith('/api') ||
+      pathname.startsWith('/assets') ||
+      pathname.startsWith('/images') ||
+      pathname === '/favicon.ico'
+    ) {
+      return supabaseResponse
+    }
+
+    // Login routes: rewrite /login to /kasir/login
+    if (pathname === '/login') {
       if (user) {
-        const { data: adminUser } = await supabase.from('admin_users').select('id').eq('id', user.id).single()
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('id', user.id)
+          .single()
         if (adminUser) {
-          const redirectUrl = request.nextUrl.clone()
-          redirectUrl.pathname = '/'
-          return NextResponse.redirect(redirectUrl, { headers: supabaseResponse.headers })
+          return NextResponse.redirect(new URL('/', request.url), 307)
         }
       }
-      // Rewrite /login to /kasir/login on cashier subdomain
-      return NextResponse.rewrite(new URL('/kasir/login', request.url), { headers: supabaseResponse.headers })
+      return NextResponse.rewrite(new URL('/kasir/login', request.url))
     }
 
-    // Require staff authentication for all non-api pages on cashier subdomain
-    if (!request.nextUrl.pathname.startsWith('/api') && !request.nextUrl.pathname.startsWith('/_next')) {
-      if (!user) {
-        const loginUrl = request.nextUrl.clone()
-        loginUrl.pathname = '/login'
-        return NextResponse.redirect(loginUrl, { headers: supabaseResponse.headers })
+    if (pathname === '/kasir/login') {
+      if (user) {
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('id', user.id)
+          .single()
+        if (adminUser) {
+          return NextResponse.redirect(new URL('/', request.url), 307)
+        }
       }
-
-      const { data: adminUser } = await supabase.from('admin_users').select('id, role, assigned_store_ids').eq('id', user.id).single()
-      if (!adminUser) {
-        const loginUrl = request.nextUrl.clone()
-        loginUrl.pathname = '/login'
-        return NextResponse.redirect(loginUrl, { headers: supabaseResponse.headers })
-      }
-
-      // Rewrite root '/' to '/kasir'
-      if (request.nextUrl.pathname === '/') {
-        return NextResponse.rewrite(new URL('/kasir', request.url), { headers: supabaseResponse.headers })
-      }
+      return supabaseResponse
     }
 
-    return supabaseResponse
+    // Root '/' on cashier subdomain ALWAYS rewrites to '/kasir'
+    if (pathname === '/') {
+      return NextResponse.rewrite(new URL('/kasir', request.url))
+    }
+
+    // If already at '/kasir' or any subpath
+    if (pathname.startsWith('/kasir')) {
+      return supabaseResponse
+    }
+
+    // Any other paths on cashier subdomain, redirect to root '/'
+    return NextResponse.redirect(new URL('/', request.url), 307)
   }
 
   // 2. Handle /kasir routes on main domain
@@ -99,25 +116,19 @@ export async function updateSession(request: NextRequest) {
       if (user) {
         const { data: adminUser } = await supabase.from('admin_users').select('id').eq('id', user.id).single()
         if (adminUser) {
-          const url = request.nextUrl.clone()
-          url.pathname = '/kasir'
-          return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+          return NextResponse.redirect(new URL('/kasir', request.url), 307)
         }
       }
       return supabaseResponse
     }
 
     if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/kasir/login'
-      return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+      return NextResponse.redirect(new URL('/kasir/login', request.url), 307)
     }
 
     const { data: adminUser } = await supabase.from('admin_users').select('id').eq('id', user.id).single()
     if (!adminUser) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/'
-      return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+      return NextResponse.redirect(new URL('/', request.url), 307)
     }
 
     return supabaseResponse
@@ -131,7 +142,7 @@ export async function updateSession(request: NextRequest) {
       if (adminUser) {
         const url = request.nextUrl.clone()
         url.pathname = '/admin'
-        return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+        return NextResponse.redirect(url, { status: 307, headers: supabaseResponse.headers })
       }
     }
 
@@ -143,7 +154,7 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
-      return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+      return NextResponse.redirect(url, { status: 307, headers: supabaseResponse.headers })
     }
     
     // Check if user is in admin_users table
@@ -152,7 +163,7 @@ export async function updateSession(request: NextRequest) {
     if (!adminUser) {
       const url = request.nextUrl.clone()
       url.pathname = '/'
-      return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+      return NextResponse.redirect(url, { status: 307, headers: supabaseResponse.headers })
     }
   }
 
@@ -162,14 +173,14 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('next', request.nextUrl.pathname)
-    return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+    return NextResponse.redirect(url, { status: 307, headers: supabaseResponse.headers })
   }
 
   // 5. Redirect to home if accessing customer login/register while authenticated
   if ((request.nextUrl.pathname === '/login' || request.nextUrl.pathname.startsWith('/register')) && user) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
-    return NextResponse.redirect(url, { headers: supabaseResponse.headers })
+    return NextResponse.redirect(url, { status: 307, headers: supabaseResponse.headers })
   }
 
   return supabaseResponse
