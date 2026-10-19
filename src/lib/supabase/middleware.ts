@@ -67,56 +67,39 @@ export async function updateSession(request: NextRequest) {
       return supabaseResponse
     }
 
-    // Login routes: rewrite /login to /kasir/login
-    if (pathname === '/login') {
+    // Login routes handling
+    const isLoginPath = pathname === '/login' || pathname === '/kasir/login'
+    if (isLoginPath) {
       if (user) {
-        const { data: adminUser } = await supabase
-          .from('admin_users')
-          .select('id')
-          .eq('id', user.id)
-          .single()
-        if (adminUser) {
-          return NextResponse.redirect(new URL('/', request.url), 307)
-        }
+        return NextResponse.redirect(new URL('/', request.url), 307)
       }
-      return NextResponse.rewrite(new URL('/kasir/login', request.url))
-    }
-
-    if (pathname === '/kasir/login') {
-      if (user) {
-        const { data: adminUser } = await supabase
-          .from('admin_users')
-          .select('id')
-          .eq('id', user.id)
-          .single()
-        if (adminUser) {
-          return NextResponse.redirect(new URL('/', request.url), 307)
-        }
+      if (pathname === '/login') {
+        return NextResponse.rewrite(new URL('/kasir/login', request.url))
       }
       return supabaseResponse
     }
 
-    // Root '/' on cashier subdomain ALWAYS rewrites to '/kasir'
+    // Protected cashier routes: if not logged in, redirect to login
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url), 307)
+    }
+
+    // Root '/' on cashier subdomain rewrites internally to '/kasir'
     if (pathname === '/') {
       return NextResponse.rewrite(new URL('/kasir', request.url))
     }
 
-    // If accessed as '/kasir' directly on cashier subdomain, redirect to root '/'
-    if (pathname === '/kasir') {
-      return NextResponse.redirect(new URL('/', request.url), 307)
-    }
-
-    // Allow /kasir/* subpaths if any
+    // Allow direct /kasir and subpaths without redirect loop
     if (pathname.startsWith('/kasir')) {
       return supabaseResponse
     }
 
-    // Any other paths on cashier subdomain, redirect to root '/'
+    // Any other arbitrary paths on cashier subdomain, redirect to root '/'
     return NextResponse.redirect(new URL('/', request.url), 307)
   }
 
   // 2. Handle /kasir routes on main domain: eliminate duplicate URLs by redirecting to cashier subdomain
-  if (isKasirRoute) {
+  if (isKasirRoute && !isCashierHost) {
     if (host.includes('elaparfum.web.id')) {
       return NextResponse.redirect(new URL('https://cashier.elaparfum.web.id/'), 307)
     }

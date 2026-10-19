@@ -106,18 +106,55 @@ export async function getPosInitialData(requestedStoreId?: number): Promise<{ da
       ? requestedStoreId
       : availableStores[0].id;
 
-    // 3. Ambil Katalog Produk Jadi beserta stok di cabang aktif
-    const { data: rawPerfumes } = await supabaseAdmin
-      .from("perfumes")
-      .select(`
-        id, name, slug, collection, image_url, is_active,
-        sizes:perfume_sizes (
-          id, perfume_id, size_ml, size_label, price, is_active,
-          product_stocks ( store_id, stock_qty )
-        )
-      `)
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+    // 3. Ambil data katalog dan pesanan secara paralel untuk efisiensi
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [perfumesRes, bibitsRes, bottlesRes, ordersRes] = await Promise.all([
+      supabaseAdmin
+        .from("perfumes")
+        .select(`
+          id, name, slug, collection, image_url, is_active,
+          sizes:perfume_sizes (
+            id, perfume_id, size_ml, size_label, price, is_active,
+            product_stocks ( store_id, stock_qty )
+          )
+        `)
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+
+      supabaseAdmin
+        .from("bibit")
+        .select(`
+          id, name, slug, collection, intensity, main_accord, price_per_ml, top_notes, middle_notes, base_notes,
+          bibit_stocks!inner ( store_id, stock_ml )
+        `)
+        .eq("bibit_stocks.store_id", activeStoreId)
+        .order("name", { ascending: true }),
+
+      supabaseAdmin
+        .from("bottles")
+        .select(`
+          id, name, capacity_ml, price, image_url, is_active,
+          bottle_stocks!inner ( store_id, stock_qty )
+        `)
+        .eq("is_active", true)
+        .eq("bottle_stocks.store_id", activeStoreId)
+        .order("capacity_ml", { ascending: true }),
+
+      supabaseAdmin
+        .from("orders")
+        .select("id, order_code, customer_name, total, payment_method, payment_status, created_at, cashier_name")
+        .eq("store_id", activeStoreId)
+        .gte("created_at", todayStart.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+
+    const rawPerfumes = perfumesRes.data;
+    const rawBibits = bibitsRes.data;
+    const rawBottles = bottlesRes.data;
+    const recentOrders = ordersRes.data;
 
     const products: PosProductItem[] = (rawPerfumes || []).map((p: any) => ({
       id: p.id,
@@ -140,16 +177,6 @@ export async function getPosInitialData(requestedStoreId?: number): Promise<{ da
         }),
     }));
 
-    // 4. Ambil 740+ Bibit dengan stok ml di cabang aktif
-    const { data: rawBibits } = await supabaseAdmin
-      .from("bibit")
-      .select(`
-        id, name, slug, collection, intensity, main_accord, price_per_ml, top_notes, middle_notes, base_notes,
-        bibit_stocks!inner ( store_id, stock_ml )
-      `)
-      .eq("bibit_stocks.store_id", activeStoreId)
-      .order("name", { ascending: true });
-
     const bibits: PosBibitItem[] = (rawBibits || []).map((b: any) => {
       const stockItem = Array.isArray(b.bibit_stocks) ? b.bibit_stocks[0] : b.bibit_stocks;
       return {
@@ -167,17 +194,6 @@ export async function getPosInitialData(requestedStoreId?: number): Promise<{ da
       };
     });
 
-    // 5. Ambil 19 Botol dengan stok pcs di cabang aktif
-    const { data: rawBottles } = await supabaseAdmin
-      .from("bottles")
-      .select(`
-        id, name, capacity_ml, price, image_url, is_active,
-        bottle_stocks!inner ( store_id, stock_qty )
-      `)
-      .eq("is_active", true)
-      .eq("bottle_stocks.store_id", activeStoreId)
-      .order("capacity_ml", { ascending: true });
-
     const bottles: PosBottleItem[] = (rawBottles || []).map((bt: any) => {
       const stockItem = Array.isArray(bt.bottle_stocks) ? bt.bottle_stocks[0] : bt.bottle_stocks;
       return {
@@ -189,18 +205,6 @@ export async function getPosInitialData(requestedStoreId?: number): Promise<{ da
         image_url: bt.image_url,
       };
     });
-
-    // 6. Ambil 10 pesanan kasir terakhir hari ini untuk shift cabang ini
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const { data: recentOrders } = await supabaseAdmin
-      .from("orders")
-      .select("id, order_code, customer_name, total, payment_method, payment_status, created_at, cashier_name")
-      .eq("store_id", activeStoreId)
-      .gte("created_at", todayStart.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(10);
 
     return {
       data: {

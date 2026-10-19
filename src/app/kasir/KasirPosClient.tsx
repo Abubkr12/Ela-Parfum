@@ -41,13 +41,16 @@ import { formatRupiah } from "@/lib/types";
 import { toast } from "sonner";
 
 interface KasirPosClientProps {
-  initialData: PosInitialData;
+  initialData?: PosInitialData;
+  initialStoreId?: number;
 }
 
-export default function KasirPosClient({ initialData }: KasirPosClientProps) {
+export default function KasirPosClient({ initialData, initialStoreId }: KasirPosClientProps) {
   // State Data
-  const [data, setData] = useState<PosInitialData>(initialData);
-  const [activeStoreId, setActiveStoreId] = useState<number>(initialData.activeStoreId);
+  const [data, setData] = useState<PosInitialData | null>(initialData || null);
+  const [activeStoreId, setActiveStoreId] = useState<number>(initialData?.activeStoreId || initialStoreId || 1);
+  const [loadingInitial, setLoadingInitial] = useState<boolean>(!initialData);
+  const [initError, setInitError] = useState<string | null>(null);
   const [loadingStore, setLoadingStore] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -77,6 +80,40 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
     cashChange?: number;
   } | null>(null);
 
+  // Fetch initial data on client mount if not passed via SSR
+  useEffect(() => {
+    if (initialData) return;
+
+    let isMounted = true;
+    const loadTerminal = async () => {
+      try {
+        setLoadingInitial(true);
+        const res = await getPosInitialData(initialStoreId);
+        if (!isMounted) return;
+
+        if (res.data) {
+          setData(res.data);
+          setActiveStoreId(res.data.activeStoreId);
+        } else {
+          setInitError(res.error || "Gagal memuat data kasir");
+          if (res.error?.includes("login") || res.error?.includes("Sesi")) {
+            window.location.href = "/login";
+          }
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        setInitError(err.message || "Gagal menghubungkan ke terminal kasir.");
+      } finally {
+        if (isMounted) setLoadingInitial(false);
+      }
+    };
+
+    loadTerminal();
+    return () => {
+      isMounted = false;
+    };
+  }, [initialData, initialStoreId]);
+
   // Clock WIB Real-time
   const [currentTime, setCurrentTime] = useState<string>("");
   useEffect(() => {
@@ -97,6 +134,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
 
   // Background Auto-Sync Stok Cabang setiap 45 detik & saat tab kembali aktif
   useEffect(() => {
+    if (!data) return;
     const syncStock = async () => {
       try {
         const res = await getPosInitialData(activeStoreId);
@@ -114,7 +152,7 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
       clearInterval(interval);
       window.removeEventListener("focus", syncStock);
     };
-  }, [activeStoreId]);
+  }, [data, activeStoreId]);
 
   // Manual Trigger Sync Stok
   const handleManualSync = async () => {
@@ -172,8 +210,9 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
 
   // Cabang Toko Aktif
   const activeStore = useMemo(() => {
+    if (!data) return null;
     return data.stores.find((s) => s.id === activeStoreId) || data.stores[0];
-  }, [data.stores, activeStoreId]);
+  }, [data, activeStoreId]);
 
   // Switch Branch
   const handleSwitchStore = async (storeId: number) => {
@@ -318,14 +357,16 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
 
   // Filter Catalog
   const filteredProducts = useMemo(() => {
+    if (!data) return [];
     if (!searchQuery.trim()) return data.products;
     const q = searchQuery.toLowerCase();
     return data.products.filter(
       (p) => p.name.toLowerCase().includes(q) || p.collection.toLowerCase().includes(q)
     );
-  }, [data.products, searchQuery]);
+  }, [data, searchQuery]);
 
   const filteredBibits = useMemo(() => {
+    if (!data) return [];
     if (!searchQuery.trim()) return data.bibits;
     const q = searchQuery.toLowerCase();
     return data.bibits.filter(
@@ -334,13 +375,96 @@ export default function KasirPosClient({ initialData }: KasirPosClientProps) {
         b.collection.toLowerCase().includes(q) ||
         (b.main_accord && b.main_accord.toLowerCase().includes(q))
     );
-  }, [data.bibits, searchQuery]);
+  }, [data, searchQuery]);
 
   const filteredBottles = useMemo(() => {
+    if (!data) return [];
     if (!searchQuery.trim()) return data.bottles;
     const q = searchQuery.toLowerCase();
     return data.bottles.filter((bt) => bt.name.toLowerCase().includes(q));
-  }, [data.bottles, searchQuery]);
+  }, [data, searchQuery]);
+
+  if (!data) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#0a0c0b",
+          color: "#f0ede8",
+          gap: "1.25rem",
+          padding: "2rem",
+          textAlign: "center",
+        }}
+      >
+        {loadingInitial ? (
+          <>
+            <RefreshCw
+              size={36}
+              style={{
+                color: "var(--c-gold, #c5a880)",
+                animation: "spin 1.2s linear infinite",
+              }}
+            />
+            <h2
+              style={{
+                fontFamily: "var(--font-serif, serif)",
+                fontSize: "1.5rem",
+                color: "var(--c-gold, #c5a880)",
+                margin: 0,
+              }}
+            >
+              Ela Parfum Kasir
+            </h2>
+            <p style={{ color: "#9ca3af", fontSize: "0.9rem", margin: 0 }}>
+              Menghubungkan ke terminal POS cabang...
+            </p>
+          </>
+        ) : (
+          <>
+            <Building2 size={40} style={{ color: "#ef4444" }} />
+            <h3 style={{ fontSize: "1.1rem", margin: 0, color: "#f3f4f6" }}>
+              {initError || "Gagal Membuka Terminal Kasir"}
+            </h3>
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: "0.6rem 1.2rem",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--c-gold, #c5a880)",
+                  color: "#0a0c0b",
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Muat Ulang
+              </button>
+              <button
+                onClick={() => {
+                  window.location.href = "/login";
+                }}
+                style={{
+                  padding: "0.6rem 1.2rem",
+                  borderRadius: "8px",
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  color: "#f3f4f6",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  cursor: "pointer",
+                }}
+              >
+                Login Ulang
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
