@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
 import { toast } from "sonner";
+import { useTheme } from "@/lib/theme-context";
+import { Moon, Sun } from "lucide-react";
 
 interface KasirPosClientProps {
   initialData?: PosInitialData;
@@ -46,6 +48,8 @@ interface KasirPosClientProps {
 }
 
 export default function KasirPosClient({ initialData, initialStoreId }: KasirPosClientProps) {
+  const { theme, toggle: toggleTheme } = useTheme();
+
   // State Data
   const [data, setData] = useState<PosInitialData | null>(initialData || null);
   const [activeStoreId, setActiveStoreId] = useState<number>(initialData?.activeStoreId || initialStoreId || 1);
@@ -602,16 +606,16 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
 
         {/* Center Clock & Shortcuts */}
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "#D1D5DB", background: "rgba(255,255,255,0.04)", padding: "4px 12px", borderRadius: "8px" }}>
-            <Clock size={14} color="#F59E0B" />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "var(--c-ink)", background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "4px 12px", borderRadius: "8px" }}>
+            <Clock size={14} color="var(--c-gold, #F59E0B)" />
             <span style={{ fontWeight: 600 }}>{currentTime}</span>
           </div>
 
-          <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.75rem", color: "#9CA3AF" }}>
-            <span style={{ background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 4 }}>F1: Cari</span>
-            <span style={{ background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 4 }}>F2: Bibit</span>
-            <span style={{ background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 4 }}>F3: Produk</span>
-            <span style={{ background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 4 }}>F4: Bayar</span>
+          <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>
+            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F1: Cari</span>
+            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F2: Bibit</span>
+            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F3: Produk</span>
+            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F4: Bayar</span>
           </div>
         </div>
 
@@ -627,9 +631,9 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
               display: "flex",
               alignItems: "center",
               gap: 6,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: "#D1D5DB",
+              background: "var(--c-surface-2)",
+              border: "1px solid var(--c-border)",
+              color: "var(--c-ink)",
               padding: "0.4rem 0.8rem",
               borderRadius: "10px",
               fontSize: "0.8rem",
@@ -638,7 +642,7 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
               transition: "all 0.15s ease",
             }}
           >
-            <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} style={{ color: "var(--c-gold, #D4AF37)" }} />
+            <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} style={{ color: "var(--c-gold)" }} />
             <span>{isSyncing ? "Sinkron..." : "Sinkron Stok"}</span>
           </button>
 
@@ -650,9 +654,9 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
               display: "flex",
               alignItems: "center",
               gap: 6,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: "#D1D5DB",
+              background: "var(--c-surface-2)",
+              border: "1px solid var(--c-border)",
+              color: "var(--c-ink)",
               padding: "0.4rem 0.85rem",
               borderRadius: "10px",
               fontSize: "0.8rem",
@@ -664,14 +668,36 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
             <span>Shift Hari Ini</span>
           </button>
 
+          {/* Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Ganti ke Mode Terang (Light)" : "Ganti ke Mode Gelap (Dark)"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "34px",
+              height: "34px",
+              borderRadius: "10px",
+              background: "var(--c-surface-2)",
+              border: "1px solid var(--c-border-mid)",
+              color: "var(--c-gold)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+
           {/* Cashier Chip */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 10px", borderRadius: "10px", background: "rgba(255,255,255,0.05)" }}>
-            <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--c-gold)", color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 10px", borderRadius: "10px", background: "var(--c-surface-2)", border: "1px solid var(--c-border)" }}>
+            <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--c-gold)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.75rem" }}>
               {data.user.full_name?.charAt(0) || "K"}
             </div>
             <div style={{ fontSize: "0.8rem" }}>
-              <span style={{ fontWeight: 700, color: "#FFFFFF", display: "block", lineHeight: 1.1 }}>{data.user.full_name}</span>
-              <span style={{ fontSize: "0.7rem", color: "#9CA3AF" }}>{data.user.role}</span>
+              <span style={{ fontWeight: 700, color: "var(--c-ink)", display: "block", lineHeight: 1.1 }}>{data.user.full_name}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--c-ink-muted)" }}>{data.user.role}</span>
             </div>
           </div>
 

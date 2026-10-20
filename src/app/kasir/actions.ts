@@ -450,8 +450,8 @@ export async function createPosQrisOrder(payload: PosTransactionPayload) {
       await supabaseAdmin.from("order_items").insert(orderItemsToInsert);
     }
 
-    // 2. Request Dynamic QRIS ke Mayar API
-    const isSandbox = process.env.MAYAR_IS_SANDBOX === "true";
+    // 2. Request Dynamic QRIS ke Mayar API (Sandbox vs Production aman sesuai env)
+    const isSandbox = process.env.MAYAR_IS_SANDBOX?.toLowerCase() !== "false" && process.env.MAYAR_IS_SANDBOX !== "0";
     const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
     const mayarUrl = isSandbox
       ? "https://api.mayar.io/hl/v1/payment/create"
@@ -522,6 +522,7 @@ export async function createPosQrisOrder(payload: PosTransactionPayload) {
       expiredAt,
       mayarLink,
       amount: payload.total,
+      isSandbox,
     };
   } catch (err: any) {
     console.error("Error in createPosQrisOrder:", err);

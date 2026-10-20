@@ -56,6 +56,7 @@ export default function KasirPaymentModal({
     qrString: string;
     expiresAt: string;
     mayarLink?: string;
+    isSandbox?: boolean;
   } | null>(null);
   const [qrisError, setQrisError] = useState<string | null>(null);
   const [qrisPaid, setQrisPaid] = useState<boolean>(false);
@@ -184,6 +185,7 @@ export default function KasirPaymentModal({
           qrString: res.qrString!,
           expiresAt: res.expiredAt!,
           mayarLink: res.mayarLink,
+          isSandbox: res.isSandbox,
         });
         setSecondsLeft(900);
       }
@@ -645,6 +647,49 @@ export default function KasirPaymentModal({
 
               {!qrisLoading && !qrisError && !qrisPaid && qrisData && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+                  {/* Environment Mode Badge */}
+                  <div style={{ marginBottom: "0.6rem" }}>
+                    {qrisData.isSandbox ? (
+                      <span
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: "999px",
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.03em",
+                          background: "rgba(245, 158, 11, 0.15)",
+                          border: "1px solid rgba(245, 158, 11, 0.4)",
+                          color: "#f59e0b",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
+                        SANDBOX MODE (Testing - Mayar Sandbox)
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: "999px",
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.03em",
+                          background: "rgba(16, 185, 129, 0.15)",
+                          border: "1px solid rgba(16, 185, 129, 0.4)",
+                          color: "#10b981",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
+                        LIVE PUBLIK (Mayar Production)
+                      </span>
+                    )}
+                  </div>
+
                   {/* Countdown Timer */}
                   <div
                     style={{
