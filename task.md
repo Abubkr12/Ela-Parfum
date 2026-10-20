@@ -9,6 +9,13 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Filter Koleksi, Sorting & Paginasi Grid Kasir POS (Optimasi DOM & Cloudflare CPU):**
+  - [x] **Filter Koleksi Segmented Bibit:** Menambahkan filter pills koleksi (`Semua Bibit`, `Global Parfume` [Globe], `Arabian Parfume` [Sparkles]) dengan badge jumlah stok real-time terpisah dari 740+ item bibit.
+  - [x] **Sorting Multi-Kriteria:** Menambahkan dropdown pengurutan katalog (`Nama A-Z`, `Nama Z-A`, `Harga Terendah`, `Harga Tertinggi`, `Stok Terbanyak`, `Stok Paling Kritis`).
+  - [x] **Paginasi Client-Side 24 Item/Halaman:** Membatasi render kartu katalog per 24 item dengan bar navigasi paginasi (`Prev`, nomor halaman dengan elipsis, `Next`, serta info range item aktif), memangkas node DOM dari >11.000 menjadi ~360 node dan menghemat CPU browser serta Cloudflare Workers Free Tier.
+  - [x] **Auto-Reset Halaman:** Perubahan kata kunci pencarian, kategori utama, filter koleksi, atau kriteria sorting otomatis me-reset halaman aktif kembali ke halaman 1.
+  - [x] **Sinkronisasi & Verifikasi:** Berhasil lolos uji kompilasi TypeScript (`npx tsc --noEmit`) 0 error dan uji build worker OpenNext (`npm run build:worker`).
+
 - [x] **Theme Switcher Kasir & Isolasi Lingkungan Mayar Sandbox vs Live:**
   - [x] **Theme Toggle POS Terminal:** Menyematkan tombol pengubah tema (Mode Gelap $\leftrightarrow$ Mode Terang) di topbar header terminal kasir [KasirPosClient.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/KasirPosClient.tsx), terintegrasi langsung dengan `useTheme()` dan CSS variables `var(--c-bg)`, `var(--c-surface-1)`, `var(--c-surface-2)`, `var(--c-ink)`, dan `var(--c-border)`.
   - [x] **Isolasi Strict Sandbox vs Live Mayar:** Memastikan logika deteksi `isSandbox` berbasis `MAYAR_IS_SANDBOX` aman secara default (mengarah ke endpoint `https://api.mayar.io` dan `MAYAR_SANDBOX_API_KEY`). Jika di env diubah menjadi `"false"`, sistem otomatis beralih ke production `https://api.mayar.id` dengan `MAYAR_API_KEY` tanpa risiko bentrokan key/endpoint.

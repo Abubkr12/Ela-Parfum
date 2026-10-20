@@ -36,11 +36,29 @@ import {
   ChevronDown,
   X,
   History,
+  Globe,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme-context";
 import { Moon, Sun } from "lucide-react";
+
+function getPaginationItems(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+}
 
 interface KasirPosClientProps {
   initialData?: PosInitialData;
@@ -60,8 +78,17 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
 
   // Tab & Search State
   const [activeCategory, setActiveCategory] = useState<"ALL" | "PRODUCT" | "BIBIT" | "BOTTLE">("BIBIT");
+  const [bibitCollection, setBibitCollection] = useState<"ALL" | "GLOBAL" | "ARABIAN">("ALL");
+  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "price_asc" | "price_desc" | "stock_desc" | "stock_asc">("name_asc");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 24;
   const [searchQuery, setSearchQuery] = useState<string>("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset page on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeCategory, bibitCollection, sortBy]);
 
   // Bill / Cart State
   const [customerName, setCustomerName] = useState<string>("Customer Toko");
@@ -359,6 +386,23 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
     handleAddToCart(item);
   };
 
+  // Counts per collection for segmented badges
+  const bibitCounts = useMemo(() => {
+    if (!data) return { all: 0, global: 0, arabian: 0 };
+    let global = 0;
+    let arabian = 0;
+    for (const b of data.bibits) {
+      const col = (b.collection || "").toLowerCase();
+      if (col.includes("global")) global++;
+      if (col.includes("arab") || col.includes("timur")) arabian++;
+    }
+    return {
+      all: data.bibits.length,
+      global,
+      arabian,
+    };
+  }, [data]);
+
   // Filter Catalog
   const filteredProducts = useMemo(() => {
     if (!data) return [];
@@ -371,15 +415,41 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
 
   const filteredBibits = useMemo(() => {
     if (!data) return [];
-    if (!searchQuery.trim()) return data.bibits;
-    const q = searchQuery.toLowerCase();
-    return data.bibits.filter(
-      (b) =>
-        b.name.toLowerCase().includes(q) ||
-        b.collection.toLowerCase().includes(q) ||
-        (b.main_accord && b.main_accord.toLowerCase().includes(q))
-    );
-  }, [data, searchQuery]);
+    let list = data.bibits;
+
+    // Filter Collection
+    if (bibitCollection === "GLOBAL") {
+      list = list.filter((b) => (b.collection || "").toLowerCase().includes("global"));
+    } else if (bibitCollection === "ARABIAN") {
+      list = list.filter(
+        (b) =>
+          (b.collection || "").toLowerCase().includes("arab") ||
+          (b.collection || "").toLowerCase().includes("timur")
+      );
+    }
+
+    // Filter Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.collection.toLowerCase().includes(q) ||
+          (b.main_accord && b.main_accord.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort
+    return [...list].sort((a, b) => {
+      if (sortBy === "name_asc") return a.name.localeCompare(b.name);
+      if (sortBy === "name_desc") return b.name.localeCompare(a.name);
+      if (sortBy === "price_asc") return a.price_per_ml - b.price_per_ml;
+      if (sortBy === "price_desc") return b.price_per_ml - a.price_per_ml;
+      if (sortBy === "stock_desc") return b.stock_ml - a.stock_ml;
+      if (sortBy === "stock_asc") return a.stock_ml - b.stock_ml;
+      return 0;
+    });
+  }, [data, bibitCollection, searchQuery, sortBy]);
 
   const filteredBottles = useMemo(() => {
     if (!data) return [];
@@ -387,6 +457,54 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
     const q = searchQuery.toLowerCase();
     return data.bottles.filter((bt) => bt.name.toLowerCase().includes(q));
   }, [data, searchQuery]);
+
+  // Unified Catalog for "ALL" Tab
+  const unifiedCatalog = useMemo(() => {
+    const list: Array<
+      | { kind: "bibit"; item: PosBibitItem }
+      | { kind: "product"; item: PosProductItem }
+      | { kind: "bottle"; item: PosBottleItem }
+    > = [];
+    filteredBibits.forEach((b) => list.push({ kind: "bibit", item: b }));
+    filteredProducts.forEach((p) => list.push({ kind: "product", item: p }));
+    filteredBottles.forEach((bt) => list.push({ kind: "bottle", item: bt }));
+    return list;
+  }, [filteredBibits, filteredProducts, filteredBottles]);
+
+  // Active Catalog Items & Pagination Calculation
+  const totalItems = useMemo(() => {
+    if (activeCategory === "BIBIT") return filteredBibits.length;
+    if (activeCategory === "PRODUCT") return filteredProducts.length;
+    if (activeCategory === "BOTTLE") return filteredBottles.length;
+    return unifiedCatalog.length;
+  }, [activeCategory, filteredBibits.length, filteredProducts.length, filteredBottles.length, unifiedCatalog.length]);
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+
+  // Slices for current page
+  const paginatedBibits = useMemo(() => {
+    if (activeCategory !== "BIBIT") return [];
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredBibits.slice(start, start + itemsPerPage);
+  }, [activeCategory, filteredBibits, currentPage, itemsPerPage]);
+
+  const paginatedProducts = useMemo(() => {
+    if (activeCategory !== "PRODUCT") return [];
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(start, start + itemsPerPage);
+  }, [activeCategory, filteredProducts, currentPage, itemsPerPage]);
+
+  const paginatedBottles = useMemo(() => {
+    if (activeCategory !== "BOTTLE") return [];
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredBottles.slice(start, start + itemsPerPage);
+  }, [activeCategory, filteredBottles, currentPage, itemsPerPage]);
+
+  const paginatedUnified = useMemo(() => {
+    if (activeCategory !== "ALL") return [];
+    const start = (currentPage - 1) * itemsPerPage;
+    return unifiedCatalog.slice(start, start + itemsPerPage);
+  }, [activeCategory, unifiedCatalog, currentPage, itemsPerPage]);
 
   if (!data) {
     return (
@@ -469,6 +587,249 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
       </div>
     );
   }
+
+  // Helper renderers for Catalog Grid
+  const renderBibitCard = (b: PosBibitItem) => (
+    <div
+      key={`bibit-${b.id}`}
+      onClick={() => setMixingBibit(b)}
+      style={{
+        backgroundColor: "var(--c-surface-2, #181e1c)",
+        border: "1px solid var(--c-border)",
+        borderRadius: "14px",
+        padding: "1rem",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        transition: "transform 0.15s, border-color 0.15s, box-shadow 0.15s",
+        position: "relative",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--c-gold, #3b82f6)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.5)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--c-border)";
+        e.currentTarget.style.transform = "none";
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              padding: "2px 6px",
+              borderRadius: "4px",
+              background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
+              color: "var(--c-gold-light, #60a5fa)",
+            }}
+          >
+            Bibit Racik
+          </span>
+          <span style={{ fontSize: "0.75rem", color: b.stock_ml < 500 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+            {b.stock_ml.toLocaleString("id-ID")} ml
+          </span>
+        </div>
+
+        <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
+          {b.name}
+        </h4>
+        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
+          {b.collection} • {b.main_accord || "Artisan"}
+        </span>
+      </div>
+
+      <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
+        <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
+          {formatRupiah(b.price_per_ml)}
+          <small style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)", fontWeight: 500 }}>/ml</small>
+        </span>
+        <button
+          type="button"
+          style={{
+            padding: "5px 10px",
+            background: "var(--c-gold, #3b82f6)",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "8px",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <Plus size={12} />
+          <span>Racik</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderProductCard = (p: PosProductItem) => {
+    const totalStock = p.sizes.reduce((sum, s) => sum + s.stock, 0);
+    const minPrice = p.sizes[0]?.price || 0;
+    return (
+      <div
+        key={`prod-${p.id}`}
+        onClick={() => setSelectedProductForSize(p)}
+        style={{
+          backgroundColor: "var(--c-surface-2, #181e1c)",
+          border: "1px solid var(--c-border)",
+          borderRadius: "14px",
+          padding: "1rem",
+          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          transition: "transform 0.15s, border-color 0.15s",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "var(--c-teal, #0ea5e9)";
+          e.currentTarget.style.transform = "translateY(-2px)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "var(--c-border)";
+          e.currentTarget.style.transform = "none";
+        }}
+      >
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span
+              style={{
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                background: "rgba(14, 165, 233, 0.15)",
+                color: "#38bdf8",
+              }}
+            >
+              Produk Jadi
+            </span>
+            <span style={{ fontSize: "0.75rem", color: totalStock <= 0 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+              Stok: {totalStock} pcs
+            </span>
+          </div>
+
+          <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
+            {p.name}
+          </h4>
+          <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
+            {p.collection} ({p.sizes.length} varian ukuran)
+          </span>
+        </div>
+
+        <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
+          <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#38bdf8" }}>
+            Mulai {formatRupiah(minPrice)}
+          </span>
+          <button
+            type="button"
+            style={{
+              padding: "5px 10px",
+              background: "var(--c-teal, #0ea5e9)",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <Plus size={12} />
+            <span>Pilih</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBottleCard = (bt: PosBottleItem) => (
+    <div
+      key={`bottle-${bt.id}`}
+      onClick={() => handleAddBottle(bt)}
+      style={{
+        backgroundColor: "var(--c-surface-2, #181e1c)",
+        border: "1px solid var(--c-border)",
+        borderRadius: "14px",
+        padding: "1rem",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        transition: "transform 0.15s, border-color 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--c-border-mid)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--c-border)";
+        e.currentTarget.style.transform = "none";
+      }}
+    >
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              padding: "2px 6px",
+              borderRadius: "4px",
+              background: "rgba(255, 255, 255, 0.08)",
+              color: "var(--c-ink-muted)",
+            }}
+          >
+            Botol Kemasan
+          </span>
+          <span style={{ fontSize: "0.75rem", color: bt.stock < 10 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+            Stok: {bt.stock} pcs
+          </span>
+        </div>
+
+        <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
+          {bt.name}
+        </h4>
+        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
+          Kapasitas {bt.capacity_ml}ml
+        </span>
+      </div>
+
+      <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
+        <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-ink)" }}>
+          {formatRupiah(bt.price)}
+        </span>
+        <button
+          type="button"
+          style={{
+            padding: "5px 10px",
+            background: "var(--c-surface-3, #1f2724)",
+            color: "var(--c-ink, #ffffff)",
+            border: "1px solid var(--c-border)",
+            borderRadius: "8px",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <Plus size={12} />
+          <span>Beli</span>
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -848,6 +1209,100 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
                 );
               })}
             </div>
+
+            {/* Sub-Filter: Koleksi Bibit & Sorting */}
+            {(activeCategory === "BIBIT" || activeCategory === "ALL") && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "0.75rem",
+                  paddingTop: "0.6rem",
+                  borderTop: "1px dashed var(--c-border)",
+                }}
+              >
+                {/* Segmented Koleksi Bibit */}
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", marginRight: "0.25rem", fontWeight: 600 }}>
+                    Koleksi:
+                  </span>
+                  {[
+                    { id: "ALL", label: "Semua Bibit", count: bibitCounts.all },
+                    { id: "GLOBAL", label: "Global Parfume", icon: Globe, count: bibitCounts.global },
+                    { id: "ARABIAN", label: "Arabian Parfume", icon: Sparkles, count: bibitCounts.arabian },
+                  ].map((col) => {
+                    const isSel = bibitCollection === col.id;
+                    const Icon = col.icon;
+                    return (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() => setBibitCollection(col.id as any)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "4px 10px",
+                          borderRadius: "8px",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          border: isSel ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                          background: isSel ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
+                          color: isSel ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted, #8a9491)",
+                        }}
+                      >
+                        {Icon && <Icon size={12} />}
+                        <span>{col.label}</span>
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            padding: "1px 6px",
+                            borderRadius: "999px",
+                            background: isSel ? "var(--c-gold, #3b82f6)" : "var(--c-surface-3, #1f2724)",
+                            color: isSel ? "#ffffff" : "var(--c-ink-dim)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {col.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Sort Dropdown */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <ArrowUpDown size={14} style={{ color: "var(--c-ink-dim)" }} />
+                  <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", fontWeight: 600 }}>Urutkan:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "8px",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      background: "var(--c-surface-2, #181e1c)",
+                      color: "var(--c-ink, #ffffff)",
+                      border: "1px solid var(--c-border)",
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="name_asc">Nama (A - Z)</option>
+                    <option value="name_desc">Nama (Z - A)</option>
+                    <option value="price_asc">Harga Terendah</option>
+                    <option value="price_desc">Harga Tertinggi</option>
+                    <option value="stock_desc">Stok Terbanyak</option>
+                    <option value="stock_asc">Stok Paling Kritis</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Catalog Grid Scrollable */}
@@ -862,254 +1317,148 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
               alignContent: "start",
             }}
           >
-            {/* Render BIBIT Items */}
-            {(activeCategory === "BIBIT" || activeCategory === "ALL") &&
-              filteredBibits.map((b) => (
-                <div
-                  key={`bibit-${b.id}`}
-                  onClick={() => setMixingBibit(b)}
-                  style={{
-                    backgroundColor: "var(--c-surface-2, #181e1c)",
-                    border: "1px solid var(--c-border)",
-                    borderRadius: "14px",
-                    padding: "1rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    transition: "transform 0.15s, border-color 0.15s, box-shadow 0.15s",
-                    position: "relative",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--c-gold, #3b82f6)";
-                    e.currentTarget.style.transform = "translateY(-2px)";
-                    e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.5)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "var(--c-border)";
-                    e.currentTarget.style.transform = "none";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span
-                        style={{
-                          fontSize: "0.7rem",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                          background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
-                          color: "var(--c-gold-light, #60a5fa)",
-                        }}
-                      >
-                        Bibit Racik
-                      </span>
-                      <span style={{ fontSize: "0.75rem", color: b.stock_ml < 500 ? "#f87171" : "#34d399", fontWeight: 600 }}>
-                        {b.stock_ml.toLocaleString("id-ID")} ml
-                      </span>
-                    </div>
-
-                    <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
-                      {b.name}
-                    </h4>
-                    <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
-                      {b.collection} • {b.main_accord || "Artisan"}
-                    </span>
-                  </div>
-
-                  <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
-                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
-                      {formatRupiah(b.price_per_ml)}
-                      <small style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)", fontWeight: 500 }}>/ml</small>
-                    </span>
-                    <button
-                      type="button"
-                      style={{
-                        padding: "5px 10px",
-                        background: "var(--c-gold, #3b82f6)",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <Plus size={12} />
-                      <span>Racik</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-            {/* Render PRODUK JADI Items */}
-            {(activeCategory === "PRODUCT" || activeCategory === "ALL") &&
-              filteredProducts.map((p) => {
-                const totalStock = p.sizes.reduce((sum, s) => sum + s.stock, 0);
-                const minPrice = p.sizes[0]?.price || 0;
-                return (
-                  <div
-                    key={`prod-${p.id}`}
-                    onClick={() => setSelectedProductForSize(p)}
-                    style={{
-                      backgroundColor: "var(--c-surface-2, #181e1c)",
-                      border: "1px solid var(--c-border)",
-                      borderRadius: "14px",
-                      padding: "1rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      transition: "transform 0.15s, border-color 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--c-teal, #0ea5e9)";
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--c-border)";
-                      e.currentTarget.style.transform = "none";
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <span
-                          style={{
-                            fontSize: "0.7rem",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            background: "rgba(14, 165, 233, 0.15)",
-                            color: "#38bdf8",
-                          }}
-                        >
-                          Produk Jadi
-                        </span>
-                        <span style={{ fontSize: "0.75rem", color: totalStock <= 0 ? "#f87171" : "#34d399", fontWeight: 600 }}>
-                          Stok: {totalStock} pcs
-                        </span>
-                      </div>
-
-                      <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
-                        {p.name}
-                      </h4>
-                      <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
-                        {p.collection} ({p.sizes.length} varian ukuran)
-                      </span>
-                    </div>
-
-                    <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
-                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#38bdf8" }}>
-                        Mulai {formatRupiah(minPrice)}
-                      </span>
-                      <button
-                        type="button"
-                        style={{
-                          padding: "5px 10px",
-                          background: "var(--c-teal, #0ea5e9)",
-                          color: "#ffffff",
-                          border: "none",
-                          borderRadius: "8px",
-                          fontSize: "0.75rem",
-                          fontWeight: 700,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <Plus size={12} />
-                        <span>Pilih</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-            {/* Render BOTOL Items */}
-            {(activeCategory === "BOTTLE" || activeCategory === "ALL") &&
-              filteredBottles.map((bt) => (
-                <div
-                  key={`bottle-${bt.id}`}
-                  onClick={() => handleAddBottle(bt)}
-                  style={{
-                    backgroundColor: "var(--c-surface-2, #181e1c)",
-                    border: "1px solid var(--c-border)",
-                    borderRadius: "14px",
-                    padding: "1rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    transition: "transform 0.15s, border-color 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--c-border-mid)";
-                    e.currentTarget.style.transform = "translateY(-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "var(--c-border)";
-                    e.currentTarget.style.transform = "none";
-                  }}
-                >
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span
-                        style={{
-                          fontSize: "0.7rem",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                          background: "rgba(255, 255, 255, 0.08)",
-                          color: "var(--c-ink-muted)",
-                        }}
-                      >
-                        Botol Kemasan
-                      </span>
-                      <span style={{ fontSize: "0.75rem", color: bt.stock < 10 ? "#f87171" : "#34d399", fontWeight: 600 }}>
-                        Stok: {bt.stock} pcs
-                      </span>
-                    </div>
-
-                    <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
-                      {bt.name}
-                    </h4>
-                    <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
-                      Kapasitas {bt.capacity_ml}ml
-                    </span>
-                  </div>
-
-                  <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
-                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-ink)" }}>
-                      {formatRupiah(bt.price)}
-                    </span>
-                    <button
-                      type="button"
-                      style={{
-                        padding: "5px 10px",
-                        background: "var(--c-surface-3, #1f2724)",
-                        color: "var(--c-ink, #ffffff)",
-                        border: "1px solid var(--c-border)",
-                        borderRadius: "8px",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <Plus size={12} />
-                      <span>Beli</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+            {totalItems === 0 ? (
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  padding: "4rem 1rem",
+                  textAlign: "center",
+                  color: "var(--c-ink-dim)",
+                }}
+              >
+                <Search size={36} style={{ margin: "0 auto 0.75rem", opacity: 0.4 }} />
+                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, color: "var(--c-ink-muted)" }}>
+                  Tidak ada item ditemukan
+                </p>
+                <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem" }}>
+                  Coba sesuaikan kata kunci pencarian atau ganti filter kategori/koleksi.
+                </p>
+              </div>
+            ) : (
+              <>
+                {activeCategory === "BIBIT" && paginatedBibits.map(renderBibitCard)}
+                {activeCategory === "PRODUCT" && paginatedProducts.map(renderProductCard)}
+                {activeCategory === "BOTTLE" && paginatedBottles.map(renderBottleCard)}
+                {activeCategory === "ALL" &&
+                  paginatedUnified.map((u) => {
+                    if (u.kind === "bibit") return renderBibitCard(u.item);
+                    if (u.kind === "product") return renderProductCard(u.item);
+                    return renderBottleCard(u.item);
+                  })}
+              </>
+            )}
           </div>
+
+          {/* Bottom Pagination Bar */}
+          {totalPages > 1 && (
+            <div
+              style={{
+                padding: "0.75rem 1.25rem",
+                borderTop: "1px solid var(--c-border)",
+                backgroundColor: "var(--c-surface-1, #111614)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "0.75rem",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ fontSize: "0.78rem", color: "var(--c-ink-dim)" }}>
+                Menampilkan{" "}
+                <strong style={{ color: "var(--c-ink)" }}>
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}–
+                  {Math.min(currentPage * itemsPerPage, totalItems)}
+                </strong>{" "}
+                dari <strong style={{ color: "var(--c-ink)" }}>{totalItems}</strong> item
+                {activeCategory === "BIBIT" && ` (${totalPages} Hal)`}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "5px 10px",
+                    borderRadius: "8px",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    border: "1px solid var(--c-border)",
+                    background: "var(--c-surface-2, #181e1c)",
+                    color: currentPage <= 1 ? "var(--c-ink-dim)" : "var(--c-ink)",
+                    cursor: currentPage <= 1 ? "not-allowed" : "pointer",
+                    opacity: currentPage <= 1 ? 0.4 : 1,
+                  }}
+                >
+                  <ChevronLeft size={14} />
+                  <span>Prev</span>
+                </button>
+
+                {getPaginationItems(currentPage, totalPages).map((pItem, idx) => {
+                  if (pItem === "...") {
+                    return (
+                      <span
+                        key={`dots-${idx}`}
+                        style={{ padding: "0 4px", color: "var(--c-ink-dim)", fontSize: "0.75rem" }}
+                      >
+                        ...
+                      </span>
+                    );
+                  }
+                  const isCur = pItem === currentPage;
+                  return (
+                    <button
+                      key={`page-${pItem}`}
+                      type="button"
+                      onClick={() => setCurrentPage(Number(pItem))}
+                      style={{
+                        minWidth: "30px",
+                        height: "30px",
+                        padding: "0 6px",
+                        borderRadius: "8px",
+                        fontSize: "0.75rem",
+                        fontWeight: isCur ? 700 : 500,
+                        border: isCur ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
+                        background: isCur ? "var(--c-gold, #3b82f6)" : "var(--c-surface-2, #181e1c)",
+                        color: isCur ? "#ffffff" : "var(--c-ink-muted)",
+                        cursor: "pointer",
+                        transition: "all 0.1s ease",
+                      }}
+                    >
+                      {pItem}
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "5px 10px",
+                    borderRadius: "8px",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    border: "1px solid var(--c-border)",
+                    background: "var(--c-surface-2, #181e1c)",
+                    color: currentPage >= totalPages ? "var(--c-ink-dim)" : "var(--c-ink)",
+                    cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
+                    opacity: currentPage >= totalPages ? 0.4 : 1,
+                  }}
+                >
+                  <span>Next</span>
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* RIGHT SECTION: BILLING & ORDER SUMMARY (35%) */}
