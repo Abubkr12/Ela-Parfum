@@ -9,6 +9,11 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Theme Switcher Kasir & Isolasi Lingkungan Mayar Sandbox vs Live:**
+  - [x] **Theme Toggle POS Terminal:** Menyematkan tombol pengubah tema (Mode Gelap $\leftrightarrow$ Mode Terang) di topbar header terminal kasir [KasirPosClient.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/KasirPosClient.tsx), terintegrasi langsung dengan `useTheme()` dan CSS variables `var(--c-bg)`, `var(--c-surface-1)`, `var(--c-surface-2)`, `var(--c-ink)`, dan `var(--c-border)`.
+  - [x] **Isolasi Strict Sandbox vs Live Mayar:** Memastikan logika deteksi `isSandbox` berbasis `MAYAR_IS_SANDBOX` aman secara default (mengarah ke endpoint `https://api.mayar.io` dan `MAYAR_SANDBOX_API_KEY`). Jika di env diubah menjadi `"false"`, sistem otomatis beralih ke production `https://api.mayar.id` dengan `MAYAR_API_KEY` tanpa risiko bentrokan key/endpoint.
+  - [x] **Badge Status Lingkungan QRIS:** Menampilkan indikator visual jelas pada modal pembayaran QRIS kasir (`SANDBOX MODE (Testing)` atau `LIVE PUBLIK`) agar kasir/admin dapat memverifikasi status pembayaran secara instan di layar.
+  - [x] **Sinkronisasi Wrangler & Git:** Menambahkan default `MAYAR_IS_SANDBOX: "true"` pada `wrangler.jsonc` dan sinkronisasi ke remote GitHub `main`.
 - [x] **Resolusi Cloudflare Error 1102 (Worker Exceeded Resource Limits):**
   - [x] **Eliminasi Infinite Redirect Loop:** Menghapus redirect melingkar antara `/` dan `/kasir` pada `isCashierHost` di `src/lib/supabase/middleware.ts` serta memproteksi rute kasir tanpa duplikasi call database di middleware.
   - [x] **Decouple Heavy Catalog Query dari SSR:** Mengubah `src/app/kasir/page.tsx` menjadi shell SSR instan (<0.2ms CPU) dan memindahkan query 740+ bibit ke client-side mount di `KasirPosClient.tsx`, sehingga tidak pernah melanggar batas CPU 10ms Cloudflare Worker Free.
