@@ -10,7 +10,7 @@ function generatePosOrderCode() {
     .slice(2, 10)
     .replace(/-/g, "");
   const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `POS-${dateStr}-${randomStr}`;
+  return `MW-POS-${dateStr}-${randomStr}`;
 }
 
 // GET: Polling Status Order Kasir (Auto-detect Lunas & Pemotongan Stok Idempotent)
