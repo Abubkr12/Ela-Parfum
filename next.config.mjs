@@ -12,10 +12,25 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'sstduefzeufwmltjzknc.supabase.co',
       },
+      {
+        protocol: 'https',
+        hostname: 'media.mayar.id',
+      },
+      {
+        protocol: 'https',
+        hostname: 'media.mayar.club',
+      },
     ],
   },
   experimental: {
     cpus: 4,
+    serverActions: {
+      allowedOrigins: [
+        'cashier.elaparfum.web.id',
+        'elaparfum.web.id',
+        'localhost:3000',
+      ],
+    },
   },
 };
 

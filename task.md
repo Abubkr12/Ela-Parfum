@@ -9,6 +9,15 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Perbaikan Fatal Error Pembayaran QRIS Mayar di Terminal Kasir POS:**
+  - [x] **Root Cause 1 (Next.js Server Action Rejection pada Subdomain):** Server action yang dipanggil dari `cashier.elaparfum.web.id` terhambat oleh pengecekan origin/CSRF Next.js dan rewrite URL middleware dari root `/` ke `/kasir`, memicu generic error *"An unexpected response was received from the server"*.
+  - [x] **Root Cause 2 (Mayar Dynamic QRIS API Endpoint):** Mengganti endpoint lama Mayar `payment/create` yang tidak mengembalikan string QRIS dengan endpoint resmi Dynamic QR Code Mayar `POST https://api.mayar.io/hl/v1/qrcode/create` (Sandbox) / `https://api.mayar.id/hl/v1/qrcode/create` (Live) yang mengembalikan URL gambar QRIS dinamis instan.
+  - [x] **Dedicated API Route (`/api/kasir/order`):** Membuat route handler RESTful mandiri untuk pembuatan order QRIS, transaksi Tunai, dan polling status lunas, melewati intervensi middleware (`/api` otomatis passthrough) dan kebal dari problem Server Action CSRF.
+  - [x] **Sinkronisasi Environment Cloudflare Worker:** Menambahkan `MAYAR_SANDBOX_API_KEY`, `MAYAR_API_KEY`, dan `serverActions.allowedOrigins` ke `wrangler.jsonc` dan `next.config.mjs`, serta membuat helper multi-runtime `src/lib/mayar.ts`.
+  - [x] **Webhook Order Code Matcher:** Menyelaraskan regex webhook Mayar agar dapat mendeteksi kode nota kasir (`POS-...`) di samping order web reguler (`MW-...`).
+  - [x] **UI Polish Modal Pembayaran:** Menyematkan tombol *"Cek Status Lunas Sekarang"* pada tab QRIS untuk pengecekan instan manual di samping auto-detect real-time.
+  - [x] **Verifikasi & Build:** Lolos uji typecheck TypeScript `npx tsc --noEmit` (0 error) dan sukses kompilasi Cloudflare OpenNext Worker (`npm run build:worker`).
+
 - [x] **Filter Koleksi, Sorting & Paginasi Grid Kasir POS (Optimasi DOM & Cloudflare CPU):**
   - [x] **Filter Koleksi Segmented Bibit:** Menambahkan filter pills koleksi (`Semua Bibit`, `Global Parfume` [Globe], `Arabian Parfume` [Sparkles]) dengan badge jumlah stok real-time terpisah dari 740+ item bibit.
   - [x] **Sorting Multi-Kriteria:** Menambahkan dropdown pengurutan katalog (`Nama A-Z`, `Nama Z-A`, `Harga Terendah`, `Harga Tertinggi`, `Stok Terbanyak`, `Stok Paling Kritis`).

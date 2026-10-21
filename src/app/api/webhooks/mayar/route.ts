@@ -49,10 +49,11 @@ export async function POST(req: Request) {
       const data = payload.data || payload;
       
       let orderCode = data.referenceId || data.reference_id || null;
-      
+      const isValidCode = (c: string | null) => !!c && (c.startsWith('MW-') || c.startsWith('POS-'));
+
       // Mayar doesn't reliably return referenceId in webhooks.
-      // Extract MW- code from description fields or transactionId fallback.
-      if (!orderCode || !orderCode.startsWith('MW-')) {
+      // Extract MW- or POS- code from description fields or transactionId fallback.
+      if (!isValidCode(orderCode)) {
         const searchFields = [
           data.description,
           data.productDescription,
@@ -62,13 +63,13 @@ export async function POST(req: Request) {
           data.mobile_description
         ].filter(Boolean).join(' ');
         
-        const match = searchFields.match(/(MW-[A-Z0-9-]+)/);
+        const match = searchFields.match(/((?:MW|POS)-[A-Z0-9-]+)/i);
         if (match) {
-          orderCode = match[1];
+          orderCode = match[1].toUpperCase();
         }
       }
 
-      if (!orderCode || !orderCode.startsWith('MW-')) {
+      if (!isValidCode(orderCode)) {
         console.error("Could not extract order code from Mayar payload:", JSON.stringify(data));
         return NextResponse.json({ error: 'No valid order code found in webhook' }, { status: 400 });
       }

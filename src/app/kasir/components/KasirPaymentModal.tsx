@@ -8,6 +8,7 @@ import {
   checkPosOrderStatus,
 } from "../actions";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import {
   X,
   Banknote,
@@ -20,6 +21,7 @@ import {
   Sparkles,
   ArrowRight,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
 
@@ -61,6 +63,7 @@ export default function KasirPaymentModal({
   const [qrisError, setQrisError] = useState<string | null>(null);
   const [qrisPaid, setQrisPaid] = useState<boolean>(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(900); // 15 mins
+  const [checkingStatus, setCheckingStatus] = useState<boolean>(false);
 
   // Transfer State
   const [transferRef, setTransferRef] = useState<string>("");
@@ -107,9 +110,10 @@ export default function KasirPaymentModal({
     // 1. Polling fallback setiap 2.5 detik
     pollingRef.current = setInterval(async () => {
       try {
-        const res = await checkPosOrderStatus(orderId, payload.storeId);
-        if (res.isPaid) {
-          handleQrisSuccess(orderId, qrisData.orderCode);
+        const res = await fetch(`/api/kasir/order?orderId=${orderId}&storeId=${payload.storeId}`);
+        const data = await res.json();
+        if (data.isPaid) {
+          handleQrisSuccess(orderId, data.orderCode || qrisData.orderCode);
         }
       } catch (err) {
         console.error("Polling error:", err);
@@ -174,18 +178,25 @@ export default function KasirPaymentModal({
     setQrisLoading(true);
     setQrisError(null);
     try {
-      const res = await createPosQrisOrder(payload);
-      if (res.error || !res.success) {
-        setQrisError(res.error || "Gagal membuat QRIS Mayar.");
+      const res = await fetch("/api/kasir/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_qris",
+          payload,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setQrisError(data.error || "Gagal membuat QRIS Mayar.");
       } else {
         setQrisData({
-          orderId: res.orderId!,
-          orderCode: res.orderCode!,
-          qrDataUrl: res.qrDataUrl!,
-          qrString: res.qrString!,
-          expiresAt: res.expiredAt!,
-          mayarLink: res.mayarLink,
-          isSandbox: res.isSandbox,
+          orderId: data.orderId,
+          orderCode: data.orderCode,
+          qrDataUrl: data.qrDataUrl,
+          qrString: data.qrString || "",
+          expiresAt: data.expiresAt || new Date(Date.now() + 900000).toISOString(),
+          isSandbox: data.isSandbox,
         });
         setSecondsLeft(900);
       }
@@ -193,6 +204,26 @@ export default function KasirPaymentModal({
       setQrisError(err.message || "Gagal menghubungi server pembayaran.");
     } finally {
       setQrisLoading(false);
+    }
+  };
+
+  // Cek Status QRIS Manual
+  const handleManualCheckStatus = async () => {
+    if (!qrisData) return;
+    setCheckingStatus(true);
+    try {
+      const res = await fetch(`/api/kasir/order?orderId=${qrisData.orderId}&storeId=${payload.storeId}`);
+      const data = await res.json();
+      if (data.isPaid) {
+        toast.success("Pembayaran QRIS berhasil dikonfirmasi!");
+        handleQrisSuccess(qrisData.orderId, data.orderCode || qrisData.orderCode);
+      } else {
+        toast.info("Pembayaran belum terdeteksi. Silakan coba beberapa saat lagi.");
+      }
+    } catch {
+      toast.error("Gagal memeriksa status pembayaran.");
+    } finally {
+      setCheckingStatus(false);
     }
   };
 
@@ -206,20 +237,26 @@ export default function KasirPaymentModal({
     setCashSubmitting(true);
     setCashError(null);
     try {
-      const res = await completePosCashTransaction({
-        ...payload,
-        paymentMethod: "TUNAI",
-        cashReceived,
-        cashChange,
+      const res = await fetch("/api/kasir/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete_cash",
+          payload: {
+            ...payload,
+            cashReceived,
+            cashChange,
+          },
+        }),
       });
-
-      if (res.error || !res.success) {
-        setCashError(res.error || "Gagal memproses transaksi tunai.");
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setCashError(data.error || "Gagal memproses transaksi tunai.");
         setCashSubmitting(false);
       } else {
         onPaymentSuccess({
-          orderId: res.orderId!,
-          orderCode: res.orderCode!,
+          orderId: data.orderId,
+          orderCode: data.orderCode,
           paymentMethod: "TUNAI",
           cashReceived,
           cashChange,
@@ -236,23 +273,26 @@ export default function KasirPaymentModal({
     setTransferSubmitting(true);
     setTransferError(null);
     try {
-      const res = await completePosCashTransaction({
-        ...payload,
-        paymentMethod: "TRANSFER",
-        cashReceived: payload.total,
-        cashChange: 0,
+      const res = await fetch("/api/kasir/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete_transfer",
+          payload: {
+            ...payload,
+            transferRef,
+          },
+        }),
       });
-
-      if (res.error || !res.success) {
-        setTransferError(res.error || "Gagal memproses transaksi transfer.");
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setTransferError(data.error || "Gagal memproses transaksi transfer.");
         setTransferSubmitting(false);
       } else {
         onPaymentSuccess({
-          orderId: res.orderId!,
-          orderCode: res.orderCode!,
+          orderId: data.orderId,
+          orderCode: data.orderCode,
           paymentMethod: "TRANSFER",
-          cashReceived: payload.total,
-          cashChange: 0,
         });
       }
     } catch (err: any) {
@@ -761,6 +801,35 @@ export default function KasirPaymentModal({
                     />
                     <span>Menunggu scan & pembayaran pelanggan (Auto-Detect)...</span>
                   </div>
+
+                  {/* Tombol Cek Manual */}
+                  <button
+                    type="button"
+                    onClick={handleManualCheckStatus}
+                    disabled={checkingStatus}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 14px",
+                      borderRadius: "8px",
+                      background: "var(--c-surface-2, #181e1c)",
+                      border: "1px solid var(--c-border)",
+                      color: "var(--c-ink, #ffffff)",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      cursor: checkingStatus ? "not-allowed" : "pointer",
+                      marginBottom: "0.85rem",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {checkingStatus ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={13} />
+                    )}
+                    <span>{checkingStatus ? "Memeriksa Status..." : "Cek Status Lunas Sekarang"}</span>
+                  </button>
 
                   <p style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", margin: 0 }}>
                     Pelanggan dapat scan QRIS menggunakan BCA, Mandiri, GoPay, OVO, ShopeePay, DANA, atau seluruh e-wallet/m-banking.

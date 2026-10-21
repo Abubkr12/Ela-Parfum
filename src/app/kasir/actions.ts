@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deductOrderStock } from "@/lib/stock/refill-stock";
+import { createMayarDynamicQris } from "@/lib/mayar";
 import QRCode from "qrcode";
 
 export interface PosProductItem {
@@ -450,79 +451,24 @@ export async function createPosQrisOrder(payload: PosTransactionPayload) {
       await supabaseAdmin.from("order_items").insert(orderItemsToInsert);
     }
 
-    // 2. Request Dynamic QRIS ke Mayar API (Sandbox vs Production aman sesuai env)
-    const isSandbox = process.env.MAYAR_IS_SANDBOX?.toLowerCase() !== "false" && process.env.MAYAR_IS_SANDBOX !== "0";
-    const mayarKey = isSandbox ? process.env.MAYAR_SANDBOX_API_KEY : process.env.MAYAR_API_KEY;
-    const mayarUrl = isSandbox
-      ? "https://api.mayar.io/hl/v1/payment/create"
-      : "https://api.mayar.id/hl/v1/payment/create";
+    // 2. Request Dynamic QRIS ke Mayar API (/hl/v1/qrcode/create)
+    const qrisRes = await createMayarDynamicQris(payload.total);
 
-    const cleanPhone = (payload.customerPhone || "081234567890").replace(/\D/g, "");
-    const validPhone = cleanPhone.length >= 10 ? cleanPhone : "081234567890";
-
-    const mayarBody = {
-      name: payload.customerName || "Customer Ela Parfum",
-      email: "kasir@elaparfum.com",
-      mobile: validPhone,
-      description: `POS ${orderCode}`,
-      amount: payload.total,
-      paymentMethod: "qris",
-      items: [
-        {
-          quantity: 1,
-          rate: payload.total,
-          description: `Tagihan Kasir Toko: ${orderCode}`,
-        },
-      ],
-    };
-
-    const res = await fetch(mayarUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${mayarKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(mayarBody),
-    });
-
-    const resJson = await res.json();
-
-    if (resJson.statusCode !== 200 && resJson.statusCode !== 201) {
-      console.error("Mayar Payment API error:", resJson);
+    if (!qrisRes.success || !qrisRes.qrUrl) {
       return {
-        error: `Gagal membuat QRIS Mayar: ${resJson.message || resJson.messages || "Unknown error"}`,
+        error: qrisRes.error || "Gagal membuat QRIS Mayar.",
       };
-    }
-
-    const paymentData = resJson.data;
-    const qrString = paymentData?.paymentDetail?.qr_code?.channel_properties?.qr_string || "";
-    const expiredAt = paymentData?.expiredAt || new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    const mayarLink = paymentData?.link || "";
-
-    // Generate high-resolution Data URL QR Code
-    let qrDataUrl = "";
-    if (qrString) {
-      qrDataUrl = await QRCode.toDataURL(qrString, {
-        width: 380,
-        margin: 2,
-        color: {
-          dark: "#0F1110",
-          light: "#FFFFFF",
-        },
-        errorCorrectionLevel: "M",
-      });
     }
 
     return {
       success: true,
       orderId: order.id,
       orderCode: order.order_code,
-      qrString,
-      qrDataUrl,
-      expiredAt,
-      mayarLink,
+      qrString: qrisRes.qrString || "",
+      qrDataUrl: qrisRes.qrUrl,
+      expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       amount: payload.total,
-      isSandbox,
+      isSandbox: qrisRes.isSandbox,
     };
   } catch (err: any) {
     console.error("Error in createPosQrisOrder:", err);
