@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-*(Tidak ada task aktif. Semua issue fatal error pada status pembayaran & simulasi QRIS Mayar telah diselesaikan.)*
+*(Tidak ada task aktif. Semua issue fatal error pada status pembayaran, ganti cabang toko, dan Cloudflare Error 1102 telah diselesaikan.)*
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,12 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Resolusi Cloudflare Error 1102 pada Ganti Cabang Toko & Eliminasi Redirect Loop Kasir (/login):**
+  - [x] **Dedicated REST API Route (`/api/kasir/data`):** Menggantikan Next.js Server Action `getPosInitialData` (yang me-RSC Flight serialize 430KB data 740+ bibit) dengan endpoint REST native berkecepatan tinggi (<1ms CPU time).
+  - [x] **Ultra-Lightweight Stock Delta Mode (`?mode=stocks&storeId=X`):** Saat beralih cabang atau background sync, server hanya mengembalikan delta stok cabang (~10 KB payload) tanpa men-download ulang seluruh katalog 740 bibit.
+  - [x] **Client State Merging di `KasirPosClient.tsx`:** Mengintegrasikan pembaruan stok cabang in-place pada state `data.bibits`, `data.bottles`, dan `data.products` dengan waktu respons <100ms dan zero UI blocking.
+  - [x] **Eliminasi Auto-Redirect Loop ke `/login`:** Menghapus `window.location.href = "/login"` otomatis pada `useEffect` mount dan `handleSwitchStore`, serta memproteksi middleware `isCashierHost` dari ping-pong redirect 307 dengan parameter pelindung (`?force=1`).
+  - [x] **Debounce Background Focus Sync:** Mencegah eksekusi query konkuren yang memicu lonjakan CPU Cloudflare Worker saat kasir berpindah tab.
 - [x] **Resolusi Auto-Detect QRIS Mayar, Popup Checkout & Fix Cloudflare 1102 di /admin/kasir:**
   - [x] **Auto-Detect Lunas di Polling Modal:** Menyematkan `&checkMayar=true` ke dalam background polling kasir setiap 3 detik, sehingga saat invoice diselesaikan di web Mayar, modal kasir otomatis mendeteksi status paid, menyalakan audio chime lunas, membersihkan draft, dan membuka struk thermal tanpa harus menekan tombol cek manual.
   - [x] **Popup Mayar Checkout & Cross-Tab Broadcast:** Mengubah tombol checkout Mayar menjadi popup window terpusat (`width=520, height=760`) dan menambahkan handler `redirectUrl` (`/?mayar_done=1&code=...`) yang mem-broadcast event pelunasan via storage cross-tab, membersihkan draft lama, dan otomatis menutup tab checkout.

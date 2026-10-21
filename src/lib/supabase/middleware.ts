@@ -70,7 +70,8 @@ export async function updateSession(request: NextRequest) {
     // Login routes handling
     const isLoginPath = pathname === '/login' || pathname === '/kasir/login'
     if (isLoginPath) {
-      if (user) {
+      const allowLogin = request.nextUrl.searchParams.has('force') || request.nextUrl.searchParams.has('reauth') || request.nextUrl.searchParams.has('error');
+      if (user && !allowLogin) {
         return NextResponse.redirect(new URL('/', request.url), 307)
       }
       if (pathname === '/login') {
@@ -178,3 +179,4 @@ export async function updateSession(request: NextRequest) {
 
   return supabaseResponse
 }
+
