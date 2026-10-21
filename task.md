@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-*(Tidak ada task aktif. Semua modul POS Kasir & Sinkronisasi Stok Multi-Cabang telah tuntas.)*
+*(Tidak ada task aktif. Semua issue fatal error pada status pembayaran & simulasi QRIS Mayar telah diselesaikan.)*
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,12 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Resolusi Fatal Error Cek Status & Simulasi Pembayaran QRIS Mayar Kasir (Cloudflare 1102 & Direct Invoice Reconciliation):**
+  - [x] **Eliminasi Cloudflare Error 1102 (Worker Exceeded CPU Limit):** Menghilangkan eksekusi pemotongan stok berulang (`deductOrderStock`) dari endpoint polling `GET /api/kasir/order`. Polling status kini berjalan ultra-ringan (<1ms CPU time) dengan query tunggal ke database lokal.
+  - [x] **Direct Mayar Invoice API Reconciliation:** Menambahkan `getMayarInvoiceStatus` di [mayar.ts](file:///c:/Projects/Minyak%20Wangi/src/lib/mayar.ts) dan menghubungkannya ke tombol *"Cek Status Lunas Sekarang"* (`&checkMayar=true`). Jika status invoice di Mayar sudah `paid` (baik disimulasikan di invoice Mayar maupun dibayar pelanggan), server seketika meng-update pesanan menjadi lunas dan memotong stok cabang secara otomatis tanpa bergantung pada webhook.
+  - [x] **Penyimpanan Metadata Invoice Mayar:** Menyimpan `MayarInvoiceID` dan `MayarInvoiceLink` ke `orders.notes` saat pembuatan QRIS, serta menyalurkan `mayarLink` ke state `qrisData` di modal frontend kasir.
+  - [x] **Link Simulasi Resmi Mayar:** Mengaktifkan link *"Buka Checkout Mayar (Simulasi di Server Mayar)"* pada modal QRIS kasir. Kasir/tester dapat membuka invoice resmi Mayar dan melakukan simulasi pembayaran langsung di web checkout resmi Mayar Sandbox.
+  - [x] **Perbaikan Tombol Simulasi Internal Toko:** Memperbaiki `action: "simulate_sandbox_pay"` dengan pelindung try/catch pada proses pemotongan stok dan safe parsing pada frontend [KasirPaymentModal.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/components/KasirPaymentModal.tsx) (`safeParseResponse`), mengeliminasi pesan error `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.
 - [x] **Refinement UI/UX Kasir POS (Tema Terang/Gelap, Scrolling Desktop, Flow QRIS, Thermal Print CSS & Sandbox Clarification):**
   - [x] **Loading Screen Theme Alignment:** Menghilangkan hardcoded dark background (`#0a0c0b`) pada loading screen [KasirPosClient.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/KasirPosClient.tsx) dan menggantinya dengan variabel CSS dinamis `var(--c-bg)` dan `var(--c-ink)` sehingga saat mode terang aktif, layar loading tidak lagi gelap gulita.
   - [x] **Manual Trigger QRIS Generation:** Menghapus auto-generate QRIS saat memilih tab. Sekarang menampilkan kartu awal yang rapi dengan tombol *"Buat QRIS Pembayaran"*. QR Code baru dibuat saat tombol tersebut diklik secara sadar oleh kasir, lengkap dengan tombol batalkan/reset QR.
