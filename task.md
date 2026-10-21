@@ -9,6 +9,11 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Persistensi Draft Transaksi Kasir POS (Auto-Save LocalStorage & Anti-Reset on Refresh):**
+  - [x] **Auto-Save Draft Realtime:** Menyimpan otomatis perubahan Nama Pelanggan (`customerName`), Nomor WhatsApp (`customerPhone`), daftar keranjang belanja kasir (`billItems`), dan diskon ke `localStorage` (`elaparfum_pos_draft_v1`).
+  - [x] **Auto-Restore on Reload:** Saat kasir me-refresh browser, terputus jaringan, atau beralih tab, seluruh inputan pelanggan dan keranjang belanja dipulihkan seketika tanpa kehilangan data sedikitpun.
+  - [x] **Eliminasi Alert Bawaan Browser pada Reset Bill:** Mengganti fungsi `confirm()` browser pada tombol *"Reset Bill"* dengan aksi Sonner toast elegan non-blocking yang dilengkapi tombol interaktif *"Batalkan"* (Undo) pemulihan data.
+  - [x] **Pembersihan Draft Siklus Transaksi:** Data draft di `localStorage` otomatis dibersihkan begitu transaksi berhasil lunas atau saat kasir secara sadar mengklik tombol *"Reset Bill"*.
 - [x] **Resolusi Fatal Error Cek Status & Simulasi Pembayaran QRIS Mayar Kasir (Cloudflare 1102 & Direct Invoice Reconciliation):**
   - [x] **Eliminasi Cloudflare Error 1102 (Worker Exceeded CPU Limit):** Menghilangkan eksekusi pemotongan stok berulang (`deductOrderStock`) dari endpoint polling `GET /api/kasir/order`. Polling status kini berjalan ultra-ringan (<1ms CPU time) dengan query tunggal ke database lokal.
   - [x] **Direct Mayar Invoice API Reconciliation:** Menambahkan `getMayarInvoiceStatus` di [mayar.ts](file:///c:/Projects/Minyak%20Wangi/src/lib/mayar.ts) dan menghubungkannya ke tombol *"Cek Status Lunas Sekarang"* (`&checkMayar=true`). Jika status invoice di Mayar sudah `paid` (baik disimulasikan di invoice Mayar maupun dibayar pelanggan), server seketika meng-update pesanan menjadi lunas dan memotong stok cabang secara otomatis tanpa bergantung pada webhook.

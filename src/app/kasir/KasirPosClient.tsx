@@ -91,11 +91,79 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
   }, [searchQuery, activeCategory, bibitCollection, sortBy]);
 
   // Bill / Cart State
+  const POS_DRAFT_KEY = "elaparfum_pos_draft_v1";
   const [customerName, setCustomerName] = useState<string>("Customer Toko");
   const [customerPhone, setCustomerPhone] = useState<string>("");
   const [billItems, setBillItems] = useState<PosBillItem[]>([]);
   const [discountType, setDiscountType] = useState<"nominal" | "percent">("nominal");
   const [discountValue, setDiscountValue] = useState<number>(0);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
+
+  // 1. Pulihkan draft transaksi aktif dari localStorage saat browser dibuka / di-refresh
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(POS_DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        // Expire draft jika sudah lebih dari 24 jam
+        if (Date.now() - (draft.updatedAt || 0) < 24 * 60 * 60 * 1000) {
+          if (typeof draft.customerName === "string" && draft.customerName.trim()) {
+            setCustomerName(draft.customerName);
+          }
+          if (typeof draft.customerPhone === "string") {
+            setCustomerPhone(draft.customerPhone);
+          }
+          if (Array.isArray(draft.billItems) && draft.billItems.length > 0) {
+            setBillItems(draft.billItems);
+          }
+          if (draft.discountType === "nominal" || draft.discountType === "percent") {
+            setDiscountType(draft.discountType);
+          }
+          if (typeof draft.discountValue === "number") {
+            setDiscountValue(draft.discountValue);
+          }
+        } else {
+          localStorage.removeItem(POS_DRAFT_KEY);
+        }
+      }
+    } catch (e) {
+      console.error("Gagal memulihkan draft transaksi kasir:", e);
+    } finally {
+      setHasRestoredDraft(true);
+    }
+  }, []);
+
+  // 2. Simpan draft transaksi secara otomatis setiap kali ada perubahan data kasir
+  useEffect(() => {
+    if (!hasRestoredDraft) return;
+
+    const isDefault =
+      billItems.length === 0 &&
+      (customerName === "Customer Toko" || customerName.trim() === "") &&
+      !customerPhone.trim() &&
+      discountValue === 0;
+
+    if (isDefault) {
+      try {
+        localStorage.removeItem(POS_DRAFT_KEY);
+      } catch {}
+      return;
+    }
+
+    try {
+      const draft = {
+        customerName,
+        customerPhone,
+        billItems,
+        discountType,
+        discountValue,
+        updatedAt: Date.now(),
+      };
+      localStorage.setItem(POS_DRAFT_KEY, JSON.stringify(draft));
+    } catch (e) {
+      console.error("Gagal menyimpan draft kasir:", e);
+    }
+  }, [hasRestoredDraft, customerName, customerPhone, billItems, discountType, discountValue]);
 
   // Modals State
   const [mixingBibit, setMixingBibit] = useState<PosBibitItem | null>(null);
@@ -337,16 +405,38 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
     setBillItems((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  // Reset Bill
+  // Reset Bill (Tanpa alert browser, didukung aksi Undo / Batalkan)
   const handleClearBill = () => {
-    if (billItems.length === 0) return;
-    if (confirm("Kosongkan seluruh daftar belanja kasir saat ini?")) {
-      setBillItems([]);
-      setDiscountValue(0);
-      setCustomerName("Customer Toko");
-      setCustomerPhone("");
-      toast.info("Daftar belanja kasir telah dikosongkan.");
-    }
+    if (billItems.length === 0 && (customerName === "Customer Toko" || !customerName) && !customerPhone) return;
+
+    const prevItems = [...billItems];
+    const prevName = customerName;
+    const prevPhone = customerPhone;
+    const prevDiscType = discountType;
+    const prevDiscVal = discountValue;
+
+    setBillItems([]);
+    setDiscountValue(0);
+    setCustomerName("Customer Toko");
+    setCustomerPhone("");
+
+    try {
+      localStorage.removeItem(POS_DRAFT_KEY);
+    } catch {}
+
+    toast.info("Daftar transaksi kasir dikosongkan.", {
+      action: {
+        label: "Batalkan",
+        onClick: () => {
+          setBillItems(prevItems);
+          setCustomerName(prevName);
+          setCustomerPhone(prevPhone);
+          setDiscountType(prevDiscType);
+          setDiscountValue(prevDiscVal);
+          toast.success("Daftar transaksi berhasil dipulihkan.");
+        },
+      },
+    });
   };
 
   // Add Regular Perfume with Size
@@ -1490,7 +1580,7 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
                 <User size={14} color="var(--c-gold, #3b82f6)" />
                 Informasi Pelanggan Toko
               </span>
-              {billItems.length > 0 && (
+              {(billItems.length > 0 || customerName !== "Customer Toko" || customerPhone) && (
                 <button
                   type="button"
                   onClick={handleClearBill}
@@ -1950,6 +2040,9 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
             setDiscountValue(0);
             setCustomerName("Customer Toko");
             setCustomerPhone("");
+            try {
+              localStorage.removeItem(POS_DRAFT_KEY);
+            } catch {}
             // Refresh data stok
             getPosInitialData(activeStoreId).then((res) => {
               if (res.data) setData(res.data);
