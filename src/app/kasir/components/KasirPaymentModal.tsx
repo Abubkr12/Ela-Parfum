@@ -113,10 +113,12 @@ export default function KasirPaymentModal({
 
     const orderId = qrisData.orderId;
 
-    // 1. Polling fallback setiap 2.5 detik
+    // 1. Polling fallback setiap 3 detik dengan sinkronisasi status Mayar otomatis
     pollingRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/kasir/order?orderId=${orderId}&storeId=${payload.storeId}`);
+        const res = await fetch(
+          `/api/kasir/order?orderId=${orderId}&storeId=${payload.storeId}&checkMayar=true`
+        );
         const text = await res.text();
         let data: any = {};
         try {
@@ -130,9 +132,22 @@ export default function KasirPaymentModal({
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 2500);
+    }, 3000);
 
-    // 2. Realtime listener Supabase
+    // 2. Cross-tab listener (jika pembayaran diselesaikan di tab checkout Mayar lain)
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === "elaparfum_pos_paid_broadcast" && e.newValue) {
+        try {
+          const val = JSON.parse(e.newValue);
+          if (val.code === qrisData.orderCode) {
+            handleQrisSuccess(orderId, qrisData.orderCode);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorageEvent);
+
+    // 3. Realtime listener Supabase
     const channel = supabase
       .channel(`pos-order-${orderId}`)
       .on(
@@ -154,6 +169,7 @@ export default function KasirPaymentModal({
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      window.removeEventListener("storage", handleStorageEvent);
       supabase.removeChannel(channel);
     };
   }, [qrisData, qrisPaid, payload.storeId]);
@@ -1033,6 +1049,20 @@ export default function KasirPaymentModal({
                           href={qrisData.mayarLink}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => {
+                            if (typeof window !== "undefined") {
+                              e.preventDefault();
+                              const w = 520;
+                              const h = 760;
+                              const left = Math.max(0, (window.screen.width - w) / 2);
+                              const top = Math.max(0, (window.screen.height - h) / 2);
+                              window.open(
+                                qrisData.mayarLink,
+                                "mayar_checkout",
+                                `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`
+                              );
+                            }
+                          }}
                           style={{
                             display: "inline-flex",
                             alignItems: "center",

@@ -9,10 +9,16 @@ export const metadata: Metadata = {
 export default async function KasirPage({
   searchParams,
 }: {
-  searchParams: Promise<{ store?: string }>;
+  searchParams: Promise<{ store?: string; mayar_done?: string; code?: string }>;
 }) {
   const params = await searchParams;
   const storeId = params.store ? parseInt(params.store, 10) : undefined;
 
-  return <KasirPosClient initialStoreId={storeId} />;
+  return (
+    <KasirPosClient
+      initialStoreId={storeId}
+      mayarDone={params.mayar_done === "1"}
+      mayarCode={params.code}
+    />
+  );
 }

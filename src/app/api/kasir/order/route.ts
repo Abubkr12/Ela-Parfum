@@ -259,6 +259,7 @@ export async function POST(request: Request) {
           orderCode: order.order_code,
           customerName: payload.customerName,
           customerPhone: payload.customerPhone,
+          redirectUrl: `https://cashier.elaparfum.web.id/?mayar_done=1&code=${order.order_code}`,
         }),
       ]);
 

@@ -9,6 +9,10 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Resolusi Auto-Detect QRIS Mayar, Popup Checkout & Fix Cloudflare 1102 di /admin/kasir:**
+  - [x] **Auto-Detect Lunas di Polling Modal:** Menyematkan `&checkMayar=true` ke dalam background polling kasir setiap 3 detik, sehingga saat invoice diselesaikan di web Mayar, modal kasir otomatis mendeteksi status paid, menyalakan audio chime lunas, membersihkan draft, dan membuka struk thermal tanpa harus menekan tombol cek manual.
+  - [x] **Popup Mayar Checkout & Cross-Tab Broadcast:** Mengubah tombol checkout Mayar menjadi popup window terpusat (`width=520, height=760`) dan menambahkan handler `redirectUrl` (`/?mayar_done=1&code=...`) yang mem-broadcast event pelunasan via storage cross-tab, membersihkan draft lama, dan otomatis menutup tab checkout.
+  - [x] **Optimasi Query & Eliminasi Error 1102 di Admin Kasir (/admin/kasir):** Membatasi query riwayat kasir dengan `.limit(50)`, memperbaiki pattern matching kode POS (`%POS-%`), dan menyematkan proteksi try/catch agar halaman `/admin/kasir` kebal dari batas CPU 10ms Cloudflare Worker.
 - [x] **Persistensi Draft Transaksi Kasir POS (Auto-Save LocalStorage & Anti-Reset on Refresh):**
   - [x] **Auto-Save Draft Realtime:** Menyimpan otomatis perubahan Nama Pelanggan (`customerName`), Nomor WhatsApp (`customerPhone`), daftar keranjang belanja kasir (`billItems`), dan diskon ke `localStorage` (`elaparfum_pos_draft_v1`).
   - [x] **Auto-Restore on Reload:** Saat kasir me-refresh browser, terputus jaringan, atau beralih tab, seluruh inputan pelanggan dan keranjang belanja dipulihkan seketika tanpa kehilangan data sedikitpun.

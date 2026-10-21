@@ -48,7 +48,7 @@ export default async function AdminKasirPage({
         subtotal
       )
     `)
-    .or("cashier_name.not.is.null,order_code.ilike.POS-%,notes.ilike.%Transaksi Kasir%")
+    .or("cashier_name.not.is.null,order_code.ilike.%POS-%,notes.ilike.%Transaksi Kasir%")
     .order("created_at", { ascending: false });
 
   // Filter Store Cabang
@@ -85,8 +85,19 @@ export default async function AdminKasirPage({
     );
   }
 
-  const { data: rawOrders } = await query;
-  const orders: PosAdminOrder[] = (rawOrders || []).map((o: any) => ({
+  let rawOrders: any[] = [];
+  try {
+    const { data: qData, error: qErr } = await query.limit(50);
+    if (!qErr && qData) {
+      rawOrders = qData;
+    } else if (qErr) {
+      console.error("[AdminKasirPage] Query error:", qErr);
+    }
+  } catch (err) {
+    console.error("[AdminKasirPage] Fatal fetch error:", err);
+  }
+
+  const orders: PosAdminOrder[] = rawOrders.map((o: any) => ({
     id: o.id,
     order_code: o.order_code,
     created_at: o.created_at,

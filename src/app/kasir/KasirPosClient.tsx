@@ -33,6 +33,7 @@ import {
   MapPin,
   RefreshCw,
   Check,
+  CheckCircle2,
   ChevronDown,
   X,
   History,
@@ -63,10 +64,35 @@ function getPaginationItems(currentPage: number, totalPages: number) {
 interface KasirPosClientProps {
   initialData?: PosInitialData;
   initialStoreId?: number;
+  mayarDone?: boolean;
+  mayarCode?: string;
 }
 
-export default function KasirPosClient({ initialData, initialStoreId }: KasirPosClientProps) {
+export default function KasirPosClient({
+  initialData,
+  initialStoreId,
+  mayarDone,
+  mayarCode,
+}: KasirPosClientProps) {
   const { theme, toggle: toggleTheme } = useTheme();
+
+  // Redirect handling dari Mayar Checkout
+  useEffect(() => {
+    if (mayarDone && mayarCode) {
+      try {
+        localStorage.removeItem("elaparfum_pos_draft_v1");
+      } catch {}
+      try {
+        localStorage.setItem(
+          "elaparfum_pos_paid_broadcast",
+          JSON.stringify({ code: mayarCode, at: Date.now() })
+        );
+      } catch {}
+      if (typeof window !== "undefined" && window.opener) {
+        window.close();
+      }
+    }
+  }, [mayarDone, mayarCode]);
 
   // State Data
   const [data, setData] = useState<PosInitialData | null>(initialData || null);
@@ -606,6 +632,105 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
     const start = (currentPage - 1) * itemsPerPage;
     return unifiedCatalog.slice(start, start + itemsPerPage);
   }, [activeCategory, unifiedCatalog, currentPage, itemsPerPage]);
+
+  if (mayarDone) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--c-bg, #0a0c0b)",
+          color: "var(--c-ink, #ffffff)",
+          padding: "2rem",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "460px",
+            width: "100%",
+            background: "var(--c-surface-1, #111614)",
+            border: "1px solid var(--c-border)",
+            borderRadius: "20px",
+            padding: "2.5rem 2rem",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            boxShadow: "var(--shadow-card)",
+          }}
+        >
+          <div
+            style={{
+              width: "72px",
+              height: "72px",
+              borderRadius: "50%",
+              backgroundColor: "rgba(16, 185, 129, 0.15)",
+              border: "2px solid #10b981",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#10b981",
+              marginBottom: "1.25rem",
+            }}
+          >
+            <CheckCircle2 size={40} />
+          </div>
+
+          <h2
+            style={{
+              fontFamily: "var(--font-display, serif)",
+              fontSize: "1.75rem",
+              fontWeight: 700,
+              margin: "0 0 0.5rem",
+              color: "#10b981",
+            }}
+          >
+            Pembayaran Mayar Berhasil!
+          </h2>
+
+          <p
+            style={{
+              color: "var(--c-ink-muted)",
+              fontSize: "0.95rem",
+              lineHeight: 1.5,
+              margin: "0 0 1.5rem",
+            }}
+          >
+            Tagihan <strong>{mayarCode || "Transaksi"}</strong> telah terverifikasi lunas di server Mayar dan otomatis disinkronkan ke terminal kasir utama.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                if (window.opener) {
+                  window.close();
+                } else {
+                  window.location.href = "/";
+                }
+              }
+            }}
+            style={{
+              width: "100%",
+              padding: "0.85rem",
+              borderRadius: "12px",
+              background: "var(--c-gold)",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: "0.95rem",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Tutup Tab & Kembali ke Terminal
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) {
     return (
