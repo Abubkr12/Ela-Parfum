@@ -22,6 +22,9 @@
     - Menebalkan dan meningkatkan kontras teks indikator auto-detect pembayaran QRIS (`var(--c-ink)` font-weight 700 dengan border jelas) agar sangat terbaca di tema terang.
     - Menghilangkan `maxHeight: "55vh"` pada scroll container struk dan menambahkan padding bawah 2rem pada `#pos-receipt-print`, memastikan seluruh footer teks ("Terima kasih atas kunjungan Anda", "Barang tidak dapat ditukar", "www.elaparfum.web.id") berada 100% di dalam bingkai putih struk tanpa terpotong atau tumpah keluar.
     - Menetapkan aturan print `@page { margin: 0; }` dan `body:has(#pos-receipt-print)` di `globals.css` untuk cetak thermal 80mm presisi.
+  - [x] **Dual Simulation Mode (Simulasi Internal Kasir + Simulasi di Server Mayar Langsung):**
+    - Menyediakan invoice link resmi Mayar (`qrisData.mayarLink`) pada response order kasir secara non-blocking.
+    - Menambahkan tombol *"Buka Checkout Mayar (Simulasi di Server Mayar)"* di modal QRIS kasir, memungkinkan pengujian pelunasan langsung di web checkout resmi Mayar sehingga status di dashboard Mayar Sandbox langsung berubah menjadi **"Dibayar"** dan menembak Webhook realtime ke server Ela Parfum.
 - [x] **Simulasi Pembayaran QRIS Sandbox di Terminal Kasir POS:**
   - [x] **Tombol Simulasi Lunas Dinamis:** Menambahkan tombol `⚡ Simulasi Bayar Berhasil (Sandbox Testing)` pada modal pembayaran QRIS kasir [KasirPaymentModal.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/components/KasirPaymentModal.tsx) yang memicu pelunasan instan order pengujian, trigger audio beep, pemotongan stok cabang, dan pembukaan struk thermal.
   - [x] **Auto-Hide pada Mode Live:** Tombol dan container simulasi secara kondisional hanya dirender jika `qrisData.isSandbox === true`. Ketika env diubah ke Live (`MAYAR_IS_SANDBOX: "false"`), elemen ini 100% lenyap dari DOM.

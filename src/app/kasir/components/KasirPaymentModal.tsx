@@ -1004,10 +1004,36 @@ export default function KasirPaymentModal({
                         ) : (
                           <>
                             <CheckCircle2 size={15} />
-                            <span>Simulasi Bayar Lunas (Testing)</span>
+                            <span>Simulasi Bayar Lunas (Internal Toko)</span>
                           </>
                         )}
                       </button>
+
+                      {qrisData.mayarLink && (
+                        <a
+                          href={qrisData.mayarLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 14px",
+                            borderRadius: "8px",
+                            background: "var(--c-surface-1)",
+                            border: "1px solid var(--c-border)",
+                            color: "var(--c-gold)",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            textDecoration: "none",
+                            marginTop: "4px",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <ExternalLink size={13} />
+                          <span>Buka Checkout Mayar (Simulasi di Server Mayar)</span>
+                        </a>
+                      )}
                       <span style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)" }}>
                         *Fitur pengujian otomatis nonaktif saat beralih ke Live Publik.
                       </span>

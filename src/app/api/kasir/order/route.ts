@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deductOrderStock } from "@/lib/stock/refill-stock";
-import { createMayarDynamicQris, getMayarConfig } from "@/lib/mayar";
+import { createMayarDynamicQris, createMayarInvoice, getMayarConfig } from "@/lib/mayar";
 import { PosTransactionPayload, PosBillItem } from "@/app/kasir/actions";
 
 function generatePosOrderCode() {
@@ -204,8 +204,16 @@ export async function POST(request: Request) {
         await supabaseAdmin.from("order_items").insert(orderItemsToInsert);
       }
 
-      // 3. Request Dynamic QRIS ke Mayar API (/hl/v1/qrcode/create)
-      const qrisRes = await createMayarDynamicQris(payload.total);
+      // 3. Request Dynamic QRIS ke Mayar API (/hl/v1/qrcode/create) & Mayar Invoice Link secara paralel
+      const [qrisRes, invoiceRes] = await Promise.all([
+        createMayarDynamicQris(payload.total),
+        createMayarInvoice({
+          amount: payload.total,
+          orderCode: order.order_code,
+          customerName: payload.customerName,
+          customerPhone: payload.customerPhone,
+        }),
+      ]);
 
       if (!qrisRes.success || !qrisRes.qrUrl) {
         return NextResponse.json(
@@ -224,6 +232,7 @@ export async function POST(request: Request) {
         orderCode: order.order_code,
         qrDataUrl: qrisRes.qrUrl,
         qrString: qrisRes.qrString || "",
+        mayarLink: invoiceRes?.link || null,
         amount: payload.total,
         isSandbox: qrisRes.isSandbox,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),

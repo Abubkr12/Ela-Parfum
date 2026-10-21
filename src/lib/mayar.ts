@@ -108,3 +108,70 @@ export async function createMayarDynamicQris(amount: number): Promise<{
     };
   }
 }
+
+/**
+ * Buat Invoice / Payment Link Mayar Resmi (/hl/v1/invoice/create)
+ * Berguna untuk simulasi bayar langsung di halaman checkout resmi Mayar
+ */
+export async function createMayarInvoice(params: {
+  amount: number;
+  orderCode: string;
+  customerName?: string;
+  customerPhone?: string;
+  redirectUrl?: string;
+}): Promise<{
+  success: boolean;
+  link?: string;
+  invoiceId?: string;
+  error?: string;
+}> {
+  const config = getMayarConfig();
+
+  try {
+    const cleanPhone = (params.customerPhone || "081234567890").replace(/\D/g, "");
+    const validPhone = cleanPhone.length >= 10 ? cleanPhone : "081234567890";
+
+    const res = await fetch(config.invoiceUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: params.customerName || "Customer Toko",
+        email: "kasir@elaparfum.com",
+        amount: params.amount,
+        mobile: validPhone,
+        description: `POS ${params.orderCode}`,
+        referenceId: params.orderCode,
+        redirectUrl: params.redirectUrl || "https://cashier.elaparfum.web.id",
+        items: [
+          {
+            name: `Total Belanja ${params.orderCode}`,
+            description: "Transaksi Kasir POS Ela Parfum",
+            quantity: 1,
+            rate: params.amount,
+          },
+        ],
+      }),
+    });
+
+    const resJson = await res.json();
+    if ((resJson.statusCode === 200 || resJson.statusCode === 201) && resJson.data?.link) {
+      return {
+        success: true,
+        link: resJson.data.link,
+        invoiceId: resJson.data.id,
+      };
+    }
+    return {
+      success: false,
+      error: resJson.messages || resJson.message || "Gagal membuat invoice Mayar",
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Gagal menghubungi API Invoice Mayar",
+    };
+  }
+}
