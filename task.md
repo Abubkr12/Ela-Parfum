@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-*(Tidak ada task aktif. Semua issue kategorisasi pesanan POS vs Web dan akurasi cabang toko di statistik penjualan telah diselesaikan.)*
+*(Tidak ada task aktif. Semua proses audit integritas dan migrasi pembersihan OneDrive telah sukses 100% tanpa anomali.)*
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,22 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Penyelesaian Eliminasi Total OneDrive & Pengawasan Live Watcher (Zero-Data-Loss):**
+  - [x] Folder fisik `OneDrive` berhasil dimusnahkan secara bersih (`Test-Path` mengembalikan `False`).
+  - [x] Berkas non-web krusial (`KULIAH`, `Riri`, `Servis HP`, `Setup Agent AI`) telah terselamatkan sempurna di `C:\Users\Abu Bakar Al Adny\Documents`.
+  - [x] Log `C:\Projects\.migration_watch.log` mengonfirmasi **zero unauthorized deletions** dan **zero file corruption** pada `C:\Projects`.
+  - [x] File rahasia `.env.local` tetap utuh (3.793 B, `NEXT_PUBLIC_BASE_URL` aman).
+  - [x] Git repository `Minyak Wangi` tetap bersih di commit `2eac6eb` dan sinkron dengan `origin/main`.
+  - [x] Verifikasi typecheck `npx tsc --noEmit` lolos 100% tanpa ada error kompilasi.
+- [x] **Audit Integritas Migrasi Workspace & Verifikasi Sinkronisasi GitHub (C:\Projects vs OneDrive):**
+  - [x] Forensik direktori kerja aktif: Terkonfirmasi 100% commit aktif dibuat di `C:\Projects\Minyak Wangi` (reflog otentik, build cache `.wrangler` & `.next` up to date per 21 Okt).
+  - [x] Verifikasi Remote GitHub: Terkonfirmasi sinkron ke `origin/main` (`https://github.com/Abubkr12/Ela-Parfum.git`) hingga commit `2eac6eb` (0 commit tertinggal).
+  - [x] Audit diferensial file rahasia (.env.local): `C:\Projects\Minyak Wangi\.env.local` memiliki konfigurasi terbaru (`NEXT_PUBLIC_BASE_URL`), OneDrive tertinggal.
+  - [x] Keamanan riwayat chat Antigravity: Terisolasi di `C:\Users\Abu Bakar Al Adny\.gemini\antigravity\brain\` di luar OneDrive, 1000% kebal dari penghapusan OneDrive.
+  - [x] Koordinasi Lintas Parent Agent: Membaca artefak rencana sesi `6e6b19e1-0597-4956-a5f3-1fef0fc83a7a` dan memetakan mekanisme sinkronisasi berbasis file.
+- [x] **Live Sentinel & FileSystemWatcher Aktif di Background:**
+  - [x] Skrip pengawas `watcher.ps1` berjalan sebagai daemon (Task ID `task-106`).
+  - [x] Real-time event logging di `C:\Projects\.migration_watch.log` untuk mendeteksi setiap modifikasi/penghapusan berkas selama migrasi di sesi sebelah.
 - [x] **Kategorisasi Sumber Pesanan (POS vs Web) & Perbaikan Akurasi Cabang Toko di Statistik Penjualan:**
   - [x] **Investigasi & Resolusi Cabang Toko di Statistik Penjualan (`/admin/statistik/penjualan`):**
     - Database `orders` memiliki relasi `store_id` yang valid (Condet = 1, Rawabelong = 2, Tangerang = 3).
