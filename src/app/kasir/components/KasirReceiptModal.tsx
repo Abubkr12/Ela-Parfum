@@ -153,11 +153,13 @@ export default function KasirReceiptModal({
         {/* Scrollable Receipt Preview */}
         <div
           style={{
-            padding: "1.25rem",
-            maxHeight: "55vh",
+            padding: "1.25rem 1.5rem",
+            flex: 1,
             overflowY: "auto",
+            overscrollBehavior: "contain",
             display: "flex",
-            justifyContent: "center",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
           {/* Paper Thermal Receipt Simulator */}
@@ -169,12 +171,14 @@ export default function KasirReceiptModal({
               maxWidth: "340px",
               backgroundColor: "#FFFFFF",
               color: "#000000",
-              padding: "1.25rem 1rem",
+              padding: "1.5rem 1.25rem 2rem",
               fontFamily: "'Courier New', Courier, monospace",
               fontSize: "12px",
-              lineHeight: 1.4,
-              borderRadius: "4px",
-              boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
+              lineHeight: 1.45,
+              borderRadius: "8px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+              margin: "0 auto 1.5rem",
+              flexShrink: 0,
             }}
           >
             {/* Store Header */}

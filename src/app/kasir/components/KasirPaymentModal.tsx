@@ -892,25 +892,29 @@ export default function KasirPaymentModal({
                       alignItems: "center",
                       gap: 8,
                       fontSize: "0.85rem",
-                      color: "#a7f3d0",
-                      background: "rgba(16, 185, 129, 0.1)",
-                      border: "1px solid rgba(16, 185, 129, 0.25)",
-                      padding: "0.5rem 1rem",
+                      fontWeight: 700,
+                      color: "var(--c-ink)",
+                      background: "rgba(16, 185, 129, 0.12)",
+                      border: "1.5px solid rgba(16, 185, 129, 0.4)",
+                      padding: "0.6rem 1rem",
                       borderRadius: "10px",
                       marginBottom: "0.75rem",
                     }}
                   >
                     <span
                       style={{
-                        width: 8,
-                        height: 8,
+                        width: 9,
+                        height: 9,
                         borderRadius: "50%",
                         backgroundColor: "#10b981",
                         display: "inline-block",
                         boxShadow: "0 0 10px #10b981",
+                        flexShrink: 0,
                       }}
                     />
-                    <span>Menunggu scan & pembayaran pelanggan (Auto-Detect)...</span>
+                    <span style={{ color: "var(--c-ink)", fontWeight: 700 }}>
+                      Menunggu scan & pembayaran pelanggan (Auto-Detect)...
+                    </span>
                   </div>
 
                   {/* Tombol Cek Manual */}

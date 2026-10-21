@@ -2069,8 +2069,40 @@ button { cursor: pointer; border: none; background: none; }
   }
 
   @page {
-    margin: 10mm 12mm;
+    margin: 0mm;
     size: auto;
   }
+  /* POS Thermal Receipt 80mm Custom Print */
+  body:has(#pos-receipt-print) {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body:has(#pos-receipt-print) * {
+    visibility: hidden;
+  }
+
+  body:has(#pos-receipt-print) #pos-receipt-print,
+  body:has(#pos-receipt-print) #pos-receipt-print * {
+    visibility: visible;
+  }
+
+  body:has(#pos-receipt-print) #pos-receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 3mm 8mm 3mm !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
 }
 
