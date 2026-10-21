@@ -1,7 +1,7 @@
 # Task List
 
 ## Aktif / In Progress
-*(Tidak ada task aktif. Semua issue fatal error pada status pembayaran, ganti cabang toko, dan Cloudflare Error 1102 telah diselesaikan.)*
+*(Tidak ada task aktif. Semua issue kategorisasi pesanan POS vs Web dan akurasi cabang toko di statistik penjualan telah diselesaikan.)*
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +9,19 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Kategorisasi Sumber Pesanan (POS vs Web) & Perbaikan Akurasi Cabang Toko di Statistik Penjualan:**
+  - [x] **Investigasi & Resolusi Cabang Toko di Statistik Penjualan (`/admin/statistik/penjualan`):**
+    - Database `orders` memiliki relasi `store_id` yang valid (Condet = 1, Rawabelong = 2, Tangerang = 3).
+    - Menambahkan kolom `store_id`, `cashier_name`, dan relasi `stores:store_id ( id, name )` pada query Supabase di `src/app/api/admin/statistik/penjualan/route.ts`.
+    - Memperbarui fungsi `getOrderStore(order)` di `PenjualanClient.tsx` untuk membaca nama toko langsung dari join `order.stores.name` dan pemetaan ID `store_id`, mengeliminasi bug fallback regex yang sebelumnya memaksa data masuk ke "Rawabelong".
+    - Menambahkan badge penanda `[POS]` vs `[WEB]` serta nama kasir pada kolom *KODE & PELANGGAN* di tabel riwayat transaksi statistik.
+  - [x] **Kategorisasi Sumber Pesanan di Daftar Pesanan (`/admin/pesanan`):**
+    - Menambahkan kolom tabel **"Sumber"** di posisi ke-2 (antara ID Pesanan dan Pelanggan).
+    - Merender badge elegan: `Kasir POS` (warna emas luxury, icon `Store`, menampilkan nama kasir jika ada) vs `Customer Web` (warna biru langit, icon `Globe`, pesanan mandiri).
+    - Menambahkan filter dropdown **"Semua Sumber"** (`Semua Sumber`, `Pesanan Web (Online)`, `Kasir POS (Toko)`) pada `OrderFilters.tsx` dan filtering server-side `channel` di `page.tsx`.
+  - [x] **Badge Sumber di Detail Pesanan (`/admin/pesanan/[id]`):**
+    - Menambahkan pill penanda sumber transaksi pada header detail pesanan di samping kode nota.
+  - [x] **Verifikasi & Build:** Lolos uji typecheck TypeScript `npx tsc --noEmit` (0 error) dan sukses kompilasi Cloudflare OpenNext Worker (`npm run build:worker`).
 - [x] **Resolusi Cloudflare Error 1102 pada Ganti Cabang Toko & Eliminasi Redirect Loop Kasir (/login):**
   - [x] **Dedicated REST API Route (`/api/kasir/data`):** Menggantikan Next.js Server Action `getPosInitialData` (yang me-RSC Flight serialize 430KB data 740+ bibit) dengan endpoint REST native berkecepatan tinggi (<1ms CPU time).
   - [x] **Ultra-Lightweight Stock Delta Mode (`?mode=stocks&storeId=X`):** Saat beralih cabang atau background sync, server hanya mengembalikan delta stok cabang (~10 KB payload) tanpa men-download ulang seluruh katalog 740 bibit.

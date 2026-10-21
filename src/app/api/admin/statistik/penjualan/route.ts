@@ -40,6 +40,12 @@ export async function GET(request: Request) {
         paid_at,
         created_at,
         notes,
+        store_id,
+        cashier_name,
+        stores:store_id (
+          id,
+          name
+        ),
         order_items (
           id,
           perfume_name,

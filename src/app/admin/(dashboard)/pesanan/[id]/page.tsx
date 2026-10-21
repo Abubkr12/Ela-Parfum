@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRupiah } from "@/lib/types";
 import Link from "next/link";
-import { ChevronLeft, Truck, Package, User, MapPin, CheckCircle, XCircle, FileImage } from "lucide-react";
+import { ChevronLeft, Truck, Package, User, MapPin, CheckCircle, XCircle, FileImage, Store, Globe } from "lucide-react";
 import { markAsPaid, updateResiStatus, rejectPayment, retryWebhook, markAsReadyForPickup, confirmCashPaymentAndComplete, markPickupCompleted } from "../actions";
 import { PaymentProofModal } from "../PaymentProofModal";
 import { SyncWebhookButton } from "./SyncWebhookButton";
@@ -57,8 +57,17 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         <Link href="/admin/pesanan" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--c-ink-dim)", fontSize: "0.9rem", marginBottom: 16 }}>
           <ChevronLeft size={16} /> Kembali ke Daftar Pesanan
         </Link>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "2rem", color: "var(--c-ink)", fontWeight: 400, marginBottom: 8, display: "flex", alignItems: "center", gap: 16 }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "2rem", color: "var(--c-ink)", fontWeight: 400, marginBottom: 8, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           Detail Pesanan <span style={{ fontSize: "1.2rem", padding: "4px 12px", background: "var(--glass-bg)", border: "1px solid var(--c-gold)", color: "var(--c-gold)", borderRadius: 100 }}>{order.order_code}</span>
+          {order.order_code?.includes("POS") || order.cashier_name ? (
+            <span style={{ fontSize: "0.82rem", padding: "4px 12px", background: "rgba(212, 175, 55, 0.12)", border: "1px solid rgba(212, 175, 55, 0.35)", color: "var(--c-gold)", borderRadius: 100, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+              <Store size={14} /> Kasir POS {order.cashier_name ? "(" + order.cashier_name + ")" : ""}
+            </span>
+          ) : (
+            <span style={{ fontSize: "0.82rem", padding: "4px 12px", background: "rgba(59, 130, 246, 0.12)", border: "1px solid rgba(59, 130, 246, 0.28)", color: "#3b82f6", borderRadius: 100, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+              <Globe size={14} /> Customer Web (Pesanan Mandiri)
+            </span>
+          )}
         </h1>
         <p style={{ color: "var(--c-ink-dim)" }}>
           Dibuat pada {new Date(order.created_at).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}

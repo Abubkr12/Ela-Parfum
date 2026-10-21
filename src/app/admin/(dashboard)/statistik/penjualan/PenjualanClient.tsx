@@ -44,6 +44,10 @@ type Order = {
   payment_status: string;
   paid_at: string | null;
   created_at: string;
+  store_id?: number | null;
+  cashier_name?: string | null;
+  stores?: { id: number; name: string } | null;
+  notes?: string | null;
   order_items: OrderItem[];
 };
 
@@ -104,18 +108,9 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
 
     let ordersByStore = initialOrders;
     if (selectedStore !== 'all') {
-      ordersByStore = initialOrders.filter(o => {
-        const notes = (o as any).notes || '';
-        if (selectedStore === 'Rawabelong') {
-          return /rawa\s*belong/i.test(notes) || (!/origin:\s*condet/i.test(notes) && !/origin:\s*tangerang/i.test(notes));
-        }
-        if (selectedStore === 'Condet') {
-          return /origin:\s*condet/i.test(notes);
-        }
-        if (selectedStore === 'Tangerang') {
-          return /origin:\s*tangerang/i.test(notes);
-        }
-        return false;
+      ordersByStore = initialOrders.filter((o) => {
+        const branchName = getOrderStore(o);
+        return branchName.toLowerCase() === selectedStore.toLowerCase();
       });
     }
 
@@ -137,13 +132,29 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
   const totalTransaksi = filteredOrders.length;
   const avgOrderValue = totalTransaksi > 0 ? totalOmzet / totalTransaksi : 0;
   
-  // Helper to extract store name for each order
+  // Helper to extract store name for each order accurately
   const getOrderStore = (order: Order): string => {
+    // 1. Prioritas utama: nama toko dari relasi database stores
+    if (order.stores && typeof order.stores === 'object' && (order.stores as any).name) {
+      const name = (order.stores as any).name;
+      if (/condet/i.test(name)) return 'Condet';
+      if (/tangerang/i.test(name)) return 'Tangerang';
+      if (/rawa\s*belong/i.test(name) || /rawabelong/i.test(name)) return 'Rawabelong';
+      return name;
+    }
+
+    // 2. Berdasarkan ID cabang resmi (1: Condet, 2: Rawabelong, 3: Tangerang)
+    if (order.store_id === 1) return 'Condet';
+    if (order.store_id === 2) return 'Rawabelong';
+    if (order.store_id === 3) return 'Tangerang';
+
+    // 3. Fallback regex dari catatan pesanan (notes) jika pesanan lama
     const notes = (order as any).notes || '';
-    if (/origin:\s*condet/i.test(notes)) return 'Condet';
-    if (/origin:\s*tangerang/i.test(notes)) return 'Tangerang';
-    if (/origin:\s*rawa\s*belong/i.test(notes)) return 'Rawabelong';
-    return 'Rawabelong'; // default / legacy main store
+    if (/cabang\s*#?1/i.test(notes) || /origin:\s*condet/i.test(notes) || /condet/i.test(notes)) return 'Condet';
+    if (/cabang\s*#?3/i.test(notes) || /origin:\s*tangerang/i.test(notes) || /tangerang/i.test(notes)) return 'Tangerang';
+    if (/cabang\s*#?2/i.test(notes) || /origin:\s*rawa\s*belong/i.test(notes) || /rawabelong/i.test(notes)) return 'Rawabelong';
+
+    return 'Condet';
   };
 
   // Top products (Separate Parfum Jadi and Bibit, strictly ignoring Pelarut & Botol)
@@ -956,8 +967,22 @@ export default function PenjualanClient({ initialOrders }: PenjualanClientProps)
                     </div>
                   </td>
                   <td style={{ padding: '1rem', color: 'var(--c-ink)', fontSize: '0.875rem' }}>
-                    <div style={{ fontWeight: 600 }}>{order.order_code}</div>
-                    <div style={{ color: 'var(--c-ink-muted)', marginTop: '0.25rem' }}>{order.customer_name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 600 }}>{order.order_code}</span>
+                      {order.order_code?.includes('POS') || order.cashier_name ? (
+                        <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212, 175, 55, 0.15)', color: 'var(--c-gold)', fontWeight: 700, border: '1px solid rgba(212, 175, 55, 0.3)' }}>
+                          POS
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                          WEB
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ color: 'var(--c-ink-muted)', marginTop: '0.25rem' }}>
+                      {order.customer_name}
+                      {order.cashier_name ? ` · Kasir: ${order.cashier_name}` : ''}
+                    </div>
                   </td>
                   <td style={{ padding: '1rem', color: 'var(--c-ink)', fontSize: '0.875rem' }}>
                     <span style={{ 

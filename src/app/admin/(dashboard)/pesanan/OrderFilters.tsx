@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Building2, Package, CheckCircle2 } from "lucide-react";
+import { Search, Building2, Package, CheckCircle2, Store } from "lucide-react";
 import { useTransition, useState, useEffect, useRef } from "react";
 
 export default function OrderFilters() {
@@ -10,6 +10,7 @@ export default function OrderFilters() {
   const [isPending, startTransition] = useTransition();
 
   const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [channel, setChannel] = useState(searchParams.get("channel") || "all");
   const [storeId, setStoreId] = useState(searchParams.get("store") || "all");
   const [fulfillment, setFulfillment] = useState(searchParams.get("fulfillment") || "all");
   const [status, setStatus] = useState(searchParams.get("status") || "all");
@@ -18,16 +19,20 @@ export default function OrderFilters() {
 
   useEffect(() => {
     setSearch(searchParams.get("search") || "");
+    setChannel(searchParams.get("channel") || "all");
     setStoreId(searchParams.get("store") || "all");
     setFulfillment(searchParams.get("fulfillment") || "all");
     setStatus(searchParams.get("status") || "all");
   }, [searchParams]);
 
-  const updateFilters = (newSearch: string, newStore: string, newFulfillment: string, newStatus: string) => {
+  const updateFilters = (newSearch: string, newChannel: string, newStore: string, newFulfillment: string, newStatus: string) => {
     const params = new URLSearchParams(searchParams.toString());
     
     if (newSearch) params.set("search", newSearch);
     else params.delete("search");
+
+    if (newChannel && newChannel !== "all") params.set("channel", newChannel);
+    else params.delete("channel");
 
     if (newStore && newStore !== "all") params.set("store", newStore);
     else params.delete("store");
@@ -48,7 +53,7 @@ export default function OrderFilters() {
     setSearch(val);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      updateFilters(val, storeId, fulfillment, status);
+      updateFilters(val, channel, storeId, fulfillment, status);
     }, 400);
   };
 
@@ -76,6 +81,33 @@ export default function OrderFilters() {
           />
         </div>
 
+        {/* Filter Sumber Pesanan */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Store size={16} style={{ color: "var(--c-gold)" }} />
+          <select 
+            value={channel}
+            onChange={(e) => {
+              const val = e.target.value;
+              setChannel(val);
+              updateFilters(search, val, storeId, fulfillment, status);
+            }}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "var(--r-md)",
+              border: "1px solid var(--c-border)",
+              background: "var(--c-surface-1)",
+              color: "var(--c-ink)",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              outline: "none"
+            }}
+          >
+            <option value="all">Semua Sumber</option>
+            <option value="web">Customer Web (Online)</option>
+            <option value="pos">Kasir Toko (POS)</option>
+          </select>
+        </div>
+
         {/* Filter Cabang Toko */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Building2 size={16} style={{ color: "var(--c-gold)" }} />
@@ -84,7 +116,7 @@ export default function OrderFilters() {
             onChange={(e) => {
               const val = e.target.value;
               setStoreId(val);
-              updateFilters(search, val, fulfillment, status);
+              updateFilters(search, channel, val, fulfillment, status);
             }}
             style={{
               padding: "10px 14px",
@@ -112,7 +144,7 @@ export default function OrderFilters() {
             onChange={(e) => {
               const val = e.target.value;
               setFulfillment(val);
-              updateFilters(search, storeId, val, status);
+              updateFilters(search, channel, storeId, val, status);
             }}
             style={{
               padding: "10px 14px",
@@ -139,7 +171,7 @@ export default function OrderFilters() {
             onChange={(e) => {
               const val = e.target.value;
               setStatus(val);
-              updateFilters(search, storeId, fulfillment, val);
+              updateFilters(search, channel, storeId, fulfillment, val);
             }}
             style={{
               padding: "10px 14px",

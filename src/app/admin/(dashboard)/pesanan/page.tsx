@@ -1,8 +1,63 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRupiah } from "@/lib/types";
 import Link from "next/link";
-import { Eye, Clock, CheckCircle2, Package, Truck, XCircle, Sparkles, Building2 } from "lucide-react";
+import { Eye, Clock, CheckCircle2, Package, Truck, XCircle, Sparkles, Building2, Store, Globe } from "lucide-react";
 import OrderFilters from "./OrderFilters";
+
+function getOrderSourceBadge(order: any) {
+  const isPos = order.order_code?.includes("POS") || !!order.cashier_name;
+  if (isPos) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <span
+          style={{
+            padding: "3px 8px",
+            borderRadius: "6px",
+            background: "rgba(212, 175, 55, 0.12)",
+            color: "var(--c-gold, #c5a880)",
+            border: "1px solid rgba(212, 175, 55, 0.3)",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            width: "fit-content",
+          }}
+        >
+          <Store size={12} /> Kasir POS
+        </span>
+        <span style={{ fontSize: "0.72rem", color: "var(--c-ink-muted)" }}>
+          Kasir: {order.cashier_name || "Staf Toko"}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <span
+        style={{
+          padding: "3px 8px",
+          borderRadius: "6px",
+          background: "rgba(59, 130, 246, 0.1)",
+          color: "#3b82f6",
+          border: "1px solid rgba(59, 130, 246, 0.25)",
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          width: "fit-content",
+        }}
+      >
+        <Globe size={12} /> Customer Web
+      </span>
+      <span style={{ fontSize: "0.72rem", color: "var(--c-ink-muted)" }}>
+        Pesanan Mandiri
+      </span>
+    </div>
+  );
+}
 
 function getPaymentBadge(order: any) {
   const isPaid = order.payment_status === "paid" || order.status === "paid";
@@ -124,7 +179,7 @@ function getStoreBadge(order: any) {
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; store?: string; fulfillment?: string; status?: string }>;
+  searchParams: Promise<{ search?: string; store?: string; fulfillment?: string; status?: string; channel?: string }>;
 }) {
   const params = await searchParams;
   const supabase = createAdminClient();
@@ -134,6 +189,12 @@ export default async function AdminOrdersPage({
   if (params.search && params.search.trim().length > 0) {
     const s = params.search.trim();
     query = query.or(`order_code.ilike.%${s}%,customer_name.ilike.%${s}%,customer_phone.ilike.%${s}%`);
+  }
+
+  if (params.channel === "pos") {
+    query = query.ilike("order_code", "%POS%");
+  } else if (params.channel === "web") {
+    query = query.not("order_code", "ilike", "%POS%");
   }
 
   if (params.store && params.store !== "all") {
@@ -180,6 +241,7 @@ export default async function AdminOrdersPage({
           <thead>
             <tr style={{ background: "var(--c-surface-2)", borderBottom: "1px solid var(--c-border)", textAlign: "left" }}>
               <th style={{ padding: "14px 16px", color: "var(--c-ink-dim)", fontWeight: 600 }}>ID Pesanan</th>
+              <th style={{ padding: "14px 16px", color: "var(--c-ink-dim)", fontWeight: 600 }}>Sumber</th>
               <th style={{ padding: "14px 16px", color: "var(--c-ink-dim)", fontWeight: 600 }}>Pelanggan</th>
               <th style={{ padding: "14px 16px", color: "var(--c-ink-dim)", fontWeight: 600 }}>Cabang & Metode</th>
               <th style={{ padding: "14px 16px", color: "var(--c-ink-dim)", fontWeight: 600 }}>Pembayaran</th>
@@ -198,8 +260,11 @@ export default async function AdminOrdersPage({
                   </div>
                 </td>
                 <td style={{ padding: "14px 16px" }}>
+                  {getOrderSourceBadge(order)}
+                </td>
+                <td style={{ padding: "14px 16px" }}>
                   <div style={{ fontWeight: 500, color: "var(--c-ink)" }}>{order.customer_name}</div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--c-ink-muted)" }}>{order.customer_phone}</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--c-ink-muted)" }}>{order.customer_phone || "-"}</div>
                 </td>
                 <td style={{ padding: "14px 16px" }}>
                   {getStoreBadge(order)}
@@ -222,7 +287,7 @@ export default async function AdminOrdersPage({
             ))}
             {(!orders || orders.length === 0) && (
               <tr>
-                <td colSpan={7} style={{ padding: "40px", textAlign: "center", color: "var(--c-ink-dim)", fontSize: "0.9rem" }}>
+                <td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "var(--c-ink-dim)", fontSize: "0.9rem" }}>
                   Tidak ada pesanan yang sesuai dengan filter.
                 </td>
               </tr>
