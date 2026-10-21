@@ -9,6 +9,10 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Simulasi Pembayaran QRIS Sandbox di Terminal Kasir POS:**
+  - [x] **Tombol Simulasi Lunas Dinamis:** Menambahkan tombol `⚡ Simulasi Bayar Berhasil (Sandbox Testing)` pada modal pembayaran QRIS kasir [KasirPaymentModal.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/components/KasirPaymentModal.tsx) yang memicu pelunasan instan order pengujian, trigger audio beep, pemotongan stok cabang, dan pembukaan struk thermal.
+  - [x] **Auto-Hide pada Mode Live:** Tombol dan container simulasi secara kondisional hanya dirender jika `qrisData.isSandbox === true`. Ketika env diubah ke Live (`MAYAR_IS_SANDBOX: "false"`), elemen ini 100% lenyap dari DOM.
+  - [x] **Security Guard Server-side:** Endpoint `/api/kasir/order` memvalidasi `config.isSandbox` saat menerima `action: "simulate_sandbox_pay"`. Jika sistem berada di mode Live, request langsung ditolak dengan HTTP 403 Forbidden.
 - [x] **Perbaikan Fatal Error Pembayaran QRIS Mayar di Terminal Kasir POS:**
   - [x] **Root Cause 1 (Next.js Server Action Rejection pada Subdomain):** Server action yang dipanggil dari `cashier.elaparfum.web.id` terhambat oleh pengecekan origin/CSRF Next.js dan rewrite URL middleware dari root `/` ke `/kasir`, memicu generic error *"An unexpected response was received from the server"*.
   - [x] **Root Cause 2 (Mayar Dynamic QRIS API Endpoint):** Mengganti endpoint lama Mayar `payment/create` yang tidak mengembalikan string QRIS dengan endpoint resmi Dynamic QR Code Mayar `POST https://api.mayar.io/hl/v1/qrcode/create` (Sandbox) / `https://api.mayar.id/hl/v1/qrcode/create` (Live) yang mengembalikan URL gambar QRIS dinamis instan.

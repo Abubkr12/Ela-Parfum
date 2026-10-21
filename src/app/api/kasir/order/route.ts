@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deductOrderStock } from "@/lib/stock/refill-stock";
-import { createMayarDynamicQris } from "@/lib/mayar";
+import { createMayarDynamicQris, getMayarConfig } from "@/lib/mayar";
 import { PosTransactionPayload, PosBillItem } from "@/app/kasir/actions";
 
 function generatePosOrderCode() {
@@ -60,11 +60,58 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Buat Order Kasir (QRIS Mayar Dinamis / Tunai / Transfer)
+// POST: Buat Order Kasir (QRIS Mayar Dinamis / Tunai / Transfer / Simulasi Sandbox)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { action, payload } = body;
+
+    // ── AKSI KHUSUS: SIMULASI BAYAR QRIS (HANYA AKTIF DI MODE SANDBOX TESTING) ──
+    if (action === "simulate_sandbox_pay") {
+      const config = getMayarConfig();
+      if (!config.isSandbox) {
+        return NextResponse.json(
+          { success: false, error: "Simulasi pembayaran ditolak: hanya diizinkan dalam mode Sandbox!" },
+          { status: 403 }
+        );
+      }
+
+      const orderId = payload?.orderId;
+      const storeId = payload?.storeId || 1;
+
+      if (!orderId) {
+        return NextResponse.json({ success: false, error: "Parameter orderId tidak valid." }, { status: 400 });
+      }
+
+      const supabaseAdmin = createAdminClient();
+      const { data: updatedOrder, error: updateErr } = await supabaseAdmin
+        .from("orders")
+        .update({
+          status: "completed",
+          payment_status: "paid",
+          paid_at: new Date().toISOString(),
+          payment_verified_at: new Date().toISOString(),
+        })
+        .eq("id", orderId)
+        .select()
+        .single();
+
+      if (updateErr || !updatedOrder) {
+        return NextResponse.json(
+          { success: false, error: updateErr?.message || "Gagal mengupdate status order simulasi." },
+          { status: 500 }
+        );
+      }
+
+      // Potong stok cabang secara aman & idempotent
+      await deductOrderStock(updatedOrder.id, storeId);
+
+      return NextResponse.json({
+        success: true,
+        orderId: updatedOrder.id,
+        orderCode: updatedOrder.order_code,
+      });
+    }
 
     if (!payload || !payload.storeId || !payload.items || !payload.total) {
       return NextResponse.json(

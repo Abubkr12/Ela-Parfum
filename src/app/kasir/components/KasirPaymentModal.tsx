@@ -64,6 +64,7 @@ export default function KasirPaymentModal({
   const [qrisPaid, setQrisPaid] = useState<boolean>(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(900); // 15 mins
   const [checkingStatus, setCheckingStatus] = useState<boolean>(false);
+  const [simulatingPayment, setSimulatingPayment] = useState<boolean>(false);
 
   // Transfer State
   const [transferRef, setTransferRef] = useState<string>("");
@@ -224,6 +225,36 @@ export default function KasirPaymentModal({
       toast.error("Gagal memeriksa status pembayaran.");
     } finally {
       setCheckingStatus(false);
+    }
+  };
+
+  // Simulasi Bayar Lunas (Khusus Mode Sandbox Testing)
+  const handleSimulateSandboxPayment = async () => {
+    if (!qrisData) return;
+    setSimulatingPayment(true);
+    try {
+      const res = await fetch("/api/kasir/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "simulate_sandbox_pay",
+          payload: {
+            orderId: qrisData.orderId,
+            storeId: payload.storeId,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast.error(data.error || "Gagal mensimulasikan pembayaran.");
+      } else {
+        toast.success("Simulasi berhasil! Pembayaran QRIS dikonfirmasi lunas.");
+        handleQrisSuccess(qrisData.orderId, data.orderCode || qrisData.orderCode);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghubungi server.");
+    } finally {
+      setSimulatingPayment(false);
     }
   };
 
@@ -819,7 +850,7 @@ export default function KasirPaymentModal({
                       fontSize: "0.8rem",
                       fontWeight: 600,
                       cursor: checkingStatus ? "not-allowed" : "pointer",
-                      marginBottom: "0.85rem",
+                      marginBottom: qrisData.isSandbox ? "0.75rem" : "0.85rem",
                       transition: "all 0.15s ease",
                     }}
                   >
@@ -830,6 +861,74 @@ export default function KasirPaymentModal({
                     )}
                     <span>{checkingStatus ? "Memeriksa Status..." : "Cek Status Lunas Sekarang"}</span>
                   </button>
+
+                  {/* Panel Simulasi Sandbox (Hanya Muncul Jika Mode Sandbox Aktif) */}
+                  {qrisData.isSandbox && (
+                    <div
+                      style={{
+                        margin: "0 0 1rem",
+                        padding: "0.85rem 1.25rem",
+                        borderRadius: "12px",
+                        background: "rgba(245, 158, 11, 0.08)",
+                        border: "1px dashed rgba(245, 158, 11, 0.4)",
+                        width: "100%",
+                        boxSizing: "border-box",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: "0.75rem",
+                          color: "#f59e0b",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <Sparkles size={14} />
+                        <span>Simulasi Pengujian Sandbox</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSimulateSandboxPayment}
+                        disabled={simulatingPayment}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 7,
+                          padding: "8px 18px",
+                          borderRadius: "8px",
+                          background: "linear-gradient(135deg, #d97706, #b45309)",
+                          border: "none",
+                          color: "#ffffff",
+                          fontSize: "0.82rem",
+                          fontWeight: 700,
+                          cursor: simulatingPayment ? "not-allowed" : "pointer",
+                          boxShadow: "0 4px 12px rgba(217, 119, 6, 0.35)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {simulatingPayment ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>Mensimulasikan Lunas...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 size={15} />
+                            <span>⚡ Simulasi Bayar Berhasil (Sandbox Testing)</span>
+                          </>
+                        )}
+                      </button>
+                      <span style={{ fontSize: "0.68rem", color: "var(--c-ink-dim)" }}>
+                        *Tombol simulasi ini otomatis hilang saat sistem beralih ke mode Live Publik (Production).
+                      </span>
+                    </div>
+                  )}
 
                   <p style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", margin: 0 }}>
                     Pelanggan dapat scan QRIS menggunakan BCA, Mandiri, GoPay, OVO, ShopeePay, DANA, atau seluruh e-wallet/m-banking.
