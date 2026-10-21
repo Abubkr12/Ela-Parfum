@@ -78,12 +78,7 @@ export default function KasirPaymentModal({
   const cashChange = Math.max(0, cashReceived - payload.total);
   const isCashSufficient = cashReceived >= payload.total;
 
-  // Auto-generate QRIS saat tab QRIS pertama kali dipilih
-  useEffect(() => {
-    if (activeTab === "QRIS" && !qrisData && !qrisLoading) {
-      handleGenerateQris();
-    }
-  }, [activeTab]);
+// QRIS tidak dibuat otomatis; menunggu tombol Buat QRIS diklik kasir
 
   // Timer Countdown 15 Menit untuk QRIS
   useEffect(() => {
@@ -356,26 +351,28 @@ export default function KasirPaymentModal({
       <div
         style={{
           width: "100%",
-          maxWidth: "560px",
-          backgroundColor: "var(--c-surface-1, #111614)",
-          border: "1px solid var(--c-border-mid)",
+          maxWidth: "580px",
+          maxHeight: "min(92vh, 760px)",
+          backgroundColor: "var(--c-surface-1)",
+          border: "1px solid var(--c-border)",
           borderRadius: "22px",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.9), 0 0 40px var(--c-gold-glow, rgba(59, 130, 246, 0.15))",
-          color: "var(--c-ink, #f0ede8)",
+          boxShadow: "var(--shadow-float, 0 25px 60px rgba(0,0,0,0.5))",
+          color: "var(--c-ink)",
         }}
       >
         {/* Header Modal */}
         <div
           style={{
-            padding: "1.25rem 1.5rem",
+            padding: "1.1rem 1.5rem",
             borderBottom: "1px solid var(--c-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            background: "linear-gradient(90deg, var(--c-gold-dim, rgba(59, 130, 246, 0.12)) 0%, transparent 100%)",
+            background: "var(--c-surface-1)",
+            flexShrink: 0,
           }}
         >
           <div>
@@ -412,12 +409,13 @@ export default function KasirPaymentModal({
         {/* Total Tagihan Bar */}
         <div
           style={{
-            backgroundColor: "var(--c-surface-2, #181e1c)",
-            padding: "1rem 1.5rem",
+            backgroundColor: "var(--c-surface-2)",
+            padding: "0.85rem 1.5rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             borderBottom: "1px solid var(--c-border)",
+            flexShrink: 0,
           }}
         >
           <div>
@@ -445,8 +443,10 @@ export default function KasirPaymentModal({
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr 1fr",
-            padding: "0.75rem 1.5rem 0",
+            padding: "0.75rem 1.5rem 0.5rem",
             gap: "0.5rem",
+            backgroundColor: "var(--c-surface-1)",
+            flexShrink: 0,
           }}
         >
           <button
@@ -520,7 +520,7 @@ export default function KasirPaymentModal({
         </div>
 
         {/* Tab Contents */}
-        <div style={{ padding: "1.5rem", flex: 1, overflowY: "auto" }}>
+        <div style={{ padding: "1.25rem 1.5rem 2rem", flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
           {/* TAB 1: TUNAI */}
           {activeTab === "CASH" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -665,7 +665,87 @@ export default function KasirPaymentModal({
 
           {/* TAB 2: QRIS MAYAR (INLINE) */}
           {activeTab === "QRIS" && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>
+              {/* State 0: Belum Generate QRIS (Kasir menekan tombol untuk generate) */}
+              {!qrisLoading && !qrisError && !qrisPaid && !qrisData && (
+                <div
+                  style={{
+                    padding: "2rem 1.5rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
+                    background: "var(--c-surface-2)",
+                    border: "1px solid var(--c-border)",
+                    borderRadius: "16px",
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "60px",
+                      height: "60px",
+                      borderRadius: "16px",
+                      background: "var(--c-gold-dim, rgba(37, 99, 235, 0.1))",
+                      border: "1px solid var(--c-border)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--c-gold)",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <QrCode size={32} />
+                  </div>
+
+                  <h3
+                    style={{
+                      fontSize: "1.2rem",
+                      fontWeight: 700,
+                      color: "var(--c-ink)",
+                      margin: "0 0 0.5rem",
+                      fontFamily: "var(--font-display, serif)",
+                    }}
+                  >
+                    QRIS Dinamis Mayar
+                  </h3>
+
+                  <p
+                    style={{
+                      color: "var(--c-ink-muted)",
+                      fontSize: "0.85rem",
+                      lineHeight: 1.5,
+                      maxWidth: "380px",
+                      margin: "0 0 1.25rem",
+                    }}
+                  >
+                    Klik tombol di bawah untuk membuat kode QRIS instan resmi Mayar sesuai tagihan <strong>{formatRupiah(payload.total)}</strong>.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateQris}
+                    style={{
+                      padding: "0.85rem 1.75rem",
+                      borderRadius: "12px",
+                      background: "var(--c-gold)",
+                      color: "#ffffff",
+                      fontSize: "0.95rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      boxShadow: "var(--shadow-card)",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <QrCode size={18} />
+                    <span>Buat QRIS Pembayaran ({formatRupiah(payload.total)})</span>
+                  </button>
+                </div>
+              )}
               {qrisLoading && (
                 <div style={{ padding: "3rem 1rem" }}>
                   <Loader2 size={36} className="animate-spin" color="var(--c-gold, #3b82f6)" style={{ margin: "0 auto 1rem" }} />
@@ -866,11 +946,11 @@ export default function KasirPaymentModal({
                   {qrisData.isSandbox && (
                     <div
                       style={{
-                        margin: "0 0 1rem",
+                        margin: "0.5rem 0 0.85rem",
                         padding: "0.85rem 1.25rem",
-                        borderRadius: "12px",
-                        background: "rgba(245, 158, 11, 0.08)",
-                        border: "1px dashed rgba(245, 158, 11, 0.4)",
+                        borderRadius: "14px",
+                        background: "var(--c-surface-2)",
+                        border: "1px dashed var(--c-border)",
                         width: "100%",
                         boxSizing: "border-box",
                         display: "flex",
@@ -885,12 +965,12 @@ export default function KasirPaymentModal({
                           alignItems: "center",
                           gap: 6,
                           fontSize: "0.75rem",
-                          color: "#f59e0b",
-                          fontWeight: 700,
+                          color: "var(--c-ink-muted)",
+                          fontWeight: 600,
                         }}
                       >
-                        <Sparkles size={14} />
-                        <span>Simulasi Pengujian Sandbox</span>
+                        <Sparkles size={13} style={{ color: "var(--c-gold)" }} />
+                        <span>Pengujian Sandbox Mayar</span>
                       </div>
                       <button
                         type="button"
@@ -900,35 +980,52 @@ export default function KasirPaymentModal({
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 7,
-                          padding: "8px 18px",
-                          borderRadius: "8px",
-                          background: "linear-gradient(135deg, #d97706, #b45309)",
+                          padding: "8px 20px",
+                          borderRadius: "10px",
+                          background: "var(--c-gold)",
                           border: "none",
                           color: "#ffffff",
                           fontSize: "0.82rem",
                           fontWeight: 700,
                           cursor: simulatingPayment ? "not-allowed" : "pointer",
-                          boxShadow: "0 4px 12px rgba(217, 119, 6, 0.35)",
+                          boxShadow: "var(--shadow-card)",
                           transition: "all 0.15s ease",
                         }}
                       >
                         {simulatingPayment ? (
                           <>
                             <Loader2 size={14} className="animate-spin" />
-                            <span>Mensimulasikan Lunas...</span>
+                            <span>Memproses Simulasi Lunas...</span>
                           </>
                         ) : (
                           <>
                             <CheckCircle2 size={15} />
-                            <span>⚡ Simulasi Bayar Berhasil (Sandbox Testing)</span>
+                            <span>Simulasi Bayar Lunas (Testing)</span>
                           </>
                         )}
                       </button>
-                      <span style={{ fontSize: "0.68rem", color: "var(--c-ink-dim)" }}>
-                        *Tombol simulasi ini otomatis hilang saat sistem beralih ke mode Live Publik (Production).
+                      <span style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)" }}>
+                        *Fitur pengujian otomatis nonaktif saat beralih ke Live Publik.
                       </span>
                     </div>
                   )}
+
+                  {/* Tombol Buat Ulang / Reset QR */}
+                  <button
+                    type="button"
+                    onClick={() => setQrisData(null)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--c-ink-dim)",
+                      fontSize: "0.78rem",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      marginBottom: "0.75rem",
+                    }}
+                  >
+                    Batal / Buat Ulang QR
+                  </button>
 
                   <p style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", margin: 0 }}>
                     Pelanggan dapat scan QRIS menggunakan BCA, Mandiri, GoPay, OVO, ShopeePay, DANA, atau seluruh e-wallet/m-banking.

@@ -515,8 +515,8 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#0a0c0b",
-          color: "#f0ede8",
+          backgroundColor: "var(--c-bg, #0a0c0b)",
+          color: "var(--c-ink, #f0ede8)",
           gap: "1.25rem",
           padding: "2rem",
           textAlign: "center",
@@ -541,14 +541,14 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
             >
               Ela Parfum Kasir
             </h2>
-            <p style={{ color: "#9ca3af", fontSize: "0.9rem", margin: 0 }}>
+            <p style={{ color: "var(--c-ink-muted, #9ca3af)", fontSize: "0.9rem", margin: 0 }}>
               Menghubungkan ke terminal POS cabang...
             </p>
           </>
         ) : (
           <>
             <Building2 size={40} style={{ color: "#ef4444" }} />
-            <h3 style={{ fontSize: "1.1rem", margin: 0, color: "#f3f4f6" }}>
+            <h3 style={{ fontSize: "1.1rem", margin: 0, color: "var(--c-ink, #f3f4f6)" }}>
               {initError || "Gagal Membuka Terminal Kasir"}
             </h3>
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
@@ -558,7 +558,7 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
                   padding: "0.6rem 1.2rem",
                   borderRadius: "8px",
                   backgroundColor: "var(--c-gold, #c5a880)",
-                  color: "#0a0c0b",
+                  color: "#ffffff",
                   fontWeight: 600,
                   border: "none",
                   cursor: "pointer",

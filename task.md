@@ -9,6 +9,15 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Refinement UI/UX Kasir POS (Tema Terang/Gelap, Scrolling Desktop, Flow QRIS, Thermal Print CSS & Sandbox Clarification):**
+  - [x] **Loading Screen Theme Alignment:** Menghilangkan hardcoded dark background (`#0a0c0b`) pada loading screen [KasirPosClient.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/KasirPosClient.tsx) dan menggantinya dengan variabel CSS dinamis `var(--c-bg)` dan `var(--c-ink)` sehingga saat mode terang aktif, layar loading tidak lagi gelap gulita.
+  - [x] **Manual Trigger QRIS Generation:** Menghapus auto-generate QRIS saat memilih tab. Sekarang menampilkan kartu awal yang rapi dengan tombol *"Buat QRIS Pembayaran"*. QR Code baru dibuat saat tombol tersebut diklik secara sadar oleh kasir, lengkap dengan tombol batalkan/reset QR.
+  - [x] **Fix Desktop Modal Scrolling & Sizing:** Memperbaiki layout modal pembayaran kasir dengan membatasi `maxHeight: "min(92vh, 760px)"` dan menetapkan `flexShrink: 0` pada header/tagihan/tab serta `overflowY: "auto"` pada container body, sehingga tombol bawah (simulasi/cek status) tidak lagi terpotong dan dapat di-scroll dengan sangat leluasa di mode desktop.
+  - [x] **Eliminasi "AI-Slop" & Restyle Struk Thermal:**
+    - Menghapus gradient aneh biru-ke-oranye pada tombol *"Transaksi Baru"* dan menyelaraskannya dengan warna brand murni `var(--c-gold)`.
+    - Menyelaraskan seluruh container modal struk lunas [KasirReceiptModal.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/components/KasirReceiptModal.tsx) menggunakan `var(--c-surface-1)` dan `var(--c-border)`, sehingga konsisten dan elegan baik di mode terang maupun gelap.
+    - Menata ulang kotak pengujian Sandbox menjadi card bergaris putus-putus minimalis dan elegan tanpa aksen oranye kaku.
+  - [x] **Optimasi CSS Print Thermal 80mm:** Menambahkan `@page { size: 80mm auto; margin: 0; }` dan styling media print presisi 80mm agar browser tidak memaksakan layout A4 saat mencetak struk thermal ke PDF/printer fisik.
 - [x] **Simulasi Pembayaran QRIS Sandbox di Terminal Kasir POS:**
   - [x] **Tombol Simulasi Lunas Dinamis:** Menambahkan tombol `⚡ Simulasi Bayar Berhasil (Sandbox Testing)` pada modal pembayaran QRIS kasir [KasirPaymentModal.tsx](file:///c:/Projects/Minyak%20Wangi/src/app/kasir/components/KasirPaymentModal.tsx) yang memicu pelunasan instan order pengujian, trigger audio beep, pemotongan stok cabang, dan pembukaan struk thermal.
   - [x] **Auto-Hide pada Mode Live:** Tombol dan container simulasi secara kondisional hanya dirender jika `qrisData.isSandbox === true`. Ketika env diubah ke Live (`MAYAR_IS_SANDBOX: "false"`), elemen ini 100% lenyap dari DOM.

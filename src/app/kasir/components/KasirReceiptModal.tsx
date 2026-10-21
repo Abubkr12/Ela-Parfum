@@ -96,34 +96,36 @@ export default function KasirReceiptModal({
       <div
         style={{
           width: "100%",
-          maxWidth: "460px",
-          backgroundColor: "#121614",
-          border: "1px solid rgba(212, 175, 55, 0.35)",
+          maxWidth: "480px",
+          maxHeight: "min(92vh, 760px)",
+          backgroundColor: "var(--c-surface-1)",
+          border: "1px solid var(--c-border)",
           borderRadius: "22px",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.9)",
-          color: "#F3F4F6",
+          boxShadow: "var(--shadow-float, 0 25px 60px rgba(0,0,0,0.5))",
+          color: "var(--c-ink)",
         }}
       >
         {/* Screen Header */}
         <div
           style={{
             padding: "1.25rem",
-            backgroundColor: "rgba(16, 185, 129, 0.12)",
-            borderBottom: "1px solid rgba(16, 185, 129, 0.25)",
+            backgroundColor: "rgba(16, 185, 129, 0.08)",
+            borderBottom: "1px solid rgba(16, 185, 129, 0.2)",
             display: "flex",
             alignItems: "center",
-            gap: 10,
+            gap: 12,
+            flexShrink: 0,
           }}
         >
           <CheckCircle2 size={24} color="#10B981" />
           <div>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#10B981", margin: 0 }}>
+            <h3 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--c-ink)", margin: 0, fontFamily: "var(--font-display, serif)" }}>
               Transaksi Selesai & Lunas
             </h3>
-            <span style={{ fontSize: "0.8rem", color: "#A7F3D0" }}>
+            <span style={{ fontSize: "0.82rem", color: "#10b981", fontWeight: 600 }}>
               Nomor Nota: {orderCode}
             </span>
           </div>
@@ -268,8 +270,9 @@ export default function KasirReceiptModal({
         <div
           style={{
             padding: "1.25rem",
-            backgroundColor: "#0A0D0C",
-            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+            backgroundColor: "var(--c-surface-2)",
+            borderTop: "1px solid var(--c-border)",
+            flexShrink: 0,
             display: "flex",
             flexDirection: "column",
             gap: "0.6rem",
@@ -282,9 +285,9 @@ export default function KasirReceiptModal({
               style={{
                 padding: "0.8rem",
                 borderRadius: "12px",
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#FFFFFF",
+                background: "var(--c-surface-1)",
+                border: "1px solid var(--c-border)",
+                color: "var(--c-ink)",
                 fontWeight: 600,
                 fontSize: "0.85rem",
                 cursor: "pointer",
@@ -304,9 +307,9 @@ export default function KasirReceiptModal({
               style={{
                 padding: "0.8rem",
                 borderRadius: "12px",
-                background: "rgba(16, 185, 129, 0.15)",
-                border: "1px solid rgba(16, 185, 129, 0.35)",
-                color: "#10B981",
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                color: "#10b981",
                 fontWeight: 600,
                 fontSize: "0.85rem",
                 cursor: "pointer",
@@ -327,17 +330,17 @@ export default function KasirReceiptModal({
             style={{
               padding: "0.9rem",
               borderRadius: "12px",
-              background: "linear-gradient(135deg, var(--c-gold, #D4AF37) 0%, #B8972E 100%)",
+              background: "var(--c-gold)",
               border: "none",
-              color: "#0B0D0C",
-              fontWeight: 800,
+              color: "#ffffff",
+              fontWeight: 700,
               fontSize: "0.95rem",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              boxShadow: "0 6px 20px -4px rgba(212, 175, 55, 0.4)",
+              boxShadow: "var(--shadow-card)",
             }}
           >
             <PlusCircle size={18} />
@@ -349,6 +352,16 @@ export default function KasirReceiptModal({
       {/* Global CSS for Print Media */}
       <style jsx global>{`
         @media print {
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 80mm !important;
+            background: #ffffff !important;
+          }
           body * {
             visibility: hidden;
           }
@@ -360,12 +373,14 @@ export default function KasirReceiptModal({
             position: absolute;
             left: 0;
             top: 0;
-            width: 100% !important;
+            width: 80mm !important;
             max-width: 80mm !important;
-            margin: 0 !important;
-            padding: 4mm !important;
+            margin: 0 auto !important;
+            padding: 4mm 4mm 8mm 4mm !important;
             box-shadow: none !important;
             border-radius: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
           }
         }
       `}</style>
