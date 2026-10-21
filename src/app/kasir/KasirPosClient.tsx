@@ -99,28 +99,39 @@ export default function KasirPosClient({ initialData, initialStoreId }: KasirPos
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
 
-  // 1. Pulihkan draft transaksi aktif dari localStorage saat browser dibuka / di-refresh
+  // 1. Pulihkan draft transaksi aktif dari localStorage saat browser dibuka / di-refresh / crash recovery
   useEffect(() => {
     try {
       const raw = localStorage.getItem(POS_DRAFT_KEY);
       if (raw) {
         const draft = JSON.parse(raw);
-        // Expire draft jika sudah lebih dari 24 jam
-        if (Date.now() - (draft.updatedAt || 0) < 24 * 60 * 60 * 1000) {
+        // Pertahankan draft hingga 7 hari (aman jika PC dimatikan atau browser crash lama)
+        if (Date.now() - (draft.updatedAt || 0) < 7 * 24 * 60 * 60 * 1000) {
+          let hasContent = false;
           if (typeof draft.customerName === "string" && draft.customerName.trim()) {
             setCustomerName(draft.customerName);
+            if (draft.customerName !== "Customer Toko") hasContent = true;
           }
-          if (typeof draft.customerPhone === "string") {
+          if (typeof draft.customerPhone === "string" && draft.customerPhone.trim()) {
             setCustomerPhone(draft.customerPhone);
+            hasContent = true;
           }
           if (Array.isArray(draft.billItems) && draft.billItems.length > 0) {
             setBillItems(draft.billItems);
+            hasContent = true;
           }
           if (draft.discountType === "nominal" || draft.discountType === "percent") {
             setDiscountType(draft.discountType);
           }
           if (typeof draft.discountValue === "number") {
             setDiscountValue(draft.discountValue);
+          }
+
+          if (hasContent) {
+            toast.info(
+              `Draft pesanan kasir${draft.customerName && draft.customerName !== "Customer Toko" ? ` (${draft.customerName})` : ""} berhasil dipulihkan.`,
+              { duration: 3500 }
+            );
           }
         } else {
           localStorage.removeItem(POS_DRAFT_KEY);
