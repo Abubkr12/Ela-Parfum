@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deductOrderStock } from "@/lib/stock/refill-stock";
-import { createMayarDynamicQris, createMayarInvoice, getMayarConfig } from "@/lib/mayar";
-import { PosTransactionPayload, PosBillItem } from "@/app/kasir/actions";
+import {
+  createMayarDynamicQris,
+  createMayarInvoice,
+  getMayarConfig,
+  getMayarInvoiceStatus,
+} from "@/lib/mayar";
+import { PosBillItem } from "@/app/kasir/actions";
 
 function generatePosOrderCode() {
   const dateStr = new Date()
@@ -13,12 +18,13 @@ function generatePosOrderCode() {
   return `MW-POS-${dateStr}-${randomStr}`;
 }
 
-// GET: Polling Status Order Kasir (Auto-detect Lunas & Pemotongan Stok Idempotent)
+// GET: Polling & Cek Status Order Kasir (Ultra-Lightweight & Zero CPU Exhaustion)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const orderIdStr = searchParams.get("orderId");
     const storeIdStr = searchParams.get("storeId");
+    const checkMayar = searchParams.get("checkMayar") === "true";
 
     if (!orderIdStr) {
       return NextResponse.json({ isPaid: false, error: "Missing orderId" }, { status: 400 });
@@ -30,7 +36,7 @@ export async function GET(request: Request) {
     const supabaseAdmin = createAdminClient();
     const { data: order, error } = await supabaseAdmin
       .from("orders")
-      .select("id, status, payment_status, total, order_code, paid_at")
+      .select("id, status, payment_status, total, order_code, paid_at, notes")
       .eq("id", orderId)
       .single();
 
@@ -43,14 +49,50 @@ export async function GET(request: Request) {
       order.status === "paid" ||
       order.status === "completed";
 
+    // Jika sudah tercatat lunas di database, langsung return (tanpa kalkulasi stok ulang di endpoint GET)
     if (isPaid) {
-      // Pastikan stok cabang telah terpotong secara idempotent
-      await deductOrderStock(order.id, storeId);
       return NextResponse.json({
         isPaid: true,
         orderCode: order.order_code,
         paidAt: order.paid_at,
       });
+    }
+
+    // Jika belum lunas dan ada permintaan sinkronisasi Mayar resmi (dari tombol Cek Status Lunas)
+    if (checkMayar && order.notes) {
+      const invoiceIdMatch = order.notes.match(/MayarInvoiceID:\s*([a-f0-9-]+)/i);
+      if (invoiceIdMatch && invoiceIdMatch[1]) {
+        const invoiceId = invoiceIdMatch[1].trim();
+        const mayarCheck = await getMayarInvoiceStatus(invoiceId);
+
+        if (mayarCheck.isPaid) {
+          const nowIso = new Date().toISOString();
+          // Update order menjadi lunas
+          await supabaseAdmin
+            .from("orders")
+            .update({
+              status: "completed",
+              payment_status: "paid",
+              paid_at: nowIso,
+              payment_verified_at: nowIso,
+            })
+            .eq("id", order.id);
+
+          // Potong stok cabang secara aman & idempotent
+          try {
+            await deductOrderStock(order.id, storeId);
+          } catch (stkErr) {
+            console.error("[GET /api/kasir/order] Gagal memotong stok setelah verifikasi Mayar:", stkErr);
+          }
+
+          return NextResponse.json({
+            isPaid: true,
+            orderCode: order.order_code,
+            paidAt: nowIso,
+            source: "mayar_invoice_reconciliation",
+          });
+        }
+      }
     }
 
     return NextResponse.json({ isPaid: false });
@@ -84,13 +126,14 @@ export async function POST(request: Request) {
       }
 
       const supabaseAdmin = createAdminClient();
+      const nowIso = new Date().toISOString();
       const { data: updatedOrder, error: updateErr } = await supabaseAdmin
         .from("orders")
         .update({
           status: "completed",
           payment_status: "paid",
-          paid_at: new Date().toISOString(),
-          payment_verified_at: new Date().toISOString(),
+          paid_at: nowIso,
+          payment_verified_at: nowIso,
         })
         .eq("id", orderId)
         .select()
@@ -104,7 +147,11 @@ export async function POST(request: Request) {
       }
 
       // Potong stok cabang secara aman & idempotent
-      await deductOrderStock(updatedOrder.id, storeId);
+      try {
+        await deductOrderStock(updatedOrder.id, storeId);
+      } catch (stkErr) {
+        console.error("[POST simulate_sandbox_pay] Warning gagal potong stok:", stkErr);
+      }
 
       return NextResponse.json({
         success: true,
@@ -226,6 +273,23 @@ export async function POST(request: Request) {
         );
       }
 
+      // Catat MayarInvoiceID & MayarInvoiceLink ke order.notes untuk rekonsiliasi realtime
+      let invoiceNotes = "";
+      if (invoiceRes?.invoiceId) {
+        invoiceNotes += ` | MayarInvoiceID: ${invoiceRes.invoiceId}`;
+      }
+      if (invoiceRes?.link) {
+        invoiceNotes += ` | MayarInvoiceLink: ${invoiceRes.link}`;
+      }
+      if (invoiceNotes) {
+        await supabaseAdmin
+          .from("orders")
+          .update({
+            notes: `${order.notes || ""}${invoiceNotes}`,
+          })
+          .eq("id", order.id);
+      }
+
       return NextResponse.json({
         success: true,
         orderId: order.id,
@@ -233,6 +297,7 @@ export async function POST(request: Request) {
         qrDataUrl: qrisRes.qrUrl,
         qrString: qrisRes.qrString || "",
         mayarLink: invoiceRes?.link || null,
+        invoiceId: invoiceRes?.invoiceId || null,
         amount: payload.total,
         isSandbox: qrisRes.isSandbox,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),

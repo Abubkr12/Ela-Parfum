@@ -175,3 +175,62 @@ export async function createMayarInvoice(params: {
     };
   }
 }
+
+/**
+ * Cek Status Invoice Mayar Resmi (/hl/v1/invoice/{id})
+ * Untuk rekonsiliasi realtime status pembayaran kasir langsung ke server Mayar
+ */
+export async function getMayarInvoiceStatus(invoiceId: string): Promise<{
+  success: boolean;
+  status?: string;
+  isPaid: boolean;
+  error?: string;
+}> {
+  const config = getMayarConfig();
+
+  try {
+    const res = await fetch(`${config.baseUrl}/hl/v1/invoice/${invoiceId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const resJson = await res.json();
+    if (resJson.statusCode === 200 && resJson.data) {
+      const invStatus = String(resJson.data.status || "").toLowerCase();
+      const hasPaidTransaction =
+        Array.isArray(resJson.data.transactions) &&
+        resJson.data.transactions.some((tx: any) => {
+          const txSt = String(tx?.status || "").toLowerCase();
+          return txSt === "paid" || txSt === "settled" || txSt === "success";
+        });
+
+      const isPaid =
+        invStatus === "paid" ||
+        invStatus === "settled" ||
+        invStatus === "success" ||
+        hasPaidTransaction;
+
+      return {
+        success: true,
+        status: invStatus,
+        isPaid,
+      };
+    }
+
+    return {
+      success: false,
+      isPaid: false,
+      error: resJson.messages || resJson.message || "Invoice Mayar tidak ditemukan",
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      isPaid: false,
+      error: err.message || "Gagal menghubungi server Mayar untuk cek status",
+    };
+  }
+}
+

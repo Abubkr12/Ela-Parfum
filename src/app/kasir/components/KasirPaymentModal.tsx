@@ -97,6 +97,16 @@ export default function KasirPaymentModal({
     return () => clearInterval(timer);
   }, [qrisData, qrisPaid]);
 
+  // Helper parsing respons aman mencegah syntax error HTML 503 Cloudflare
+  const safeParseResponse = async (res: Response) => {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Server respons HTTP ${res.status}: ${text.substring(0, 100)}`);
+    }
+  };
+
   // Listener Realtime Supabase + Polling Fallback untuk Deteksi Lunas QRIS
   useEffect(() => {
     if (!qrisData || qrisPaid) return;
@@ -107,7 +117,13 @@ export default function KasirPaymentModal({
     pollingRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/kasir/order?orderId=${orderId}&storeId=${payload.storeId}`);
-        const data = await res.json();
+        const text = await res.text();
+        let data: any = {};
+        try {
+          data = JSON.parse(text);
+        } catch {
+          return;
+        }
         if (data.isPaid) {
           handleQrisSuccess(orderId, data.orderCode || qrisData.orderCode);
         }
@@ -182,7 +198,7 @@ export default function KasirPaymentModal({
           payload,
         }),
       });
-      const data = await res.json();
+      const data = await safeParseResponse(res);
       if (!res.ok || !data.success) {
         setQrisError(data.error || "Gagal membuat QRIS Mayar.");
       } else {
@@ -193,6 +209,7 @@ export default function KasirPaymentModal({
           qrString: data.qrString || "",
           expiresAt: data.expiresAt || new Date(Date.now() + 900000).toISOString(),
           isSandbox: data.isSandbox,
+          mayarLink: data.mayarLink || undefined,
         });
         setSecondsLeft(900);
       }
@@ -203,21 +220,23 @@ export default function KasirPaymentModal({
     }
   };
 
-  // Cek Status QRIS Manual
+  // Cek Status QRIS Manual (Dengan Sinkronisasi Direct API Mayar Realtime)
   const handleManualCheckStatus = async () => {
     if (!qrisData) return;
     setCheckingStatus(true);
     try {
-      const res = await fetch(`/api/kasir/order?orderId=${qrisData.orderId}&storeId=${payload.storeId}`);
-      const data = await res.json();
+      const res = await fetch(
+        `/api/kasir/order?orderId=${qrisData.orderId}&storeId=${payload.storeId}&checkMayar=true`
+      );
+      const data = await safeParseResponse(res);
       if (data.isPaid) {
-        toast.success("Pembayaran QRIS berhasil dikonfirmasi!");
+        toast.success("Pembayaran QRIS berhasil dikonfirmasi lunas!");
         handleQrisSuccess(qrisData.orderId, data.orderCode || qrisData.orderCode);
       } else {
-        toast.info("Pembayaran belum terdeteksi. Silakan coba beberapa saat lagi.");
+        toast.info("Pembayaran belum terdeteksi di sistem Mayar. Silakan coba beberapa saat lagi.");
       }
-    } catch {
-      toast.error("Gagal memeriksa status pembayaran.");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memeriksa status pembayaran.");
     } finally {
       setCheckingStatus(false);
     }
@@ -239,7 +258,7 @@ export default function KasirPaymentModal({
           },
         }),
       });
-      const data = await res.json();
+      const data = await safeParseResponse(res);
       if (!res.ok || !data.success) {
         toast.error(data.error || "Gagal mensimulasikan pembayaran.");
       } else {
@@ -275,7 +294,7 @@ export default function KasirPaymentModal({
           },
         }),
       });
-      const data = await res.json();
+      const data = await safeParseResponse(res);
       if (!res.ok || !data.success) {
         setCashError(data.error || "Gagal memproses transaksi tunai.");
         setCashSubmitting(false);
@@ -310,7 +329,7 @@ export default function KasirPaymentModal({
           },
         }),
       });
-      const data = await res.json();
+      const data = await safeParseResponse(res);
       if (!res.ok || !data.success) {
         setTransferError(data.error || "Gagal memproses transaksi transfer.");
         setTransferSubmitting(false);
