@@ -24,11 +24,11 @@ const faqItems = [
   },
   {
     q: "Metode pembayaran apa saja yang tersedia?",
-    a: "Kami menerima berbagai metode pembayaran untuk kemudahan Anda: Transfer Bank (BCA, BNI, BRI, Mandiri), E-Wallet (GoPay, OVO, Dana, ShopeePay), QRIS (scan dari aplikasi apapun), dan COD (Cash on Delivery) untuk area Palembang. Pembayaran online diproses melalui payment gateway yang aman dan terenkripsi.",
+    a: "Kami menerima berbagai metode pembayaran untuk kemudahan Anda: Transfer Bank (BCA, BNI, BRI, Mandiri), E-Wallet (GoPay, OVO, Dana, ShopeePay), QRIS (scan dari aplikasi apapun), dan COD (Cash on Delivery) untuk area tertentu. Pembayaran online diproses melalui payment gateway yang aman dan terenkripsi.",
   },
   {
     q: "Berapa lama pengiriman?",
-    a: "Untuk area Palembang, pengiriman dilakukan dalam 1-2 hari kerja. Untuk luar kota Palembang, kami menggunakan ekspedisi JNE, J&T, dan SiCepat dengan estimasi 2-5 hari kerja tergantung lokasi tujuan. Setiap pengiriman dilengkapi dengan bubble wrap dan packaging khusus untuk memastikan parfum Anda tiba dengan aman.",
+    a: "Untuk area Jabodetabek, pengiriman dilakukan dalam 1-2 hari kerja. Untuk luar kota, kami menggunakan ekspedisi JNE, J&T, dan SiCepat dengan estimasi 2-5 hari kerja tergantung lokasi tujuan. Setiap pengiriman dilengkapi dengan bubble wrap dan packaging khusus untuk memastikan parfum Anda tiba dengan aman.",
   },
 ];
 

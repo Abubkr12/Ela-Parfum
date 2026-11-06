@@ -23,13 +23,13 @@ const contactInfo = [
   {
     icon: Phone,
     label: "Telepon",
-    value: "0878-7755-0573",
+    value: "+62 813-8410-4147",
     sub: "Setiap Hari",
   },
   {
     icon: Mail,
     label: "Email",
-    value: "hello@elaparfum.com",
+    value: "elaparfumid@gmail.com",
     sub: "Respon dalam 24 jam",
   },
   {
@@ -380,7 +380,7 @@ export default function ContactPage() {
 
               {/* WhatsApp CTA */}
               <a
-                href="https://wa.me/6287877550573"
+                href="https://wa.me/6281384104147"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-primary"

@@ -76,9 +76,9 @@ Untuk mengajukan permintaan terkait hak-hak di atas, silakan hubungi kami melalu
     title: "Kontak",
     content: `Jika Anda memiliki pertanyaan atau kekhawatiran mengenai kebijakan privasi ini, silakan hubungi kami melalui:
 
-Email: hello@namatoko.com
-Telepon: +62 812-xxxx-xxxx
-Alamat: Palembang, Sumatera Selatan
+Email: elaparfumid@gmail.com
+Telepon: +62 813-8410-4147
+Alamat: Jl. Raya Condet No.1, Cililitan, Jakarta Timur (PVP7+MW)
 
 Kami berkomitmen untuk merespons setiap pertanyaan terkait privasi dalam waktu maksimal 3 hari kerja.`,
   },

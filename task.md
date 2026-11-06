@@ -1,7 +1,13 @@
 # Task List
 
 ## Aktif / In Progress
-*(Tidak ada task aktif. Semua proses audit integritas dan migrasi pembersihan OneDrive telah sukses 100% tanpa anomali.)*
+- [ ] **Security Hardening & Dependency Patching:**
+  - [ ] Analisis dampak & mitigasi risiko update membabi-buta vs targeted patch
+  - [ ] Patch Next.js ke versi aman (`16.4.3`) & React patch (`19.3.1`) menutup celah RCE & cache leak
+  - [ ] Eksekusi `npm audit fix` non-breaking untuk remediate transitive CVEs (proxy-addr, axios, undici, sharp, postcss)
+  - [ ] Isolasi dependensi `xlsx` dari production bundle runtime
+  - [ ] Verifikasi kelulusan typecheck `npx tsc --noEmit` & build `npm run build`
+
 
 ## Aktif / Future Development
 - [ ] **Fitur Admin:** Buat UI Live Tracking di detail pesanan Admin (menggunakan Biteship Tracking API).
@@ -9,6 +15,13 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Penyelarasan Data Kontak & Kebijakan Toko (Ela Parfum Condet) untuk Lolos Verifikasi Midtrans:**
+  - [x] Menghapus seluruh placeholder dummy (`hello@namatoko.com`, `+62 812-xxxx-xxxx`, `Palembang, Sumatera Selatan`).
+  - [x] Sinkronisasi email resmi toko ke `elaparfumid@gmail.com` di seluruh halaman Terms, Privacy, Kontak, dan API default.
+  - [x] Sinkronisasi nomor WhatsApp & telepon ke `+62 813-8410-4147` (termasuk tautan langsung `https://wa.me/6281384104147`).
+  - [x] Memperbarui alamat fisik resmi ke `Jl. Raya Condet No.1, Cililitan, Jakarta Timur (PVP7+MW)` di seluruh Privacy Policy & Footer.
+  - [x] Menyesuaikan wilayah pengiriman utama ke Jabodetabek (1-2 hari) di FAQ dan Terms.
+  - [x] Verifikasi typecheck `npx tsc --noEmit` lolos 100% tanpa error kompilasi.
 - [x] **Penyelesaian Eliminasi Total OneDrive & Pengawasan Live Watcher (Zero-Data-Loss):**
   - [x] Folder fisik `OneDrive` berhasil dimusnahkan secara bersih (`Test-Path` mengembalikan `False`).
   - [x] Berkas non-web krusial (`KULIAH`, `Riri`, `Servis HP`, `Setup Agent AI`) telah terselamatkan sempurna di `C:\Users\Abu Bakar Al Adny\Documents`.

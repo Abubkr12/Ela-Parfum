@@ -96,7 +96,7 @@ export function Footer() {
               </div>
               <div className="footer__contact-item">
                 <Phone size={14} />
-                <span>0878-7755-0573</span>
+                <span>+62 813-8410-4147</span>
               </div>
               <div className="footer__contact-item">
                 <Clock size={14} />
@@ -123,7 +123,7 @@ export function Footer() {
                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
               </a>
               <a
-                href="https://wa.me/6287877550573"
+                href="https://wa.me/6281384104147"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-icon btn-icon-sm"

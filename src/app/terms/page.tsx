@@ -42,7 +42,7 @@ Seluruh transaksi pembayaran diproses melalui payment gateway bersertifikat yang
     title: "Pengiriman",
     content: `Pesanan akan diproses dan dikirim dalam waktu 1-2 hari kerja setelah pembayaran dikonfirmasi.
 
-Estimasi waktu pengiriman bervariasi tergantung lokasi tujuan: 1-2 hari untuk area Palembang, dan 2-5 hari kerja untuk luar kota melalui ekspedisi yang tersedia.
+Estimasi waktu pengiriman bervariasi tergantung lokasi tujuan: 1-2 hari untuk area Jabodetabek, dan 2-5 hari kerja untuk luar kota melalui ekspedisi yang tersedia.
 
 Risiko kerusakan atau kehilangan selama pengiriman menjadi tanggung jawab kami hingga paket diterima oleh penerima. Setiap pengiriman dilengkapi dengan packaging pelindung dan asuransi pengiriman.
 
@@ -80,7 +80,7 @@ Garansi kepuasan berlaku untuk racikan custom — jika aroma tidak sesuai ekspek
 
 Penggunaan berkelanjutan atas layanan kami setelah perubahan dipublikasikan dianggap sebagai persetujuan Anda terhadap ketentuan yang telah diperbarui.
 
-Untuk pertanyaan mengenai syarat dan ketentuan ini, silakan hubungi kami melalui halaman Kontak atau email ke hello@namatoko.com.`,
+Untuk pertanyaan mengenai syarat dan ketentuan ini, silakan hubungi kami melalui halaman Kontak atau email ke elaparfumid@gmail.com.`,
   },
 ];
 
