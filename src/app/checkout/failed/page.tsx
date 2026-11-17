@@ -30,32 +30,6 @@ import {
   syncMidtransOrderStatus,
 } from "../actions";
 
-const DEMO_PREVIEW_ORDER = {
-  id: 9999,
-  order_code: "MW-PREVIEW-8421",
-  created_at: new Date().toISOString(),
-  store_id: 1,
-  fulfillment_type: "delivery",
-  courier_name: "JNE - REG",
-  subtotal: 185000,
-  shipping_cost: 12000,
-  discount: 0,
-  total: 198970,
-  status: "pending",
-  payment_status: "unpaid",
-  payment_method: "Midtrans (QRIS / GoPay / VA)",
-  order_items: [
-    {
-      id: 1,
-      perfume_name: "Baccarat Rouge 540 (Inspired)",
-      size_label: "50ml • EDP",
-      quantity: 1,
-      price: 185000,
-      subtotal: 185000,
-    },
-  ],
-};
-
 function getReasonCopy(reason: string | null, txStatus: string | null) {
   const normalized = (txStatus || reason || "").toLowerCase();
   if (normalized === "expire") {
@@ -89,7 +63,6 @@ function CheckoutFailedContent() {
   const orderCodeParam = searchParams.get("order_id");
   const reasonParam = searchParams.get("reason");
   const txStatusParam = searchParams.get("transaction_status");
-  const isPreview = searchParams.get("preview") === "demo";
 
   const supabase = createClient();
   const { addItem, clearCart } = useCart();
@@ -104,14 +77,6 @@ function CheckoutFailedContent() {
     let active = true;
 
     async function loadOrder() {
-      if (isPreview && !idParam && !orderCodeParam) {
-        if (active) {
-          setOrder(DEMO_PREVIEW_ORDER);
-          setLoading(false);
-        }
-        return;
-      }
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -169,13 +134,9 @@ function CheckoutFailedContent() {
     return () => {
       active = false;
     };
-  }, [idParam, orderCodeParam, isPreview, router, supabase, clearCart]);
+  }, [idParam, orderCodeParam, router, supabase, clearCart]);
 
   const handleRetryPayment = async () => {
-    if (isPreview) {
-      toast.info("Mode Preview UI: pada transaksi asli, tombol ini membuka Midtrans Snap untuk pembayaran ulang.");
-      return;
-    }
     if (!order?.id) return;
 
     setRetrying(true);
@@ -219,10 +180,6 @@ function CheckoutFailedContent() {
   };
 
   const handleBackToCheckout = async () => {
-    if (isPreview) {
-      router.push("/checkout");
-      return;
-    }
     if (!order?.id) return;
 
     setRestoring(true);
@@ -315,24 +272,6 @@ function CheckoutFailedContent() {
       <PageHeader />
 
       <main style={{ width: "min(860px, calc(100% - 32px))", margin: "0 auto", padding: "110px 0 80px" }}>
-        {isPreview && (
-          <div
-            style={{
-              marginBottom: 20,
-              padding: "10px 16px",
-              borderRadius: "var(--r-md)",
-              background: "rgba(201, 168, 76, 0.12)",
-              border: "1px solid var(--c-gold)",
-              color: "var(--c-gold)",
-              fontSize: "0.84rem",
-              fontWeight: 500,
-              textAlign: "center",
-            }}
-          >
-            Mode Preview Tampilan Halaman Gagal / Pembayaran Tertunda
-          </div>
-        )}
-
         {/* Status Hero Card */}
         <section
           style={{
