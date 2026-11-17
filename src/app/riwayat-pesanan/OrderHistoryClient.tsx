@@ -133,8 +133,16 @@ export function OrderHistoryClient({ initialOrders }: { initialOrders: any[] }) 
                       </div>
                       
                       {order.status === 'pending' && (!order.payment_proof || !order.payment_proof.startsWith('http')) && (
-                        <Link href={order.payment_link || `/checkout/success?id=${order.id}`} className="btn btn-primary" style={{ padding: '0 16px', height: '36px', fontSize: '0.9rem' }}>
-                          Bayar Sekarang
+                        <Link
+                          href={
+                            order.payment_method?.includes('Midtrans') || order.midtrans_id
+                              ? `/checkout/failed?id=${order.id}&reason=${order.payment_status === 'rejected' ? 'error' : 'unfinish'}`
+                              : (order.payment_link || `/checkout/success?id=${order.id}`)
+                          }
+                          className="btn btn-primary"
+                          style={{ padding: '0 16px', height: '36px', fontSize: '0.9rem' }}
+                        >
+                          {order.payment_status === 'rejected' ? 'Coba Bayar Lagi' : 'Bayar Sekarang'}
                         </Link>
                       )}
                       {order.status === 'pending' && order.payment_proof && order.payment_proof.startsWith('http') && (

@@ -15,6 +15,12 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Migrasi Checkout ke Midtrans Snap (Sandbox), Halaman Gagal/Retry (`/checkout/failed`), & Sinkronisasi Secrets Cloudflare:**
+  - [x] Sinkronisasi API Keys Midtrans Sandbox & Production ke `.env.local` dan Cloudflare Worker Secrets (`ela-parfum`).
+  - [x] Pembuatan halaman `/checkout/failed` (mendukung retry Snap `retryMidtransPayment`, pemulihan keranjang `restoreOrderToCartData`, dan preview `?preview=demo`).
+  - [x] Pembaruan `/checkout/success` dan `/riwayat-pesanan` agar mendukung sinkronisasi status Midtrans otomatis (`syncMidtransOrderStatus`) dan retry pembayaran tanpa duplikasi order.
+  - [x] Preservasi keranjang belanja saat popup pembayaran Midtrans ditutup atau gagal (`onFailedOrClosed`).
+  - [x] Verifikasi `npx tsc --noEmit` & `npm run build` lolos 100%, serta verifikasi visual Playwright pada `/checkout/failed?preview=demo`.
 - [x] **Penyelarasan Data Kontak & Kebijakan Toko (Ela Parfum Condet) untuk Lolos Verifikasi Midtrans:**
   - [x] Menghapus seluruh placeholder dummy (`hello@namatoko.com`, `+62 812-xxxx-xxxx`, `Palembang, Sumatera Selatan`).
   - [x] Sinkronisasi email resmi toko ke `elaparfumid@gmail.com` di seluruh halaman Terms, Privacy, Kontak, dan API default.

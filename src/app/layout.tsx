@@ -43,6 +43,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isMidtransProduction =
+    process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true" ||
+    process.env.MIDTRANS_IS_PRODUCTION === "true";
+  const snapJsUrl = isMidtransProduction
+    ? "https://app.midtrans.com/snap/snap.js"
+    : "https://app.sandbox.midtrans.com/snap/snap.js";
+  const snapClientKey =
+    process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "Mid-client-3bLDsJX4uZs4EOtd";
+
   return (
     <html lang="id" data-theme="dark" suppressHydrationWarning>
       <head>
@@ -72,6 +81,11 @@ export default function RootLayout({
             <Analytics />
           </CartProvider>
         </ThemeProvider>
+        <Script
+          src={snapJsUrl}
+          data-client-key={snapClientKey}
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

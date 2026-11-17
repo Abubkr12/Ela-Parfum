@@ -29,6 +29,7 @@ import { formatRupiah } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { validateVoucher, processCustomCheckout } from "@/app/checkout/actions";
 import { resolveBestCoordinates } from "@/lib/geolocation";
+import { openMidtransSnap } from "@/lib/snap-client";
 
 interface StoreOption {
   storeId: number;
@@ -471,8 +472,21 @@ export default function CustomCheckoutPage() {
         return;
       }
 
-      if (res.success && res.url) {
-        window.location.href = res.url;
+      if (res.success && res.orderId) {
+        if (paymentMethod === "TUNAI" && res.url) {
+          window.location.href = res.url;
+          return;
+        }
+        if (res.token || res.url) {
+          openMidtransSnap(res.token, res.url || "", res.orderId, {
+            onPaidOrPending: () => {},
+            onFailedOrClosed: (reason) => {
+              setSubmitting(false);
+              window.location.href = `/checkout/failed?id=${res.orderId}&reason=${reason}`;
+            },
+          });
+          return;
+        }
       }
     } catch (err: any) {
       setError(err.message || "Terjadi kesalahan saat memproses pesanan.");
@@ -970,7 +984,7 @@ export default function CustomCheckoutPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>QRIS (Otomatis)</div>
                       <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>
-                        Bayar praktis menggunakan QRIS, otomatis lunas via Mayar.
+                        Bayar praktis menggunakan QRIS, GoPay, atau Virtual Account via Midtrans.
                       </div>
                     </div>
                   </label>
@@ -1010,9 +1024,9 @@ export default function CustomCheckoutPage() {
                       <QrCode size={18} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>QRIS (Mayar)</div>
+                      <div style={{ fontWeight: 600, color: "var(--c-ink)", marginBottom: 4 }}>Pembayaran Online (Midtrans)</div>
                       <div style={{ fontSize: "0.85rem", color: "var(--c-ink-dim)" }}>
-                        Pembayaran otomatis menggunakan QRIS (Dikenakan biaya layanan 1%).
+                        Bayar instan via QRIS, GoPay, Bank Transfer & BSI VA melalui Midtrans (Biaya layanan 1%).
                       </div>
                     </div>
                   </label>
