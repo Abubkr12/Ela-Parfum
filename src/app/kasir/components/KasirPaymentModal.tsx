@@ -1,12 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import {
-  PosTransactionPayload,
-  completePosCashTransaction,
-  createPosQrisOrder,
-  checkPosOrderStatus,
-} from "../actions";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { PosTransactionPayload } from "../actions";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import {
@@ -18,12 +13,13 @@ import {
   Clock,
   Loader2,
   AlertCircle,
-  Sparkles,
+  FlaskConical,
   ArrowRight,
   ExternalLink,
   RefreshCw,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
+import { useModalFocusTrap } from "./useModalFocusTrap";
 
 interface KasirPaymentModalProps {
   payload: PosTransactionPayload;
@@ -37,6 +33,8 @@ interface KasirPaymentModalProps {
   }) => void;
 }
 
+const PAY_TABS = ["CASH", "QRIS", "TRANSFER"] as const;
+
 export default function KasirPaymentModal({
   payload,
   onClose,
@@ -44,12 +42,10 @@ export default function KasirPaymentModal({
 }: KasirPaymentModalProps) {
   const [activeTab, setActiveTab] = useState<"CASH" | "QRIS" | "TRANSFER">("CASH");
 
-  // Cash State
   const [cashReceived, setCashReceived] = useState<number>(payload.total);
   const [cashSubmitting, setCashSubmitting] = useState<boolean>(false);
   const [cashError, setCashError] = useState<string | null>(null);
 
-  // QRIS State
   const [qrisLoading, setQrisLoading] = useState<boolean>(false);
   const [qrisData, setQrisData] = useState<{
     orderId: number;
@@ -62,25 +58,48 @@ export default function KasirPaymentModal({
   } | null>(null);
   const [qrisError, setQrisError] = useState<string | null>(null);
   const [qrisPaid, setQrisPaid] = useState<boolean>(false);
-  const [secondsLeft, setSecondsLeft] = useState<number>(900); // 15 mins
+  const [secondsLeft, setSecondsLeft] = useState<number>(900);
   const [checkingStatus, setCheckingStatus] = useState<boolean>(false);
   const [simulatingPayment, setSimulatingPayment] = useState<boolean>(false);
 
-  // Transfer State
   const [transferRef, setTransferRef] = useState<string>("");
   const [transferSubmitting, setTransferSubmitting] = useState<boolean>(false);
   const [transferError, setTransferError] = useState<string | null>(null);
 
-  const supabase = createClient();
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const supabase = useMemo(() => createClient(true), []);
+  const modalCardRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const qrisSuccessHandledRef = useRef<boolean>(false);
+  const qrisSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollAbortRef = useRef<AbortController | null>(null);
+  const manualCheckAbortRef = useRef<AbortController | null>(null);
+  const isPollInFlightRef = useRef<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
+  const activeQrisOrderIdRef = useRef<number | null>(qrisData?.orderId ?? null);
+  activeQrisOrderIdRef.current = qrisData?.orderId ?? null;
 
-  // Kalkulasi Kembalian Tunai
+  const isBusy = cashSubmitting || transferSubmitting || qrisLoading || simulatingPayment || checkingStatus;
   const cashChange = Math.max(0, cashReceived - payload.total);
   const isCashSufficient = cashReceived >= payload.total;
 
-// QRIS tidak dibuat otomatis; menunggu tombol Buat QRIS diklik kasir
+  useModalFocusTrap(true, modalCardRef, {
+    onEscape: () => {
+      if (!isBusy) onClose();
+    },
+  });
 
-  // Timer Countdown 15 Menit untuk QRIS
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (qrisSuccessTimerRef.current) clearTimeout(qrisSuccessTimerRef.current);
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollAbortRef.current?.abort();
+      manualCheckAbortRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     if (!qrisData || qrisPaid) return;
 
@@ -97,7 +116,7 @@ export default function KasirPaymentModal({
     return () => clearInterval(timer);
   }, [qrisData, qrisPaid]);
 
-  // Helper parsing respons aman mencegah syntax error HTML 503 Cloudflare
+  // Guard JSON parsing in case Cloudflare returns an HTML error page (e.g. 503/1102).
   const safeParseResponse = async (res: Response) => {
     const text = await res.text();
     try {
@@ -107,47 +126,94 @@ export default function KasirPaymentModal({
     }
   };
 
-  // Listener Realtime Supabase + Polling Fallback untuk Deteksi Lunas QRIS
+  const handleQrisSuccess = useCallback(
+    (orderId: number, orderCode: string) => {
+      if (qrisSuccessHandledRef.current) return;
+      qrisSuccessHandledRef.current = true;
+
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollAbortRef.current?.abort();
+      setQrisPaid(true);
+
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+        setTimeout(() => {
+          audioCtx.close().catch(() => {});
+        }, 500);
+      } catch {}
+
+      qrisSuccessTimerRef.current = setTimeout(() => {
+        onPaymentSuccess({
+          orderId,
+          orderCode,
+          paymentMethod: "QRIS",
+        });
+      }, 1200);
+    },
+    [onPaymentSuccess]
+  );
+
+  // Combine 3s Mayar polling, cross-tab storage broadcast, and Supabase realtime updates.
   useEffect(() => {
     if (!qrisData || qrisPaid) return;
 
     const orderId = qrisData.orderId;
+    const orderCode = qrisData.orderCode;
+    qrisSuccessHandledRef.current = false;
 
-    // 1. Polling fallback setiap 3 detik dengan sinkronisasi status Mayar otomatis
     pollingRef.current = setInterval(async () => {
+      if (isPollInFlightRef.current || qrisSuccessHandledRef.current) return;
+      isPollInFlightRef.current = true;
+      pollAbortRef.current?.abort();
+      const controller = new AbortController();
+      pollAbortRef.current = controller;
+
       try {
         const res = await fetch(
-          `/api/kasir/order?orderId=${orderId}&storeId=${payload.storeId}&checkMayar=true`
+          `/api/kasir/order?orderId=${orderId}&storeId=${payload.storeId}&checkMayar=true`,
+          { signal: controller.signal }
         );
         const text = await res.text();
+        if (controller.signal.aborted || !isMountedRef.current) return;
         let data: any = {};
         try {
           data = JSON.parse(text);
         } catch {
           return;
         }
-        if (data.isPaid) {
-          handleQrisSuccess(orderId, data.orderCode || qrisData.orderCode);
+        if (data.isPaid && activeQrisOrderIdRef.current === orderId) {
+          handleQrisSuccess(orderId, data.orderCode || orderCode);
         }
-      } catch (err) {
-        console.error("Polling error:", err);
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          console.error("Polling error:", err);
+        }
+      } finally {
+        isPollInFlightRef.current = false;
       }
     }, 3000);
 
-    // 2. Cross-tab listener (jika pembayaran diselesaikan di tab checkout Mayar lain)
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === "elaparfum_pos_paid_broadcast" && e.newValue) {
         try {
           const val = JSON.parse(e.newValue);
-          if (val.code === qrisData.orderCode) {
-            handleQrisSuccess(orderId, qrisData.orderCode);
+          if (val.code === orderCode) {
+            handleQrisSuccess(orderId, orderCode);
           }
         } catch {}
       }
     };
     window.addEventListener("storage", handleStorageEvent);
 
-    // 3. Realtime listener Supabase
     const channel = supabase
       .channel(`pos-order-${orderId}`)
       .on(
@@ -161,7 +227,7 @@ export default function KasirPaymentModal({
         (change: any) => {
           const updated = change.new as any;
           if (updated?.payment_status === "paid" || updated?.status === "paid" || updated?.status === "completed") {
-            handleQrisSuccess(orderId, qrisData.orderCode);
+            handleQrisSuccess(orderId, orderCode);
           }
         }
       )
@@ -169,42 +235,18 @@ export default function KasirPaymentModal({
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      pollAbortRef.current?.abort();
+      isPollInFlightRef.current = false;
       window.removeEventListener("storage", handleStorageEvent);
       supabase.removeChannel(channel);
     };
-  }, [qrisData, qrisPaid, payload.storeId]);
+  }, [qrisData, qrisPaid, payload.storeId, supabase, handleQrisSuccess]);
 
-  const handleQrisSuccess = (orderId: number, orderCode: string) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    setQrisPaid(true);
-
-    // Bunyi audio beep opsional jika didukung browser
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.25);
-    } catch {}
-
-    setTimeout(() => {
-      onPaymentSuccess({
-        orderId,
-        orderCode,
-        paymentMethod: "QRIS",
-      });
-    }, 1200);
-  };
-
-  // Generate QRIS via Action
+  // Manual trigger prevents creating unbilled QRIS invoices on tab switch.
   const handleGenerateQris = async () => {
     setQrisLoading(true);
     setQrisError(null);
+    qrisSuccessHandledRef.current = false;
     try {
       const res = await fetch("/api/kasir/order", {
         method: "POST",
@@ -236,31 +278,48 @@ export default function KasirPaymentModal({
     }
   };
 
-  // Cek Status QRIS Manual (Dengan Sinkronisasi Direct API Mayar Realtime)
   const handleManualCheckStatus = async () => {
     if (!qrisData) return;
+    const targetOrderId = qrisData.orderId;
+    const targetOrderCode = qrisData.orderCode;
+
+    manualCheckAbortRef.current?.abort();
+    const controller = new AbortController();
+    manualCheckAbortRef.current = controller;
+
     setCheckingStatus(true);
     try {
       const res = await fetch(
-        `/api/kasir/order?orderId=${qrisData.orderId}&storeId=${payload.storeId}&checkMayar=true`
+        `/api/kasir/order?orderId=${targetOrderId}&storeId=${payload.storeId}&checkMayar=true`,
+        { signal: controller.signal }
       );
       const data = await safeParseResponse(res);
+      if (!isMountedRef.current || controller.signal.aborted || activeQrisOrderIdRef.current !== targetOrderId) {
+        return;
+      }
       if (data.isPaid) {
-        toast.success("Pembayaran QRIS berhasil dikonfirmasi lunas!");
-        handleQrisSuccess(qrisData.orderId, data.orderCode || qrisData.orderCode);
+        if (!qrisSuccessHandledRef.current) {
+          toast.success("Pembayaran QRIS berhasil dikonfirmasi lunas!");
+        }
+        handleQrisSuccess(targetOrderId, data.orderCode || targetOrderCode);
       } else {
         toast.info("Pembayaran belum terdeteksi di sistem Mayar. Silakan coba beberapa saat lagi.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Gagal memeriksa status pembayaran.");
+      if (err?.name !== "AbortError" && isMountedRef.current) {
+        toast.error(err.message || "Gagal memeriksa status pembayaran.");
+      }
     } finally {
-      setCheckingStatus(false);
+      if (isMountedRef.current) {
+        setCheckingStatus(false);
+      }
     }
   };
 
-  // Simulasi Bayar Lunas (Khusus Mode Sandbox Testing)
   const handleSimulateSandboxPayment = async () => {
     if (!qrisData) return;
+    const targetOrderId = qrisData.orderId;
+    const targetOrderCode = qrisData.orderCode;
     setSimulatingPayment(true);
     try {
       const res = await fetch("/api/kasir/order", {
@@ -269,26 +328,32 @@ export default function KasirPaymentModal({
         body: JSON.stringify({
           action: "simulate_sandbox_pay",
           payload: {
-            orderId: qrisData.orderId,
+            orderId: targetOrderId,
             storeId: payload.storeId,
           },
         }),
       });
       const data = await safeParseResponse(res);
+      if (!isMountedRef.current || activeQrisOrderIdRef.current !== targetOrderId) return;
       if (!res.ok || !data.success) {
         toast.error(data.error || "Gagal mensimulasikan pembayaran.");
       } else {
-        toast.success("Simulasi berhasil! Pembayaran QRIS dikonfirmasi lunas.");
-        handleQrisSuccess(qrisData.orderId, data.orderCode || qrisData.orderCode);
+        if (!qrisSuccessHandledRef.current) {
+          toast.success("Simulasi berhasil! Pembayaran QRIS dikonfirmasi lunas.");
+        }
+        handleQrisSuccess(targetOrderId, data.orderCode || targetOrderCode);
       }
     } catch (err: any) {
-      toast.error(err.message || "Gagal menghubungi server.");
+      if (isMountedRef.current) {
+        toast.error(err.message || "Gagal menghubungi server.");
+      }
     } finally {
-      setSimulatingPayment(false);
+      if (isMountedRef.current) {
+        setSimulatingPayment(false);
+      }
     }
   };
 
-  // Submit Tunai
   const handleSubmitCash = async () => {
     if (!isCashSufficient) {
       setCashError("Nominal uang yang diterima kurang dari total tagihan.");
@@ -329,7 +394,6 @@ export default function KasirPaymentModal({
     }
   };
 
-  // Submit Transfer
   const handleSubmitTransfer = async () => {
     setTransferSubmitting(true);
     setTransferError(null);
@@ -362,64 +426,62 @@ export default function KasirPaymentModal({
     }
   };
 
-  // Format MM:SS
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  const handleTabKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    let nextIdx: number | null = null;
+    if (e.key === "ArrowRight") {
+      nextIdx = (idx + 1) % PAY_TABS.length;
+    } else if (e.key === "ArrowLeft") {
+      nextIdx = (idx - 1 + PAY_TABS.length) % PAY_TABS.length;
+    } else if (e.key === "Home") {
+      nextIdx = 0;
+    } else if (e.key === "End") {
+      nextIdx = PAY_TABS.length - 1;
+    }
+    if (nextIdx !== null) {
+      e.preventDefault();
+      setActiveTab(PAY_TABS[nextIdx]);
+      tabRefs.current[nextIdx]?.focus();
+    }
+  };
+
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
-        backdropFilter: "blur(10px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 220,
-        padding: "1rem",
+      className="pos-modal-overlay"
+      style={{ zIndex: 220 }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pos-pay-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isBusy) onClose();
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "580px",
-          maxHeight: "min(92vh, 760px)",
-          backgroundColor: "var(--c-surface-1)",
-          border: "1px solid var(--c-border)",
-          borderRadius: "22px",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          boxShadow: "var(--shadow-float, 0 25px 60px rgba(0,0,0,0.5))",
-          color: "var(--c-ink)",
-        }}
-      >
-        {/* Header Modal */}
-        <div
-          style={{
-            padding: "1.1rem 1.5rem",
-            borderBottom: "1px solid var(--c-border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "var(--c-surface-1)",
-            flexShrink: 0,
-          }}
-        >
+      <div ref={modalCardRef} tabIndex={-1} className="pos-modal-card pos-pay-modal-card">
+        <div className="pos-modal-header">
           <div>
-            <span style={{ fontSize: "0.75rem", color: "var(--c-gold-light, #60a5fa)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--pos-accent-text)",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
               Terminal Kasir Pembayaran
             </span>
             <h2
+              id="pos-pay-modal-title"
               style={{
                 fontSize: "1.35rem",
                 fontWeight: 600,
                 margin: 0,
-                color: "var(--c-ink, #ffffff)",
+                color: "var(--c-ink)",
                 fontFamily: "var(--font-display, serif)",
               }}
             >
@@ -427,189 +489,171 @@ export default function KasirPaymentModal({
             </h2>
           </div>
           <button
+            type="button"
+            disabled={isBusy}
             onClick={onClose}
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--c-border)",
-              color: "var(--c-ink-muted)",
-              cursor: "pointer",
-              padding: "6px",
-              borderRadius: "8px",
-            }}
+            aria-label="Tutup modal pembayaran"
+            className="pos-modal-close-btn"
+            style={{ opacity: isBusy ? 0.5 : 1 }}
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Total Tagihan Bar */}
-        <div
-          style={{
-            backgroundColor: "var(--c-surface-2)",
-            padding: "0.85rem 1.5rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid var(--c-border)",
-            flexShrink: 0,
-          }}
-        >
+        <div className="pos-pay-total-bar">
           <div>
-            <span style={{ fontSize: "0.8rem", color: "var(--c-ink-dim)" }}>Total Tagihan:</span>
+            <span style={{ fontSize: "0.8rem", color: "var(--pos-muted)" }}>Total Tagihan:</span>
             <div
               style={{
                 fontSize: "1.6rem",
                 fontWeight: 800,
-                color: "var(--c-gold-light, #60a5fa)",
+                color: "var(--pos-accent-text)",
                 fontFamily: "var(--font-display, serif)",
               }}
             >
               {formatRupiah(payload.total)}
             </div>
           </div>
-          <div style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--c-ink-muted)" }}>
-            <span>Pelanggan: <strong style={{ color: "var(--c-ink)" }}>{payload.customerName || "Customer Toko"}</strong></span>
+          <div className="pos-pay-total-customer">
+            <span>
+              Pelanggan: <strong style={{ color: "var(--c-ink)" }}>{payload.customerName || "Customer Toko"}</strong>
+            </span>
             <br />
             <span>{payload.items.length} jenis item</span>
           </div>
         </div>
 
-        {/* Tab Buttons */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            padding: "0.75rem 1.5rem 0.5rem",
-            gap: "0.5rem",
-            backgroundColor: "var(--c-surface-1)",
-            flexShrink: 0,
-          }}
-        >
+        <div className="pos-pay-tabs" role="tablist" aria-label="Metode pembayaran">
           <button
-            type="button"
-            onClick={() => setActiveTab("CASH")}
-            style={{
-              padding: "0.75rem",
-              borderRadius: "12px",
-              cursor: "pointer",
-              border: activeTab === "CASH" ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-              background: activeTab === "CASH" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
-              color: activeTab === "CASH" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              transition: "all 0.15s ease",
+            ref={(el) => {
+              tabRefs.current[0] = el;
             }}
+            id="pos-pay-tab-cash"
+            type="button"
+            role="tab"
+            tabIndex={activeTab === "CASH" ? 0 : -1}
+            aria-selected={activeTab === "CASH"}
+            aria-controls="pos-pay-tabpanel"
+            onClick={() => setActiveTab("CASH")}
+            onKeyDown={(e) => handleTabKeyDown(e, 0)}
+            className={`pos-pay-tab ${activeTab === "CASH" ? "is-active" : ""}`}
           >
-            <Banknote size={18} />
+            <Banknote size={18} aria-hidden="true" />
             <span>Tunai / Cash</span>
           </button>
 
           <button
-            type="button"
-            onClick={() => setActiveTab("QRIS")}
-            style={{
-              padding: "0.75rem",
-              borderRadius: "12px",
-              cursor: "pointer",
-              border: activeTab === "QRIS" ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-              background: activeTab === "QRIS" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
-              color: activeTab === "QRIS" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              transition: "all 0.15s ease",
+            ref={(el) => {
+              tabRefs.current[1] = el;
             }}
+            id="pos-pay-tab-qris"
+            type="button"
+            role="tab"
+            tabIndex={activeTab === "QRIS" ? 0 : -1}
+            aria-selected={activeTab === "QRIS"}
+            aria-controls="pos-pay-tabpanel"
+            onClick={() => setActiveTab("QRIS")}
+            onKeyDown={(e) => handleTabKeyDown(e, 1)}
+            className={`pos-pay-tab ${activeTab === "QRIS" ? "is-active" : ""}`}
           >
-            <QrCode size={18} />
+            <QrCode size={18} aria-hidden="true" />
             <span>QRIS Mayar</span>
           </button>
 
           <button
-            type="button"
-            onClick={() => setActiveTab("TRANSFER")}
-            style={{
-              padding: "0.75rem",
-              borderRadius: "12px",
-              cursor: "pointer",
-              border: activeTab === "TRANSFER" ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-              background: activeTab === "TRANSFER" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
-              color: activeTab === "TRANSFER" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              transition: "all 0.15s ease",
+            ref={(el) => {
+              tabRefs.current[2] = el;
             }}
+            id="pos-pay-tab-transfer"
+            type="button"
+            role="tab"
+            tabIndex={activeTab === "TRANSFER" ? 0 : -1}
+            aria-selected={activeTab === "TRANSFER"}
+            aria-controls="pos-pay-tabpanel"
+            onClick={() => setActiveTab("TRANSFER")}
+            onKeyDown={(e) => handleTabKeyDown(e, 2)}
+            className={`pos-pay-tab ${activeTab === "TRANSFER" ? "is-active" : ""}`}
           >
-            <Building2 size={18} />
+            <Building2 size={18} aria-hidden="true" />
             <span>Transfer Bank</span>
           </button>
         </div>
 
-        {/* Tab Contents */}
-        <div style={{ padding: "1.25rem 1.5rem 2rem", flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
-          {/* TAB 1: TUNAI */}
+        <div
+          id="pos-pay-tabpanel"
+          role="tabpanel"
+          aria-labelledby={
+            activeTab === "CASH"
+              ? "pos-pay-tab-cash"
+              : activeTab === "QRIS"
+              ? "pos-pay-tab-qris"
+              : "pos-pay-tab-transfer"
+          }
+          className="pos-modal-body"
+        >
           {activeTab === "CASH" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               {cashError && (
-                <div style={{ padding: "0.75rem 1rem", borderRadius: "10px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#FCA5A5", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 8 }}>
-                  <AlertCircle size={18} />
+                <div
+                  role="alert"
+                  style={{
+                    padding: "0.75rem 1rem",
+                    borderRadius: "10px",
+                    background: "var(--pos-soft-danger-bg)",
+                    border: "1px solid var(--pos-soft-danger-border)",
+                    color: "var(--pos-danger)",
+                    fontSize: "0.85rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <AlertCircle size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
                   <span>{cashError}</span>
                 </div>
               )}
 
               <div>
-                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink-muted)", marginBottom: 6 }}>
+                <label
+                  htmlFor="pos-cash-input"
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--pos-muted)",
+                    marginBottom: 6,
+                  }}
+                >
                   Uang Diterima dari Pelanggan (Rp):
                 </label>
                 <input
+                  id="pos-cash-input"
                   type="number"
                   min={0}
                   step={1000}
                   value={cashReceived || ""}
                   onChange={(e) => setCashReceived(parseInt(e.target.value, 10) || 0)}
+                  className="pos-text-input"
                   style={{
-                    width: "100%",
                     padding: "0.85rem 1rem",
-                    backgroundColor: "var(--c-bg, #0a0c0b)",
                     border: "1.5px solid var(--c-gold, #3b82f6)",
                     borderRadius: "12px",
-                    color: "var(--c-ink, #ffffff)",
                     fontSize: "1.25rem",
                     fontWeight: 800,
-                    outline: "none",
-                    boxSizing: "border-box",
                   }}
                 />
               </div>
 
-              {/* Shortcut Pecahan Uang Cepat */}
               <div>
-                <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", display: "block", marginBottom: 6 }}>
+                <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block", marginBottom: 6 }}>
                   Pilihan Cepat Nominal Uang:
                 </span>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div className="pos-cash-chips" role="group" aria-label="Pilihan cepat nominal tunai">
                   <button
                     type="button"
                     onClick={() => setCashReceived(payload.total)}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      background: cashReceived === payload.total ? "var(--c-gold, #3b82f6)" : "var(--c-surface-2, #181e1c)",
-                      color: cashReceived === payload.total ? "#ffffff" : "var(--c-ink)",
-                      border: "1px solid var(--c-border)",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
+                    aria-pressed={cashReceived === payload.total}
+                    className={`pos-cash-chip ${cashReceived === payload.total ? "is-active" : ""}`}
                   >
                     Uang Pas
                   </button>
@@ -620,16 +664,8 @@ export default function KasirPaymentModal({
                         key={amt}
                         type="button"
                         onClick={() => setCashReceived(amt)}
-                        style={{
-                          padding: "6px 12px",
-                          borderRadius: "8px",
-                          background: cashReceived === amt ? "var(--c-gold, #3b82f6)" : "var(--c-surface-2, #181e1c)",
-                          color: cashReceived === amt ? "#ffffff" : "var(--c-ink)",
-                          border: "1px solid var(--c-border)",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
+                        aria-pressed={cashReceived === amt}
+                        className={`pos-cash-chip ${cashReceived === amt ? "is-active" : ""}`}
                       >
                         {formatRupiah(amt)}
                       </button>
@@ -638,74 +674,82 @@ export default function KasirPaymentModal({
                 </div>
               </div>
 
-              {/* Kembalian Display */}
               <div
                 style={{
                   padding: "1rem 1.25rem",
                   borderRadius: "14px",
-                  background: isCashSufficient ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.1)",
-                  border: isCashSufficient ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(239, 68, 68, 0.3)",
+                  background: isCashSufficient ? "var(--pos-soft-success-bg)" : "var(--pos-soft-danger-bg)",
+                  border: isCashSufficient
+                    ? "1px solid var(--pos-soft-success-border)"
+                    : "1px solid var(--pos-soft-danger-border)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
+                  gap: "0.75rem",
                 }}
               >
                 <div>
-                  <span style={{ fontSize: "0.8rem", color: isCashSufficient ? "#a7f3d0" : "#fca5a5" }}>
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: isCashSufficient ? "var(--pos-success)" : "var(--pos-danger)",
+                    }}
+                  >
                     {isCashSufficient ? "Kembalian untuk Pelanggan:" : "Kurang Bayar:"}
                   </span>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: isCashSufficient ? "#10b981" : "#ef4444" }}>
+                  <div
+                    style={{
+                      fontSize: "1.4rem",
+                      fontWeight: 800,
+                      color: isCashSufficient ? "var(--pos-success)" : "var(--pos-danger)",
+                    }}
+                  >
                     {formatRupiah(isCashSufficient ? cashChange : payload.total - cashReceived)}
                   </div>
                 </div>
-                {isCashSufficient && <CheckCircle2 size={32} color="#10b981" />}
+                {isCashSufficient && (
+                  <CheckCircle2 size={32} aria-hidden="true" color="var(--pos-success)" style={{ flexShrink: 0 }} />
+                )}
               </div>
 
               <button
                 type="button"
                 disabled={cashSubmitting || !isCashSufficient}
                 onClick={handleSubmitCash}
+                className="pos-btn-primary"
                 style={{
                   width: "100%",
-                  padding: "0.95rem",
-                  background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
-                  color: "#ffffff",
-                  border: "none",
+                  minHeight: "48px",
+                  padding: "0.9rem 1rem",
                   borderRadius: "14px",
-                  fontSize: "1rem",
+                  fontSize: "0.95rem",
                   fontWeight: 700,
-                  cursor: cashSubmitting || !isCashSufficient ? "not-allowed" : "pointer",
                   opacity: cashSubmitting || !isCashSufficient ? 0.6 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  boxShadow: "0 10px 25px -5px var(--c-gold-glow, rgba(59, 130, 246, 0.4))",
+                  boxShadow: "0 10px 25px -5px var(--c-gold-glow, rgba(37, 99, 235, 0.4))",
                 }}
               >
                 {cashSubmitting ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={18} aria-hidden="true" className="animate-spin" />
                     <span>Menyimpan Transaksi...</span>
                   </>
                 ) : (
                   <>
                     <span>Selesaikan Transaksi & Cetak Struk</span>
-                    <ArrowRight size={18} />
+                    <ArrowRight size={18} aria-hidden="true" />
                   </>
                 )}
               </button>
             </div>
           )}
 
-          {/* TAB 2: QRIS MAYAR (INLINE) */}
           {activeTab === "QRIS" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>
-              {/* State 0: Belum Generate QRIS (Kasir menekan tombol untuk generate) */}
               {!qrisLoading && !qrisError && !qrisPaid && !qrisData && (
                 <div
                   style={{
-                    padding: "2rem 1.5rem",
+                    padding: "1.75rem 1.25rem",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -718,16 +762,17 @@ export default function KasirPaymentModal({
                   }}
                 >
                   <div
+                    aria-hidden="true"
                     style={{
                       width: "60px",
                       height: "60px",
                       borderRadius: "16px",
                       background: "var(--c-gold-dim, rgba(37, 99, 235, 0.1))",
-                      border: "1px solid var(--c-border)",
+                      border: "1px solid var(--pos-border-control)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "var(--c-gold)",
+                      color: "var(--pos-accent-text)",
                       marginBottom: "1rem",
                     }}
                   >
@@ -748,57 +793,68 @@ export default function KasirPaymentModal({
 
                   <p
                     style={{
-                      color: "var(--c-ink-muted)",
+                      color: "var(--pos-muted)",
                       fontSize: "0.85rem",
                       lineHeight: 1.5,
                       maxWidth: "380px",
                       margin: "0 0 1.25rem",
                     }}
                   >
-                    Klik tombol di bawah untuk membuat kode QRIS instan resmi Mayar sesuai tagihan <strong>{formatRupiah(payload.total)}</strong>.
+                    Klik tombol di bawah untuk membuat kode QRIS instan resmi Mayar sesuai tagihan{" "}
+                    <strong>{formatRupiah(payload.total)}</strong>.
                   </p>
 
                   <button
                     type="button"
                     onClick={handleGenerateQris}
+                    className="pos-btn-primary"
                     style={{
-                      padding: "0.85rem 1.75rem",
+                      padding: "0.85rem 1.5rem",
                       borderRadius: "12px",
-                      background: "var(--c-gold)",
-                      color: "#ffffff",
-                      fontSize: "0.95rem",
+                      fontSize: "0.92rem",
                       fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
                       boxShadow: "var(--shadow-card)",
-                      transition: "all 0.15s ease",
+                      width: "100%",
+                      maxWidth: "340px",
                     }}
                   >
-                    <QrCode size={18} />
+                    <QrCode size={18} aria-hidden="true" />
                     <span>Buat QRIS Pembayaran ({formatRupiah(payload.total)})</span>
                   </button>
                 </div>
               )}
+
               {qrisLoading && (
                 <div style={{ padding: "3rem 1rem" }}>
-                  <Loader2 size={36} className="animate-spin" color="var(--c-gold, #3b82f6)" style={{ margin: "0 auto 1rem" }} />
-                  <p style={{ color: "var(--c-ink-muted)", fontSize: "0.95rem", fontWeight: 600 }}>
+                  <Loader2
+                    size={36}
+                    aria-hidden="true"
+                    className="animate-spin"
+                    color="var(--pos-accent-text)"
+                    style={{ margin: "0 auto 1rem" }}
+                  />
+                  <p style={{ color: "var(--pos-muted)", fontSize: "0.95rem", fontWeight: 600 }}>
                     Menghubungkan ke Mayar & Membuat QRIS Dinamis...
                   </p>
                 </div>
               )}
 
               {qrisError && (
-                <div style={{ padding: "1.5rem", borderRadius: "12px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fca5a5", width: "100%", boxSizing: "border-box" }}>
-                  <AlertCircle size={28} style={{ margin: "0 auto 0.5rem" }} />
+                <div
+                  role="alert"
+                  style={{
+                    padding: "1.5rem",
+                    borderRadius: "12px",
+                    background: "var(--pos-soft-danger-bg)",
+                    border: "1px solid var(--pos-soft-danger-border)",
+                    color: "var(--pos-danger)",
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <AlertCircle size={28} aria-hidden="true" style={{ margin: "0 auto 0.5rem" }} />
                   <p style={{ fontSize: "0.9rem", margin: "0 0 1rem" }}>{qrisError}</p>
-                  <button
-                    type="button"
-                    onClick={handleGenerateQris}
-                    style={{ padding: "8px 16px", background: "var(--c-gold, #3b82f6)", border: "none", color: "#ffffff", borderRadius: "8px", fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}
-                  >
+                  <button type="button" onClick={handleGenerateQris} className="pos-btn-primary">
                     Coba Lagi
                   </button>
                 </div>
@@ -807,25 +863,34 @@ export default function KasirPaymentModal({
               {qrisPaid && (
                 <div style={{ padding: "2.5rem 1rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div
+                    aria-hidden="true"
                     style={{
                       width: "72px",
                       height: "72px",
                       borderRadius: "50%",
-                      backgroundColor: "rgba(16, 185, 129, 0.2)",
-                      border: "2px solid #10b981",
+                      backgroundColor: "var(--pos-soft-success-bg)",
+                      border: "2px solid var(--pos-success)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#10b981",
+                      color: "var(--pos-success)",
                       marginBottom: "1rem",
                     }}
                   >
                     <CheckCircle2 size={44} />
                   </div>
-                  <h3 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10b981", margin: 0, fontFamily: "var(--font-display, serif)" }}>
-                    PEMBAYARAN LUNAS!
+                  <h3
+                    style={{
+                      fontSize: "1.5rem",
+                      fontWeight: 800,
+                      color: "var(--pos-success)",
+                      margin: 0,
+                      fontFamily: "var(--font-display, serif)",
+                    }}
+                  >
+                    Pembayaran Lunas
                   </h3>
-                  <p style={{ color: "var(--c-ink-muted)", fontSize: "0.9rem", marginTop: 6 }}>
+                  <p style={{ color: "var(--pos-muted)", fontSize: "0.9rem", marginTop: 6 }}>
                     Sistem otomatis memverifikasi pembayaran QRIS Mayar. Menyiapkan struk...
                   </p>
                 </div>
@@ -833,50 +898,46 @@ export default function KasirPaymentModal({
 
               {!qrisLoading && !qrisError && !qrisPaid && qrisData && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-                  {/* Environment Mode Badge */}
                   <div style={{ marginBottom: "0.6rem" }}>
                     {qrisData.isSandbox ? (
                       <span
                         style={{
-                          padding: "3px 10px",
-                          borderRadius: "999px",
-                          fontSize: "0.72rem",
+                          padding: "4px 10px",
+                          borderRadius: "8px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
-                          letterSpacing: "0.03em",
-                          background: "rgba(245, 158, 11, 0.15)",
-                          border: "1px solid rgba(245, 158, 11, 0.4)",
-                          color: "#f59e0b",
+                          background: "var(--pos-soft-warn-bg)",
+                          border: "1px solid var(--pos-soft-warn-border)",
+                          color: "var(--pos-warn)",
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: 5,
+                          gap: 6,
                         }}
                       >
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
-                        SANDBOX MODE (Testing - Mayar Sandbox)
+                        <FlaskConical size={13} aria-hidden="true" />
+                        <span>Mode Sandbox (Pengujian Mayar)</span>
                       </span>
                     ) : (
                       <span
                         style={{
-                          padding: "3px 10px",
-                          borderRadius: "999px",
-                          fontSize: "0.72rem",
+                          padding: "4px 10px",
+                          borderRadius: "8px",
+                          fontSize: "0.75rem",
                           fontWeight: 700,
-                          letterSpacing: "0.03em",
-                          background: "rgba(16, 185, 129, 0.15)",
-                          border: "1px solid rgba(16, 185, 129, 0.4)",
-                          color: "#10b981",
+                          background: "var(--pos-soft-success-bg)",
+                          border: "1px solid var(--pos-soft-success-border)",
+                          color: "var(--pos-success)",
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: 5,
+                          gap: 6,
                         }}
                       >
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
-                        LIVE PUBLIK (Mayar Production)
+                        <CheckCircle2 size={13} aria-hidden="true" />
+                        <span>Live Publik (Mayar Production)</span>
                       </span>
                     )}
                   </div>
 
-                  {/* Countdown Timer */}
                   <div
                     style={{
                       display: "inline-flex",
@@ -884,25 +945,30 @@ export default function KasirPaymentModal({
                       gap: 6,
                       padding: "4px 12px",
                       borderRadius: "999px",
-                      background: secondsLeft < 120 ? "rgba(239, 68, 68, 0.2)" : "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
-                      border: secondsLeft < 120 ? "1px solid #ef4444" : "1px solid var(--c-gold, #3b82f6)",
-                      color: secondsLeft < 120 ? "#f87171" : "var(--c-gold-light, #60a5fa)",
+                      background:
+                        secondsLeft < 120
+                          ? "var(--pos-soft-danger-bg)"
+                          : "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
+                      border:
+                        secondsLeft < 120
+                          ? "1px solid var(--pos-soft-danger-border)"
+                          : "1px solid var(--c-gold, #3b82f6)",
+                      color: secondsLeft < 120 ? "var(--pos-danger)" : "var(--pos-accent-text)",
                       fontSize: "0.8rem",
                       fontWeight: 700,
                       marginBottom: "1rem",
                     }}
                   >
-                    <Clock size={14} />
+                    <Clock size={14} aria-hidden="true" />
                     <span>Berlaku: {formatTime(secondsLeft)}</span>
                   </div>
 
-                  {/* QRIS Image Container */}
                   <div
                     style={{
                       background: "#FFFFFF",
-                      padding: "1rem",
+                      padding: "0.85rem",
                       borderRadius: "16px",
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+                      boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
                       display: "inline-block",
                       marginBottom: "1rem",
                     }}
@@ -911,16 +977,20 @@ export default function KasirPaymentModal({
                       <img
                         src={qrisData.qrDataUrl}
                         alt="QRIS Mayar Ela Parfum"
-                        style={{ width: "240px", height: "240px", display: "block" }}
+                        width={240}
+                        height={240}
+                        className="pos-qris-img"
                       />
                     ) : (
-                      <div style={{ width: "240px", height: "240px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Loader2 className="animate-spin" />
+                      <div
+                        className="pos-qris-img"
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Loader2 aria-hidden="true" className="animate-spin" />
                       </div>
                     )}
                   </div>
 
-                  {/* Auto-detect Indicator */}
                   <div
                     style={{
                       display: "flex",
@@ -929,73 +999,55 @@ export default function KasirPaymentModal({
                       fontSize: "0.85rem",
                       fontWeight: 700,
                       color: "var(--c-ink)",
-                      background: "rgba(16, 185, 129, 0.12)",
-                      border: "1.5px solid rgba(16, 185, 129, 0.4)",
-                      padding: "0.6rem 1rem",
+                      background: "var(--pos-soft-success-bg)",
+                      border: "1.5px solid var(--pos-soft-success-border)",
+                      padding: "0.65rem 1rem",
                       borderRadius: "10px",
                       marginBottom: "0.75rem",
+                      width: "100%",
+                      boxSizing: "border-box",
+                      justifyContent: "center",
                     }}
                   >
-                    <span
-                      style={{
-                        width: 9,
-                        height: 9,
-                        borderRadius: "50%",
-                        backgroundColor: "#10b981",
-                        display: "inline-block",
-                        boxShadow: "0 0 10px #10b981",
-                        flexShrink: 0,
-                      }}
-                    />
+                    <RefreshCw size={14} aria-hidden="true" color="var(--pos-success)" style={{ flexShrink: 0 }} />
                     <span style={{ color: "var(--c-ink)", fontWeight: 700 }}>
                       Menunggu scan & pembayaran pelanggan (Auto-Detect)...
                     </span>
                   </div>
 
-                  {/* Tombol Cek Manual */}
                   <button
                     type="button"
                     onClick={handleManualCheckStatus}
                     disabled={checkingStatus}
+                    className="pos-btn-secondary"
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "6px 14px",
-                      borderRadius: "8px",
-                      background: "var(--c-surface-2, #181e1c)",
-                      border: "1px solid var(--c-border)",
-                      color: "var(--c-ink, #ffffff)",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      cursor: checkingStatus ? "not-allowed" : "pointer",
+                      fontSize: "0.82rem",
                       marginBottom: qrisData.isSandbox ? "0.75rem" : "0.85rem",
-                      transition: "all 0.15s ease",
+                      padding: "0.5rem 1.1rem",
                     }}
                   >
                     {checkingStatus ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={14} aria-hidden="true" className="animate-spin" />
                     ) : (
-                      <RefreshCw size={13} />
+                      <RefreshCw size={14} aria-hidden="true" />
                     )}
                     <span>{checkingStatus ? "Memeriksa Status..." : "Cek Status Lunas Sekarang"}</span>
                   </button>
 
-                  {/* Panel Simulasi Sandbox (Hanya Muncul Jika Mode Sandbox Aktif) */}
                   {qrisData.isSandbox && (
                     <div
                       style={{
                         margin: "0.5rem 0 0.85rem",
-                        padding: "0.85rem 1.25rem",
+                        padding: "0.9rem 1rem",
                         borderRadius: "14px",
                         background: "var(--c-surface-2)",
-                        border: "1px dashed var(--c-border)",
+                        border: "1px dashed var(--pos-border-control)",
                         width: "100%",
                         boxSizing: "border-box",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
-                        gap: "0.5rem",
+                        gap: "0.6rem",
                       }}
                     >
                       <div
@@ -1004,41 +1056,34 @@ export default function KasirPaymentModal({
                           alignItems: "center",
                           gap: 6,
                           fontSize: "0.75rem",
-                          color: "var(--c-ink-muted)",
+                          color: "var(--pos-muted)",
                           fontWeight: 600,
                         }}
                       >
-                        <Sparkles size={13} style={{ color: "var(--c-gold)" }} />
+                        <FlaskConical size={13} aria-hidden="true" style={{ color: "var(--pos-accent-text)" }} />
                         <span>Pengujian Sandbox Mayar</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleSimulateSandboxPayment}
                         disabled={simulatingPayment}
+                        className="pos-btn-primary"
                         style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 7,
-                          padding: "8px 20px",
-                          borderRadius: "10px",
-                          background: "var(--c-gold)",
-                          border: "none",
-                          color: "#ffffff",
+                          padding: "0.65rem 1.25rem",
                           fontSize: "0.82rem",
                           fontWeight: 700,
-                          cursor: simulatingPayment ? "not-allowed" : "pointer",
-                          boxShadow: "var(--shadow-card)",
-                          transition: "all 0.15s ease",
+                          width: "100%",
+                          maxWidth: "340px",
                         }}
                       >
                         {simulatingPayment ? (
                           <>
-                            <Loader2 size={14} className="animate-spin" />
+                            <Loader2 size={14} aria-hidden="true" className="animate-spin" />
                             <span>Memproses Simulasi Lunas...</span>
                           </>
                         ) : (
                           <>
-                            <CheckCircle2 size={15} />
+                            <CheckCircle2 size={15} aria-hidden="true" />
                             <span>Simulasi Bayar Lunas (Internal Toko)</span>
                           </>
                         )}
@@ -1063,50 +1108,40 @@ export default function KasirPaymentModal({
                               );
                             }
                           }}
+                          className="pos-btn-secondary"
                           style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "6px 14px",
-                            borderRadius: "8px",
-                            background: "var(--c-surface-1)",
-                            border: "1px solid var(--c-border)",
-                            color: "var(--c-gold)",
+                            padding: "0.55rem 1rem",
                             fontSize: "0.78rem",
-                            fontWeight: 600,
+                            color: "var(--pos-accent-text)",
                             textDecoration: "none",
-                            marginTop: "4px",
-                            transition: "all 0.15s ease",
+                            width: "100%",
+                            maxWidth: "340px",
                           }}
                         >
-                          <ExternalLink size={13} />
+                          <ExternalLink size={13} aria-hidden="true" />
                           <span>Buka Checkout Mayar (Simulasi di Server Mayar)</span>
                         </a>
                       )}
-                      <span style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)" }}>
+                      <span style={{ fontSize: "0.72rem", color: "var(--pos-muted)" }}>
                         *Fitur pengujian otomatis nonaktif saat beralih ke Live Publik.
                       </span>
                     </div>
                   )}
 
-                  {/* Tombol Buat Ulang / Reset QR */}
                   <button
                     type="button"
-                    onClick={() => setQrisData(null)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--c-ink-dim)",
-                      fontSize: "0.78rem",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                      marginBottom: "0.75rem",
+                    onClick={() => {
+                      manualCheckAbortRef.current?.abort();
+                      setCheckingStatus(false);
+                      qrisSuccessHandledRef.current = false;
+                      setQrisData(null);
                     }}
+                    className="pos-qris-reset-btn"
                   >
                     Batal / Buat Ulang QR
                   </button>
 
-                  <p style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", margin: 0 }}>
+                  <p style={{ fontSize: "0.75rem", color: "var(--pos-muted)", margin: 0 }}>
                     Pelanggan dapat scan QRIS menggunakan BCA, Mandiri, GoPay, OVO, ShopeePay, DANA, atau seluruh e-wallet/m-banking.
                   </p>
                 </div>
@@ -1114,51 +1149,100 @@ export default function KasirPaymentModal({
             </div>
           )}
 
-          {/* TAB 3: TRANSFER BANK */}
           {activeTab === "TRANSFER" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               {transferError && (
-                <div style={{ padding: "0.75rem 1rem", borderRadius: "10px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fca5a5", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 8 }}>
-                  <AlertCircle size={18} />
+                <div
+                  role="alert"
+                  style={{
+                    padding: "0.75rem 1rem",
+                    borderRadius: "10px",
+                    background: "var(--pos-soft-danger-bg)",
+                    border: "1px solid var(--pos-soft-danger-border)",
+                    color: "var(--pos-danger)",
+                    fontSize: "0.85rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <AlertCircle size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
                   <span>{transferError}</span>
                 </div>
               )}
 
-              <div style={{ background: "var(--c-surface-2, #181e1c)", padding: "1.25rem", borderRadius: "14px", border: "1px solid var(--c-border)" }}>
-                <span style={{ fontSize: "0.75rem", color: "var(--c-gold-light, #60a5fa)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              <div
+                style={{
+                  background: "var(--c-surface-2, #181e1c)",
+                  padding: "1.15rem",
+                  borderRadius: "14px",
+                  border: "1px solid var(--c-border)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--pos-accent-text)",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                  }}
+                >
                   Rekening Resmi Ela Parfum
                 </span>
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "var(--c-ink-muted)", fontSize: "0.9rem" }}>Bank Central Asia (BCA):</span>
-                    <strong style={{ color: "var(--c-ink, #ffffff)", fontSize: "1rem" }}>8415-XXXX-XX</strong>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ color: "var(--pos-muted)", fontSize: "0.88rem" }}>Bank Central Asia (BCA):</span>
+                    <strong style={{ color: "var(--c-ink)", fontSize: "1rem" }}>8415-XXXX-XX</strong>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "var(--c-ink-muted)", fontSize: "0.9rem" }}>Atas Nama:</span>
-                    <strong style={{ color: "var(--c-gold-light, #60a5fa)", fontSize: "0.95rem" }}>PT ELA PARFUM ARTISAN</strong>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ color: "var(--pos-muted)", fontSize: "0.88rem" }}>Atas Nama:</span>
+                    <strong style={{ color: "var(--pos-accent-text)", fontSize: "0.95rem" }}>
+                      PT ELA PARFUM ARTISAN
+                    </strong>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink-muted)", marginBottom: 6 }}>
+                <label
+                  htmlFor="pos-transfer-ref"
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--pos-muted)",
+                    marginBottom: 6,
+                  }}
+                >
                   Nomor Referensi Transfer / Nama Pengirim:
                 </label>
                 <input
+                  id="pos-transfer-ref"
                   type="text"
                   placeholder="Cth: Ref BCA 123456 / An. Budi"
                   value={transferRef}
                   onChange={(e) => setTransferRef(e.target.value)}
+                  className="pos-text-input"
                   style={{
-                    width: "100%",
                     padding: "0.85rem 1rem",
-                    backgroundColor: "var(--c-bg, #0a0c0b)",
-                    border: "1px solid var(--c-border-mid)",
                     borderRadius: "12px",
-                    color: "var(--c-ink, #ffffff)",
-                    fontSize: "0.95rem",
-                    outline: "none",
-                    boxSizing: "border-box",
                   }}
                 />
               </div>
@@ -1167,33 +1251,27 @@ export default function KasirPaymentModal({
                 type="button"
                 disabled={transferSubmitting}
                 onClick={handleSubmitTransfer}
+                className="pos-btn-primary"
                 style={{
                   width: "100%",
-                  padding: "0.95rem",
-                  background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
-                  color: "#ffffff",
-                  border: "none",
+                  minHeight: "48px",
+                  padding: "0.9rem 1rem",
                   borderRadius: "14px",
-                  fontSize: "1rem",
+                  fontSize: "0.95rem",
                   fontWeight: 700,
-                  cursor: transferSubmitting ? "not-allowed" : "pointer",
                   opacity: transferSubmitting ? 0.6 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  boxShadow: "0 10px 25px -5px var(--c-gold-glow, rgba(59, 130, 246, 0.4))",
+                  boxShadow: "0 10px 25px -5px var(--c-gold-glow, rgba(37, 99, 235, 0.4))",
                 }}
               >
                 {transferSubmitting ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={18} aria-hidden="true" className="animate-spin" />
                     <span>Konfirmasi Transfer...</span>
                   </>
                 ) : (
                   <>
                     <span>Konfirmasi Transfer & Selesai</span>
-                    <ArrowRight size={18} />
+                    <ArrowRight size={18} aria-hidden="true" />
                   </>
                 )}
               </button>

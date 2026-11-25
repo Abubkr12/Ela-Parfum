@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Sparkles, Bot, User as UserIcon } from 'lucide-react';
+import { MessageCircle, X, Send, Droplets, Bot } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -13,6 +13,7 @@ interface Message {
 
 export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
   const [userId, setUserId] = useState<string | undefined>(initialUserId);
+  const [isCashierHost, setIsCashierHost] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -20,13 +21,18 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
 
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const toggleBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hostname.startsWith('cashier.')) {
+      setIsCashierHost(true);
+      return;
+    }
     if (initialUserId) {
       setUserId(initialUserId);
       return;
     }
-    if (!pathname.startsWith('/admin')) {
+    if (!pathname.startsWith('/admin') && !pathname.startsWith('/kasir')) {
       const supabase = createClient();
       supabase.auth.getUser().then((res: any) => {
         if (res?.data?.user?.id) {
@@ -40,8 +46,21 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Don't show on admin pages, invoice pages, or if not logged in
-  if (!userId || pathname.startsWith('/admin') || pathname.includes('/invoice')) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+        toggleBtnRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  if (!userId || isCashierHost || pathname.startsWith('/admin') || pathname.startsWith('/kasir') || pathname.includes('/invoice')) {
+    return null;
+  }
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,12 +112,15 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
 
   return (
     <>
-      {/* Floating Toggle Button */}
       <button
+        ref={toggleBtnRef}
         id="chatbot-toggle"
-        className="no-print"
+        type="button"
+        className="no-print chat-widget-toggle"
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Buka Scent Advisor AI"
+        aria-label={isOpen ? 'Tutup Scent Advisor AI' : 'Buka Scent Advisor AI'}
+        aria-expanded={isOpen}
+        aria-controls="ela-chat-dialog"
         style={{
           position: 'fixed',
           bottom: 24,
@@ -106,25 +128,28 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
           width: 56,
           height: 56,
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, var(--c-gold), var(--c-gold-light))',
-          color: '#fff',
+          backgroundColor: '#2563eb',
+          color: '#ffffff',
           border: 'none',
-          boxShadow: '0 4px 20px rgba(59, 130, 246, 0.35)',
+          boxShadow: '0 4px 20px rgba(37, 99, 235, 0.35)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 9999,
-          transition: 'transform 0.25s var(--ease-spring), box-shadow 0.25s',
+          transition: 'transform 0.25s var(--ease-spring), background-color 0.2s, box-shadow 0.25s',
           transform: isOpen ? 'scale(0.92) rotate(90deg)' : 'scale(1)',
         }}
       >
-        {isOpen ? <X size={22} /> : <MessageCircle size={26} />}
+        {isOpen ? <X size={22} aria-hidden="true" /> : <MessageCircle size={26} aria-hidden="true" />}
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
         <div
+          id="ela-chat-dialog"
+          role="dialog"
+          aria-modal="false"
+          aria-label="Asisten Parfum Ela"
           className="no-print chat-widget"
           style={{
             position: 'fixed',
@@ -133,9 +158,9 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
             width: 370,
             maxWidth: 'calc(100vw - 48px)',
             height: 520,
-            maxHeight: 'calc(100vh - 140px)',
+            maxHeight: 'calc(100dvh - 140px)',
             background: 'var(--c-surface-1)',
-            border: '1px solid var(--c-border)',
+            border: '1px solid var(--cw-border-ctrl)',
             borderRadius: 'var(--r-xl)',
             boxShadow: 'var(--shadow-float)',
             display: 'flex',
@@ -145,10 +170,9 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
             animation: 'chatFadeIn 0.25s var(--ease-out)',
           }}
         >
-          {/* Header */}
           <div
             style={{
-              padding: '16px 20px',
+              padding: '14px 16px',
               background: 'var(--c-surface-2)',
               borderBottom: '1px solid var(--c-border)',
               display: 'flex',
@@ -157,6 +181,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
             }}
           >
             <div
+              aria-hidden="true"
               style={{
                 width: 40,
                 height: 40,
@@ -165,13 +190,13 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--c-gold)',
+                color: '#2563eb',
               }}
             >
-              <Sparkles size={20} />
+              <Droplets size={20} />
             </div>
             <div style={{ flex: 1 }}>
-              <h4
+              <h2
                 style={{
                   margin: 0,
                   color: 'var(--c-ink)',
@@ -181,7 +206,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                 }}
               >
                 Scent Advisor AI
-              </h4>
+              </h2>
               <div
                 style={{
                   display: 'flex',
@@ -190,18 +215,19 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                   marginTop: 2,
                 }}
               >
-                <div
+                <span
+                  aria-hidden="true"
                   style={{
                     width: 7,
                     height: 7,
                     borderRadius: '50%',
-                    background: '#22c55e',
-                    animation: 'pulse-dot 2s infinite',
+                    background: '#16a34a',
+                    display: 'inline-block',
                   }}
                 />
                 <span
                   style={{
-                    color: 'var(--c-ink-dim)',
+                    color: 'var(--c-ink-muted)',
                     fontSize: '0.75rem',
                   }}
                 >
@@ -210,23 +236,31 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
               </div>
             </div>
             <button
-              onClick={() => setIsOpen(false)}
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                toggleBtnRef.current?.focus();
+              }}
+              aria-label="Tutup jendela obrolan"
+              className="chat-widget-close"
               style={{
-                background: 'none',
-                border: 'none',
+                background: 'var(--c-surface-1)',
+                border: '1px solid var(--cw-border-ctrl)',
                 color: 'var(--c-ink-muted)',
                 cursor: 'pointer',
-                padding: 4,
-                borderRadius: 8,
-                display: 'flex',
-                transition: 'color 0.2s',
+                minWidth: 44,
+                minHeight: 44,
+                borderRadius: 10,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.2s, border-color 0.2s, transform 0.15s',
               }}
             >
-              <X size={18} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
 
-          {/* Messages */}
           <div
             style={{
               flex: 1,
@@ -241,12 +275,13 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
               <div
                 style={{
                   textAlign: 'center',
-                  color: 'var(--c-ink-dim)',
+                  color: 'var(--c-ink-muted)',
                   marginTop: 48,
                   padding: '0 16px',
                 }}
               >
                 <div
+                  aria-hidden="true"
                   style={{
                     width: 56,
                     height: 56,
@@ -256,7 +291,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     margin: '0 auto 16px',
-                    color: 'var(--c-gold)',
+                    color: '#2563eb',
                   }}
                 >
                   <Bot size={28} />
@@ -288,6 +323,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                   >
                     {!isUser && (
                       <div
+                        aria-hidden="true"
                         style={{
                           width: 26,
                           height: 26,
@@ -297,7 +333,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0,
-                          color: 'var(--c-gold)',
+                          color: '#2563eb',
                         }}
                       >
                         <Bot size={14} />
@@ -305,19 +341,15 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                     )}
                     <div
                       style={{
-                        background: isUser
-                          ? 'linear-gradient(135deg, var(--c-gold), var(--c-gold-light))'
-                          : 'var(--c-surface-2)',
-                        color: isUser ? '#fff' : 'var(--c-ink)',
+                        background: isUser ? '#2563eb' : 'var(--c-surface-2)',
+                        color: isUser ? '#ffffff' : 'var(--c-ink)',
                         padding: '10px 14px',
                         borderRadius: 14,
                         borderBottomRightRadius: isUser ? 4 : 14,
                         borderBottomLeftRadius: !isUser ? 4 : 14,
                         fontSize: '0.88rem',
                         lineHeight: 1.55,
-                        border: !isUser
-                          ? '1px solid var(--c-border)'
-                          : 'none',
+                        border: !isUser ? '1px solid var(--cw-border-ctrl)' : 'none',
                         whiteSpace: 'pre-wrap',
                       }}
                     >
@@ -338,6 +370,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                 }}
               >
                 <div
+                  aria-hidden="true"
                   style={{
                     width: 26,
                     height: 26,
@@ -347,7 +380,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    color: 'var(--c-gold)',
+                    color: '#2563eb',
                   }}
                 >
                   <Bot size={14} />
@@ -355,7 +388,7 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                 <div
                   style={{
                     background: 'var(--c-surface-2)',
-                    border: '1px solid var(--c-border)',
+                    border: '1px solid var(--cw-border-ctrl)',
                     padding: '12px 16px',
                     borderRadius: 14,
                     borderBottomLeftRadius: 4,
@@ -364,11 +397,11 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
                     gap: 8,
                   }}
                 >
-                  <div className="loader" style={{ width: 16, height: 16 }} />
+                  <span className="chat-widget-spinner" aria-hidden="true" />
                   <span
                     style={{
                       fontSize: '0.82rem',
-                      color: 'var(--c-ink-dim)',
+                      color: 'var(--c-ink-muted)',
                     }}
                   >
                     Mengetik...
@@ -380,32 +413,35 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
           <form
             onSubmit={sendMessage}
             style={{
               padding: '12px 16px',
               borderTop: '1px solid var(--c-border)',
               display: 'flex',
+              alignItems: 'center',
               gap: 8,
               background: 'var(--c-surface-2)',
             }}
           >
             <input
               type="text"
+              aria-label="Tulis pesan tentang parfum"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Tanya seputar parfum..."
               disabled={loading}
+              className="chat-widget-input"
               style={{
                 flex: 1,
+                minWidth: 0,
+                minHeight: 44,
                 padding: '10px 14px',
                 borderRadius: 12,
-                border: '1px solid var(--c-border)',
+                border: '1px solid var(--cw-border-ctrl)',
                 background: 'var(--c-surface-1)',
                 color: 'var(--c-ink)',
-                fontSize: '0.88rem',
-                outline: 'none',
+                fontSize: '1rem',
                 fontFamily: 'var(--font-body)',
                 transition: 'border-color 0.2s',
               }}
@@ -413,25 +449,24 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
             <button
               type="submit"
               disabled={loading || !input.trim()}
+              aria-label="Kirim pesan"
+              className="chat-widget-send"
               style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 borderRadius: 12,
-                background:
-                  loading || !input.trim()
-                    ? 'var(--c-surface-1)'
-                    : 'linear-gradient(135deg, var(--c-gold), var(--c-gold-light))',
-                color: loading || !input.trim() ? 'var(--c-ink-dim)' : '#fff',
-                border: loading || !input.trim() ? '1px solid var(--c-border)' : 'none',
-                display: 'flex',
+                backgroundColor: loading || !input.trim() ? 'var(--c-surface-1)' : '#2563eb',
+                color: loading || !input.trim() ? 'var(--c-ink-muted)' : '#ffffff',
+                border: loading || !input.trim() ? '1px solid var(--cw-border-ctrl)' : 'none',
+                display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
+                transition: 'background-color 0.2s, border-color 0.2s, transform 0.15s',
                 flexShrink: 0,
               }}
             >
-              <Send size={16} style={{ marginLeft: -1 }} />
+              <Send size={16} aria-hidden="true" style={{ marginLeft: -1 }} />
             </button>
           </form>
         </div>
@@ -440,9 +475,60 @@ export function ChatWidget({ userId: initialUserId }: { userId?: string }) {
       <style
         dangerouslySetInnerHTML={{
           __html: `
+            .chat-widget {
+              --cw-border-ctrl: #6c7a76;
+            }
+            [data-theme="light"] .chat-widget {
+              --cw-border-ctrl: #64748b;
+            }
+            #chatbot-toggle:focus-visible,
+            .chat-widget :is(button, input):focus-visible {
+              outline: 2px solid #2563eb;
+              outline-offset: 2px;
+            }
+            @media (hover: hover) and (pointer: fine) {
+              .chat-widget-toggle:hover {
+                background-color: #1d4ed8 !important;
+              }
+              .chat-widget-close:hover {
+                color: var(--c-ink) !important;
+                border-color: #2563eb !important;
+              }
+              .chat-widget-send:not(:disabled):hover {
+                background-color: #1d4ed8 !important;
+              }
+            }
+            .chat-widget-toggle:active,
+            .chat-widget-close:active,
+            .chat-widget-send:not(:disabled):active {
+              transform: scale(0.95);
+            }
+            .chat-widget-input::placeholder {
+              color: var(--c-ink-muted);
+              opacity: 1;
+            }
+            .chat-widget-spinner {
+              width: 16px;
+              height: 16px;
+              border-radius: 50%;
+              border: 2px solid var(--c-border-mid);
+              border-top-color: #2563eb;
+              animation: cwSpin 0.8s linear infinite;
+              flex-shrink: 0;
+            }
+            @keyframes cwSpin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
             @keyframes chatFadeIn {
               from { opacity: 0; transform: translateY(12px) scale(0.96); }
               to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .chat-widget, .chat-widget-toggle, .chat-widget * {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+              }
             }
             @media print {
               #chatbot-toggle, .chat-widget, .no-print {

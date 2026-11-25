@@ -15,6 +15,11 @@
 - [ ] **Fitur Geofencing Tunai:** Implementasi radius 50m berbasis koordinat Google Maps untuk aktivasi pembayaran tunai di toko.
 
 ## Arsip
+- [x] **Refinement Responsive Mobile View, Aksesibilitas & Cetak Thermal Kasir POS (`cashier.elaparfum.web.id`) tanpa Mengubah Desktop:**
+  - [x] **4-State Responsive Layout (`kasir.css`):** Menerapkan reflow adaptif (`<=349px` single-col, `350-639px` 2-col phone + bottom cart bar + bottom sheet modal & bill, `640-1023px` tablet grid + side drawer bill, `>=1024px` desktop split view tidak berubah). Menjamin zero horizontal overflow hingga viewport `320px` dan meng-unlock scroll saat keyboard virtual mobile mengecilkan tinggi layar.
+  - [x] **Komponen Kasir & Modal (`KasirPosClient`, `KasirMixModal`, `KasirPaymentModal`, `KasirReceiptModal`, `login/page.tsx`):** Memperbaiki kontras WCAG AA (`>= 4.5:1` teks, `>= 3.0:1` border kontrol) pada Dark & Light mode, target sentuh minimal `44x44px` (`< 1024px` & `pointer: coarse`), input mobile `>= 16px`, fokus trap stack nested modal + navigasi keyboard roving tablist (`ArrowLeft`/`ArrowRight`/`Home`/`End`/`Escape`/`F10`), dan guard polling/abort QRIS serta sinkronisasi stok cabang.
+  - [x] **Isolasi Cetak Thermal 80mm & ChatWidget Guard:** Menambahkan reset `@media print` di `kasir.css` agar modal bottom-sheet di mode mobile tetap mencetak `#pos-receipt-print` presisi 80mm, serta menekan render `ChatWidget` pada host `cashier.` sekaligus merapikan kontras dan input flex wrapping `ChatWidget`.
+  - [x] **EGM Goldfish Audit Convergence:** Lolos verifikasi multi-putaran `egm-codebase-details` & `egm-design` (0 Blocker, seluruh temuan Major tuntas diperbaiki).
 - [x] **Migrasi Checkout ke Midtrans Snap (Sandbox), Halaman Gagal/Retry (`/checkout/failed`), & Sinkronisasi Secrets Cloudflare:**
   - [x] Sinkronisasi API Keys Midtrans Sandbox & Production ke `.env.local` dan Cloudflare Worker Secrets (`ela-parfum`).
   - [x] Pembuatan halaman `/checkout/failed` (mendukung retry Snap `retryMidtransPayment`, pemulihan keranjang `restoreOrderToCartData`, dan preview `?preview=demo`).

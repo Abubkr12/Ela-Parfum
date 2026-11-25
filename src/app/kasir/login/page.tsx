@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { kasirLogin } from "./actions";
-import { Store, Lock, Mail, ArrowRight, ShieldCheck, Sparkles, Loader2 } from "lucide-react";
+import { Store, Lock, Mail, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
+import "../kasir.css";
 
 export default function KasirLoginPage() {
   const [loading, setLoading] = useState(false);
@@ -21,9 +22,8 @@ export default function KasirLoginPage() {
         setLoading(false);
       }
     } catch (err: any) {
-      // Next.js redirect will throw NEXT_REDIRECT, let it pass
-      if (err?.message?.includes("NEXT_REDIRECT")) {
-        return;
+      if (err?.digest?.startsWith("NEXT_REDIRECT") || err?.message?.includes("NEXT_REDIRECT")) {
+        throw err;
       }
       setError("Terjadi kesalahan saat masuk ke terminal kasir.");
       setLoading(false);
@@ -31,71 +31,25 @@ export default function KasirLoginPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "1.5rem",
-        backgroundColor: "#0B0D0C",
-        backgroundImage:
-          "radial-gradient(circle at 50% 15%, rgba(212, 175, 55, 0.12) 0%, transparent 60%), radial-gradient(circle at 80% 85%, rgba(212, 175, 55, 0.04) 0%, transparent 50%)",
-        color: "#F3F4F6",
-        fontFamily: "inherit",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "440px",
-          backgroundColor: "rgba(18, 22, 20, 0.92)",
-          backdropFilter: "blur(20px)",
-          border: "1px solid rgba(212, 175, 55, 0.3)",
-          borderRadius: "24px",
-          padding: "2.5rem 2rem",
-          boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px -5px rgba(212, 175, 55, 0.15)",
-        }}
-      >
-        {/* Brand Header */}
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+    <main className="pos-login-root">
+      <div className="pos-login-card">
+        <div style={{ textAlign: "center", marginBottom: "1.75rem" }}>
           <div
+            aria-hidden="true"
             style={{
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "60px",
-              height: "60px",
-              borderRadius: "18px",
-              background: "linear-gradient(135deg, rgba(212, 175, 55, 0.22) 0%, rgba(184, 151, 46, 0.1) 100%)",
-              border: "1px solid rgba(212, 175, 55, 0.4)",
-              color: "var(--c-gold, #D4AF37)",
+              width: "56px",
+              height: "56px",
+              borderRadius: "16px",
+              background: "var(--c-gold-dim, rgba(37, 99, 235, 0.16))",
+              border: "1px solid var(--pos-border-control, #6c7a76)",
+              color: "var(--pos-accent-text)",
               marginBottom: "1rem",
-              boxShadow: "0 0 24px rgba(212, 175, 55, 0.2)",
             }}
           >
-            <Store size={28} />
-          </div>
-
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              backgroundColor: "rgba(212, 175, 55, 0.1)",
-              color: "var(--c-gold, #D4AF37)",
-              padding: "0.25rem 0.75rem",
-              borderRadius: "999px",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              marginBottom: "0.6rem",
-              border: "1px solid rgba(212, 175, 55, 0.25)",
-            }}
-          >
-            <Sparkles size={12} />
-            <span>Point of Sale Terminal</span>
+            <Store size={26} />
           </div>
 
           <h1
@@ -105,7 +59,7 @@ export default function KasirLoginPage() {
               fontWeight: 600,
               letterSpacing: "-0.01em",
               margin: 0,
-              color: "#FFFFFF",
+              color: "var(--c-ink)",
             }}
           >
             Ela Parfum POS
@@ -113,8 +67,8 @@ export default function KasirLoginPage() {
           <p
             style={{
               fontSize: "0.875rem",
-              color: "#9CA3AF",
-              marginTop: "0.4rem",
+              color: "var(--pos-muted)",
+              marginTop: "0.45rem",
               marginBottom: 0,
             }}
           >
@@ -122,13 +76,13 @@ export default function KasirLoginPage() {
           </p>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div
+            role="alert"
             style={{
-              backgroundColor: "rgba(239, 68, 68, 0.12)",
-              border: "1px solid rgba(239, 68, 68, 0.35)",
-              color: "#FCA5A5",
+              backgroundColor: "var(--pos-soft-danger-bg)",
+              border: "1px solid var(--pos-soft-danger-border)",
+              color: "var(--pos-danger)",
               padding: "0.75rem 1rem",
               borderRadius: "12px",
               fontSize: "0.875rem",
@@ -138,20 +92,20 @@ export default function KasirLoginPage() {
               gap: "0.6rem",
             }}
           >
-            <ShieldCheck size={18} style={{ flexShrink: 0, color: "#EF4444" }} />
+            <ShieldCheck size={18} aria-hidden="true" style={{ flexShrink: 0, color: "var(--pos-danger)" }} />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.15rem" }}>
           <div>
             <label
+              htmlFor="kasir-login-email"
               style={{
                 display: "block",
-                fontSize: "0.8rem",
+                fontSize: "0.82rem",
                 fontWeight: 600,
-                color: "#D1D5DB",
+                color: "var(--c-ink)",
                 marginBottom: "0.45rem",
                 letterSpacing: "0.02em",
               }}
@@ -160,53 +114,38 @@ export default function KasirLoginPage() {
             </label>
             <div style={{ position: "relative" }}>
               <div
+                aria-hidden="true"
                 style={{
                   position: "absolute",
                   left: "1rem",
                   top: "50%",
                   transform: "translateY(-50%)",
-                  color: "#6B7280",
+                  color: "var(--pos-muted)",
                   pointerEvents: "none",
                 }}
               >
                 <Mail size={18} />
               </div>
               <input
+                id="kasir-login-email"
                 type="email"
                 name="email"
                 required
+                autoComplete="email"
                 placeholder="nama@elaparfum.com"
-                style={{
-                  width: "100%",
-                  padding: "0.85rem 1rem 0.85rem 2.85rem",
-                  backgroundColor: "rgba(10, 13, 11, 0.8)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "14px",
-                  color: "#FFFFFF",
-                  fontSize: "0.925rem",
-                  outline: "none",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "var(--c-gold, #D4AF37)";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(212, 175, 55, 0.2)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "rgba(255, 255, 255, 0.12)";
-                  e.target.style.boxShadow = "none";
-                }}
+                className="pos-login-input"
               />
             </div>
           </div>
 
           <div>
             <label
+              htmlFor="kasir-login-password"
               style={{
                 display: "block",
-                fontSize: "0.8rem",
+                fontSize: "0.82rem",
                 fontWeight: 600,
-                color: "#D1D5DB",
+                color: "var(--c-ink)",
                 marginBottom: "0.45rem",
                 letterSpacing: "0.02em",
               }}
@@ -215,42 +154,26 @@ export default function KasirLoginPage() {
             </label>
             <div style={{ position: "relative" }}>
               <div
+                aria-hidden="true"
                 style={{
                   position: "absolute",
                   left: "1rem",
                   top: "50%",
                   transform: "translateY(-50%)",
-                  color: "#6B7280",
+                  color: "var(--pos-muted)",
                   pointerEvents: "none",
                 }}
               >
                 <Lock size={18} />
               </div>
               <input
+                id="kasir-login-password"
                 type="password"
                 name="password"
                 required
+                autoComplete="current-password"
                 placeholder="••••••••"
-                style={{
-                  width: "100%",
-                  padding: "0.85rem 1rem 0.85rem 2.85rem",
-                  backgroundColor: "rgba(10, 13, 11, 0.8)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "14px",
-                  color: "#FFFFFF",
-                  fontSize: "0.925rem",
-                  outline: "none",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "var(--c-gold, #D4AF37)";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(212, 175, 55, 0.2)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "rgba(255, 255, 255, 0.12)";
-                  e.target.style.boxShadow = "none";
-                }}
+                className="pos-login-input"
               />
             </div>
           </div>
@@ -258,54 +181,36 @@ export default function KasirLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            style={{
-              marginTop: "0.5rem",
-              width: "100%",
-              padding: "0.95rem",
-              background: "linear-gradient(135deg, var(--c-gold, #D4AF37) 0%, #B8972E 100%)",
-              color: "#0B0D0C",
-              border: "none",
-              borderRadius: "14px",
-              fontSize: "0.95rem",
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              boxShadow: "0 10px 25px -5px rgba(212, 175, 55, 0.35)",
-              transition: "transform 0.15s, opacity 0.15s",
-              opacity: loading ? 0.75 : 1,
-            }}
+            className="pos-login-submit"
+            style={{ opacity: loading ? 0.75 : 1 }}
           >
             {loading ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={18} aria-hidden="true" className="animate-spin" />
                 <span>Memverifikasi Akses Kasir...</span>
               </>
             ) : (
               <>
                 <span>Buka Terminal Kasir</span>
-                <ArrowRight size={18} />
+                <ArrowRight size={18} aria-hidden="true" />
               </>
             )}
           </button>
         </form>
 
-        {/* Footer info */}
         <div
           style={{
-            marginTop: "2rem",
-            paddingTop: "1.25rem",
-            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+            marginTop: "1.75rem",
+            paddingTop: "1.15rem",
+            borderTop: "1px solid var(--c-border)",
             textAlign: "center",
-            fontSize: "0.75rem",
-            color: "#6B7280",
+            fontSize: "0.78rem",
+            color: "var(--pos-muted)",
           }}
         >
           <span>Multi-Cabang POS: Condet • Rawa Belong • Tangerang</span>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

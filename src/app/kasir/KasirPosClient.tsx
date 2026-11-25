@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   PosInitialData,
   PosProductItem,
@@ -12,10 +12,11 @@ import { kasirLogout } from "./login/actions";
 import KasirMixModal from "./components/KasirMixModal";
 import KasirPaymentModal from "./components/KasirPaymentModal";
 import KasirReceiptModal from "./components/KasirReceiptModal";
+import { useModalFocusTrap } from "./components/useModalFocusTrap";
 import {
   Store,
   Search,
-  Sparkles,
+  LayoutGrid,
   ShoppingBag,
   Plus,
   Minus,
@@ -24,7 +25,6 @@ import {
   Wine,
   Layers,
   Banknote,
-  QrCode,
   Building2,
   LogOut,
   Clock,
@@ -41,11 +41,16 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
+  Moon,
+  Sun,
+  Menu,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme-context";
-import { Moon, Sun } from "lucide-react";
+import "./kasir.css";
+
+const CATEGORY_ORDER = ["BIBIT", "PRODUCT", "BOTTLE", "ALL"] as const;
 
 function getPaginationItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -58,6 +63,20 @@ function getPaginationItems(currentPage: number, totalPages: number) {
     return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
   }
   return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+}
+
+function getTerminalHomeUrl() {
+  if (typeof window !== "undefined" && !window.location.hostname.startsWith("cashier.")) {
+    return "/kasir";
+  }
+  return "/";
+}
+
+function getLoginUrl() {
+  if (typeof window !== "undefined" && !window.location.hostname.startsWith("cashier.")) {
+    return "/kasir/login?force=1";
+  }
+  return "/login?force=1";
 }
 
 interface KasirPosClientProps {
@@ -75,7 +94,7 @@ export default function KasirPosClient({
 }: KasirPosClientProps) {
   const { theme, toggle: toggleTheme } = useTheme();
 
-  // Redirect handling dari Mayar Checkout
+  // Broadcast Mayar checkout completion across tabs and auto-close popup window.
   useEffect(() => {
     if (mayarDone && mayarCode) {
       try {
@@ -93,15 +112,16 @@ export default function KasirPosClient({
     }
   }, [mayarDone, mayarCode]);
 
-  // State Data
   const [data, setData] = useState<PosInitialData | null>(initialData || null);
   const [activeStoreId, setActiveStoreId] = useState<number>(initialData?.activeStoreId || initialStoreId || 1);
+  const activeStoreIdRef = useRef<number>(activeStoreId);
+  activeStoreIdRef.current = activeStoreId;
+
   const [loadingInitial, setLoadingInitial] = useState<boolean>(!initialData);
   const [initError, setInitError] = useState<string | null>(null);
   const [loadingStore, setLoadingStore] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Tab & Search State
   const [activeCategory, setActiveCategory] = useState<"ALL" | "PRODUCT" | "BIBIT" | "BOTTLE">("BIBIT");
   const [bibitCollection, setBibitCollection] = useState<"ALL" | "GLOBAL" | "ARABIAN">("ALL");
   const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "price_asc" | "price_desc" | "stock_desc" | "stock_asc">("name_asc");
@@ -110,12 +130,10 @@ export default function KasirPosClient({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, activeCategory, bibitCollection, sortBy]);
 
-  // Bill / Cart State
   const POS_DRAFT_KEY = "elaparfum_pos_draft_v1";
   const [customerName, setCustomerName] = useState<string>("Customer Toko");
   const [customerPhone, setCustomerPhone] = useState<string>("");
@@ -124,13 +142,65 @@ export default function KasirPosClient({
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
 
-  // 1. Pulihkan draft transaksi aktif dari localStorage saat browser dibuka / di-refresh / crash recovery
+  const [mixingBibit, setMixingBibit] = useState<PosBibitItem | null>(null);
+  const [selectedProductForSize, setSelectedProductForSize] = useState<PosProductItem | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+  const [showStorePicker, setShowStorePicker] = useState<boolean>(false);
+  const [showRecentModal, setShowRecentModal] = useState<boolean>(false);
+  const [showMobileBill, setShowMobileBill] = useState<boolean>(false);
+  const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
+  const [showMobileSubFilters, setShowMobileSubFilters] = useState<boolean>(false);
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderId: number;
+    orderCode: string;
+    paymentMethod: string;
+    cashReceived?: number;
+    cashChange?: number;
+  } | null>(null);
+
+  const storeWrapRef = useRef<HTMLDivElement>(null);
+  const storeTriggerRef = useRef<HTMLButtonElement>(null);
+  const storeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const categoryTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const mobileBillRef = useRef<HTMLElement>(null);
+  const mobileMenuRef = useRef<HTMLElement>(null);
+  const sizeModalRef = useRef<HTMLDivElement>(null);
+  const recentModalRef = useRef<HTMLDivElement>(null);
+
+  const closeMobileBill = useCallback(() => setShowMobileBill(false), []);
+  const closeMobileMenu = useCallback(() => setShowMobileMenu(false), []);
+  const closeSizeModal = useCallback(() => setSelectedProductForSize(null), []);
+  const closeRecentModal = useCallback(() => setShowRecentModal(false), []);
+
+  useModalFocusTrap(showMobileBill, mobileBillRef, { onEscape: closeMobileBill });
+  useModalFocusTrap(showMobileMenu, mobileMenuRef, { onEscape: closeMobileMenu });
+  useModalFocusTrap(Boolean(selectedProductForSize), sizeModalRef, { onEscape: closeSizeModal });
+  useModalFocusTrap(showRecentModal, recentModalRef, { onEscape: closeRecentModal });
+
+  // Clear mobile dialog overlays automatically if viewport expands to desktop split.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const handleViewportChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        setShowMobileBill(false);
+        setShowMobileMenu(false);
+      }
+    };
+    if (mql.matches) {
+      setShowMobileBill(false);
+      setShowMobileMenu(false);
+    }
+    mql.addEventListener("change", handleViewportChange);
+    return () => mql.removeEventListener("change", handleViewportChange);
+  }, []);
+
+  // Restore active draft up to 7 days old for crash or refresh recovery.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(POS_DRAFT_KEY);
       if (raw) {
         const draft = JSON.parse(raw);
-        // Pertahankan draft hingga 7 hari (aman jika PC dimatikan atau browser crash lama)
         if (Date.now() - (draft.updatedAt || 0) < 7 * 24 * 60 * 60 * 1000) {
           let hasContent = false;
           if (typeof draft.customerName === "string" && draft.customerName.trim()) {
@@ -169,9 +239,9 @@ export default function KasirPosClient({
     }
   }, []);
 
-  // 2. Simpan draft transaksi secara otomatis setiap kali ada perubahan data kasir
+  // Skip persisting once an order is already paid so refresh never restores completed receipts.
   useEffect(() => {
-    if (!hasRestoredDraft) return;
+    if (!hasRestoredDraft || completedOrder) return;
 
     const isDefault =
       billItems.length === 0 &&
@@ -199,74 +269,62 @@ export default function KasirPosClient({
     } catch (e) {
       console.error("Gagal menyimpan draft kasir:", e);
     }
-  }, [hasRestoredDraft, customerName, customerPhone, billItems, discountType, discountValue]);
+  }, [hasRestoredDraft, completedOrder, customerName, customerPhone, billItems, discountType, discountValue]);
 
-  // Modals State
-  const [mixingBibit, setMixingBibit] = useState<PosBibitItem | null>(null);
-  const [selectedProductForSize, setSelectedProductForSize] = useState<PosProductItem | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
-  const [showStorePicker, setShowStorePicker] = useState<boolean>(false);
-  const [showRecentModal, setShowRecentModal] = useState<boolean>(false);
-  const [completedOrder, setCompletedOrder] = useState<{
-    orderId: number;
-    orderCode: string;
-    paymentMethod: string;
-    cashReceived?: number;
-    cashChange?: number;
-  } | null>(null);
+  // Apply branch stock delta in-place without reloading catalog metadata.
+  const applyStockDelta = useCallback(
+    (delta: {
+      activeStoreId: number;
+      bibitStocks: Record<number, number>;
+      bottleStocks: Record<number, number>;
+      productStocks: Record<number, number>;
+      recentOrders: any[];
+    }) => {
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          activeStoreId: delta.activeStoreId,
+          recentOrders: delta.recentOrders || prev.recentOrders,
+          bibits: prev.bibits.map((b) => ({
+            ...b,
+            stock_ml: delta.bibitStocks[b.id] !== undefined ? Number(delta.bibitStocks[b.id]) : b.stock_ml,
+          })),
+          bottles: prev.bottles.map((bt) => ({
+            ...bt,
+            stock: delta.bottleStocks[bt.id] !== undefined ? Number(delta.bottleStocks[bt.id]) : bt.stock,
+          })),
+          products: prev.products.map((p) => ({
+            ...p,
+            sizes: p.sizes.map((s) => ({
+              ...s,
+              stock: delta.productStocks[s.id] !== undefined ? Number(delta.productStocks[s.id]) : s.stock,
+            })),
+          })),
+        };
+      });
+    },
+    []
+  );
 
-  // Fast Refresh Stok Cabang via REST Delta (~10 KB payload, <1ms CPU)
-  const refreshStocks = async () => {
-    if (!activeStoreId) return;
+  // Sync branch stocks via lightweight REST delta (~10 KB) to stay under Worker CPU limits.
+  const refreshStocks = useCallback(async () => {
+    const targetStoreId = activeStoreIdRef.current;
+    if (!targetStoreId) return;
     try {
-      const res = await fetch(`/api/kasir/data?mode=stocks&storeId=${activeStoreId}`, {
+      const res = await fetch(`/api/kasir/data?mode=stocks&storeId=${targetStoreId}`, {
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
       if (!res.ok) return;
       const json = await res.json();
-      if (json.success && json.mode === "stocks") {
+      if (json.success && json.mode === "stocks" && activeStoreIdRef.current === targetStoreId) {
         applyStockDelta(json);
       }
-    } catch {
-      // Silent fail
-    }
-  };
+    } catch {}
+  }, [applyStockDelta]);
 
-  // Helper menerapkan delta stok cabang secara real-time in-place (<0.1ms CPU)
-  const applyStockDelta = (delta: {
-    activeStoreId: number;
-    bibitStocks: Record<number, number>;
-    bottleStocks: Record<number, number>;
-    productStocks: Record<number, number>;
-    recentOrders: any[];
-  }) => {
-    setData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        activeStoreId: delta.activeStoreId,
-        recentOrders: delta.recentOrders || prev.recentOrders,
-        bibits: prev.bibits.map((b) => ({
-          ...b,
-          stock_ml: delta.bibitStocks[b.id] !== undefined ? Number(delta.bibitStocks[b.id]) : b.stock_ml,
-        })),
-        bottles: prev.bottles.map((bt) => ({
-          ...bt,
-          stock: delta.bottleStocks[bt.id] !== undefined ? Number(delta.bottleStocks[bt.id]) : bt.stock,
-        })),
-        products: prev.products.map((p) => ({
-          ...p,
-          sizes: p.sizes.map((s) => ({
-            ...s,
-            stock: delta.productStocks[s.id] !== undefined ? Number(delta.productStocks[s.id]) : s.stock,
-          })),
-        })),
-      };
-    });
-  };
-
-  // Fetch initial data on client mount via fast native REST route (/api/kasir/data)
+  // Load initial catalog client-side so SSR stays instant under Worker CPU limits.
   useEffect(() => {
     if (initialData) return;
 
@@ -292,6 +350,7 @@ export default function KasirPosClient({
         const json = await res.json();
         if (json.data) {
           setData(json.data);
+          activeStoreIdRef.current = json.data.activeStoreId;
           setActiveStoreId(json.data.activeStoreId);
         } else {
           setInitError(json.error || "Gagal memuat data kasir.");
@@ -310,7 +369,6 @@ export default function KasirPosClient({
     };
   }, [initialData, initialStoreId]);
 
-  // Clock WIB Real-time
   const [currentTime, setCurrentTime] = useState<string>("");
   useEffect(() => {
     const updateClock = () => {
@@ -328,27 +386,28 @@ export default function KasirPosClient({
     return () => clearInterval(interval);
   }, []);
 
-  // Background Auto-Sync Stok Cabang setiap 60 detik & saat tab kembali aktif (throttled 10s)
+  // Throttle focus sync to 10s so tab switches do not burst Worker CPU.
+  const hasLoadedData = Boolean(data);
   const lastSyncTimeRef = useRef<number>(Date.now());
   useEffect(() => {
-    if (!data) return;
+    if (!hasLoadedData) return;
+    const targetStoreId = activeStoreId;
+
     const syncStock = async () => {
       if (Date.now() - lastSyncTimeRef.current < 10000) return;
       lastSyncTimeRef.current = Date.now();
 
       try {
-        const res = await fetch(`/api/kasir/data?mode=stocks&storeId=${activeStoreId}`, {
+        const res = await fetch(`/api/kasir/data?mode=stocks&storeId=${targetStoreId}`, {
           headers: { Accept: "application/json" },
           cache: "no-store",
         });
         if (!res.ok) return;
         const json = await res.json();
-        if (json.success && json.mode === "stocks") {
+        if (json.success && json.mode === "stocks" && activeStoreIdRef.current === targetStoreId) {
           applyStockDelta(json);
         }
-      } catch {
-        // Silent fail on background poll
-      }
+      } catch {}
     };
 
     const interval = setInterval(syncStock, 60000);
@@ -360,13 +419,13 @@ export default function KasirPosClient({
       clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [data, activeStoreId]);
+  }, [hasLoadedData, activeStoreId, applyStockDelta]);
 
-  // Manual Trigger Sync Stok via REST API
   const handleManualSync = async () => {
+    const targetStoreId = activeStoreId;
     setIsSyncing(true);
     try {
-      const res = await fetch(`/api/kasir/data?mode=stocks&storeId=${activeStoreId}`, {
+      const res = await fetch(`/api/kasir/data?mode=stocks&storeId=${targetStoreId}`, {
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
@@ -375,10 +434,10 @@ export default function KasirPosClient({
         return;
       }
       const json = await res.json();
-      if (json.success && json.mode === "stocks") {
+      if (json.success && json.mode === "stocks" && activeStoreIdRef.current === targetStoreId) {
         applyStockDelta(json);
-        toast.success(`Stok Cabang ${activeStore?.name} berhasil disinkronkan real-time.`);
-      } else {
+        toast.success(`Stok ${activeStore?.name ? `Cabang ${activeStore.name}` : "cabang"} berhasil disinkronkan real-time.`);
+      } else if (!json.success) {
         toast.error(json.error || "Gagal menyinkronkan data stok.");
       }
     } catch {
@@ -388,52 +447,101 @@ export default function KasirPosClient({
     }
   };
 
-  // Keyboard Shortcuts
+  // Dismiss store selector dropdown cleanly on outside pointer click, focusout, Tab, or Escape.
+  useEffect(() => {
+    if (!showStorePicker) return;
+
+    const selectedIdx = data?.stores.findIndex((s) => s.id === activeStoreId) ?? 0;
+    const focusIdx = selectedIdx >= 0 ? selectedIdx : 0;
+    storeOptionRefs.current[focusIdx]?.focus();
+
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      if (storeWrapRef.current && !storeWrapRef.current.contains(e.target as Node)) {
+        setShowStorePicker(false);
+      }
+    };
+    const handleFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null;
+      if (storeWrapRef.current && next && !storeWrapRef.current.contains(next)) {
+        setShowStorePicker(false);
+      }
+    };
+    const handleDropdownKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setShowStorePicker(false);
+        storeTriggerRef.current?.focus();
+      } else if (e.key === "Tab") {
+        setShowStorePicker(false);
+      }
+    };
+    const wrapEl = storeWrapRef.current;
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    wrapEl?.addEventListener("focusout", handleFocusOut);
+    window.addEventListener("keydown", handleDropdownKey, true);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      wrapEl?.removeEventListener("focusout", handleFocusOut);
+      window.removeEventListener("keydown", handleDropdownKey, true);
+    };
+  }, [showStorePicker, data?.stores, activeStoreId]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F1: Focus Search
+      const anyOverlayOpen = Boolean(
+        completedOrder ||
+          selectedProductForSize ||
+          showRecentModal ||
+          showPaymentModal ||
+          mixingBibit ||
+          showMobileMenu ||
+          showMobileBill ||
+          showStorePicker
+      );
+      if (anyOverlayOpen) return;
+
       if (e.key === "F1") {
         e.preventDefault();
         searchInputRef.current?.focus();
-      }
-      // F2: Tab Bibit
-      if (e.key === "F2") {
+      } else if (e.key === "F2") {
         e.preventDefault();
         setActiveCategory("BIBIT");
-      }
-      // F3: Tab Produk Jadi
-      if (e.key === "F3") {
+      } else if (e.key === "F3") {
         e.preventDefault();
         setActiveCategory("PRODUCT");
-      }
-      // F4: Bayar Tunai
-      if (e.key === "F4" && billItems.length > 0 && !showPaymentModal && !mixingBibit) {
+      } else if (e.key === "F4" && billItems.length > 0) {
         e.preventDefault();
+        setShowMobileBill(false);
         setShowPaymentModal(true);
-      }
-      // Escape: Close Modals
-      if (e.key === "Escape") {
-        if (selectedProductForSize) setSelectedProductForSize(null);
-        if (mixingBibit) setMixingBibit(null);
-        if (showPaymentModal) setShowPaymentModal(false);
-        if (showStorePicker) setShowStorePicker(false);
-        if (showRecentModal) setShowRecentModal(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [billItems, showPaymentModal, mixingBibit, selectedProductForSize, showStorePicker, showRecentModal]);
+  }, [
+    billItems.length,
+    completedOrder,
+    selectedProductForSize,
+    showRecentModal,
+    showPaymentModal,
+    mixingBibit,
+    showMobileMenu,
+    showMobileBill,
+    showStorePicker,
+  ]);
 
-  // Cabang Toko Aktif
   const activeStore = useMemo(() => {
     if (!data) return null;
     return data.stores.find((s) => s.id === activeStoreId) || data.stores[0];
   }, [data, activeStoreId]);
 
-  // Switch Branch via Ultra-Fast REST Delta (~10 KB payload, <1ms CPU)
+  // Switch branch via REST delta (~10 KB payload, <1ms CPU).
   const handleSwitchStore = async (storeId: number) => {
     if (storeId === activeStoreId) {
       setShowStorePicker(false);
+      storeTriggerRef.current?.focus();
       return;
     }
     setLoadingStore(true);
@@ -452,8 +560,9 @@ export default function KasirPosClient({
 
       const json = await res.json();
       if (json.success && json.mode === "stocks") {
-        applyStockDelta(json);
+        activeStoreIdRef.current = storeId;
         setActiveStoreId(storeId);
+        applyStockDelta(json);
         const storeName = data?.stores.find((s) => s.id === storeId)?.name || `#${storeId}`;
         toast.success(`Beralih ke Cabang ${storeName}`);
       } else {
@@ -463,13 +572,21 @@ export default function KasirPosClient({
       toast.error("Terjadi kesalahan saat memuat data cabang.");
     } finally {
       setLoadingStore(false);
+      requestAnimationFrame(() => {
+        storeTriggerRef.current?.focus();
+      });
     }
   };
 
-  // Kalkulasi Subtotal & Diskon
   const subtotal = useMemo(() => {
     return billItems.reduce((acc, it) => acc + it.subtotal, 0);
   }, [billItems]);
+
+  const totalBillQty = useMemo(() => {
+    return billItems.reduce((acc, it) => acc + it.quantity, 0);
+  }, [billItems]);
+
+  const hasActiveSubFilter = bibitCollection !== "ALL" || sortBy !== "name_asc";
 
   const discountAmount = useMemo(() => {
     if (discountType === "nominal") return Math.min(subtotal, Math.max(0, discountValue));
@@ -478,10 +595,8 @@ export default function KasirPosClient({
 
   const grandTotal = Math.max(0, subtotal - discountAmount);
 
-  // Tambah Item ke Bill
   const handleAddToCart = (item: PosBillItem) => {
     setBillItems((prev) => {
-      // Cek apakah item regular/botol yang sama sudah ada di bill
       if (item.type === "product" && item.meta.sizeId) {
         const existingIdx = prev.findIndex((p) => p.meta.sizeId === item.meta.sizeId);
         if (existingIdx >= 0) {
@@ -512,7 +627,6 @@ export default function KasirPosClient({
     toast.success(`Ditambahkan ke Bill: ${item.title}`);
   };
 
-  // Ubah Qty Item
   const handleUpdateQty = (index: number, delta: number) => {
     setBillItems((prev) => {
       const updated = [...prev];
@@ -529,14 +643,20 @@ export default function KasirPosClient({
     });
   };
 
-  // Hapus Item
   const handleRemoveItem = (index: number) => {
     setBillItems((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  // Reset Bill (Tanpa alert browser, didukung aksi Undo / Batalkan)
+  // Use non-blocking toast with Undo instead of native confirm().
   const handleClearBill = () => {
-    if (billItems.length === 0 && (customerName === "Customer Toko" || !customerName) && !customerPhone) return;
+    if (
+      billItems.length === 0 &&
+      (customerName === "Customer Toko" || !customerName) &&
+      !customerPhone &&
+      discountValue === 0
+    ) {
+      return;
+    }
 
     const prevItems = [...billItems];
     const prevName = customerName;
@@ -568,7 +688,6 @@ export default function KasirPosClient({
     });
   };
 
-  // Add Regular Perfume with Size
   const handleAddProductSize = (prod: PosProductItem, size: PosProductItem["sizes"][0]) => {
     const item: PosBillItem = {
       type: "product",
@@ -587,7 +706,6 @@ export default function KasirPosClient({
     setSelectedProductForSize(null);
   };
 
-  // Add Bottle directly
   const handleAddBottle = (bt: PosBottleItem) => {
     const item: PosBillItem = {
       type: "bottle",
@@ -605,7 +723,6 @@ export default function KasirPosClient({
     handleAddToCart(item);
   };
 
-  // Counts per collection for segmented badges
   const bibitCounts = useMemo(() => {
     if (!data) return { all: 0, global: 0, arabian: 0 };
     let global = 0;
@@ -622,7 +739,6 @@ export default function KasirPosClient({
     };
   }, [data]);
 
-  // Filter Catalog
   const filteredProducts = useMemo(() => {
     if (!data) return [];
     if (!searchQuery.trim()) return data.products;
@@ -636,7 +752,6 @@ export default function KasirPosClient({
     if (!data) return [];
     let list = data.bibits;
 
-    // Filter Collection
     if (bibitCollection === "GLOBAL") {
       list = list.filter((b) => (b.collection || "").toLowerCase().includes("global"));
     } else if (bibitCollection === "ARABIAN") {
@@ -647,7 +762,6 @@ export default function KasirPosClient({
       );
     }
 
-    // Filter Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -658,7 +772,6 @@ export default function KasirPosClient({
       );
     }
 
-    // Sort
     return [...list].sort((a, b) => {
       if (sortBy === "name_asc") return a.name.localeCompare(b.name);
       if (sortBy === "name_desc") return b.name.localeCompare(a.name);
@@ -677,7 +790,6 @@ export default function KasirPosClient({
     return data.bottles.filter((bt) => bt.name.toLowerCase().includes(q));
   }, [data, searchQuery]);
 
-  // Unified Catalog for "ALL" Tab
   const unifiedCatalog = useMemo(() => {
     const list: Array<
       | { kind: "bibit"; item: PosBibitItem }
@@ -690,7 +802,6 @@ export default function KasirPosClient({
     return list;
   }, [filteredBibits, filteredProducts, filteredBottles]);
 
-  // Active Catalog Items & Pagination Calculation
   const totalItems = useMemo(() => {
     if (activeCategory === "BIBIT") return filteredBibits.length;
     if (activeCategory === "PRODUCT") return filteredProducts.length;
@@ -700,7 +811,6 @@ export default function KasirPosClient({
 
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
-  // Slices for current page
   const paginatedBibits = useMemo(() => {
     if (activeCategory !== "BIBIT") return [];
     const start = (currentPage - 1) * itemsPerPage;
@@ -727,27 +837,16 @@ export default function KasirPosClient({
 
   if (mayarDone) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "var(--c-bg, #0a0c0b)",
-          color: "var(--c-ink, #ffffff)",
-          padding: "2rem",
-          textAlign: "center",
-        }}
-      >
+      <main className="pos-fallback-screen pos-root" style={{ height: "auto" }}>
+        <h1 className="sr-only">Ela Parfum POS Status Pembayaran</h1>
         <div
           style={{
             maxWidth: "460px",
             width: "100%",
-            background: "var(--c-surface-1, #111614)",
-            border: "1px solid var(--c-border)",
+            background: "var(--pos-surface-modal)",
+            border: "1px solid var(--pos-border-control)",
             borderRadius: "20px",
-            padding: "2.5rem 2rem",
+            padding: "2rem 1.5rem",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -755,16 +854,17 @@ export default function KasirPosClient({
           }}
         >
           <div
+            aria-hidden="true"
             style={{
               width: "72px",
               height: "72px",
               borderRadius: "50%",
-              backgroundColor: "rgba(16, 185, 129, 0.15)",
-              border: "2px solid #10b981",
+              backgroundColor: "var(--pos-soft-success-bg)",
+              border: "2px solid var(--pos-success)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#10b981",
+              color: "var(--pos-success)",
               marginBottom: "1.25rem",
             }}
           >
@@ -774,10 +874,10 @@ export default function KasirPosClient({
           <h2
             style={{
               fontFamily: "var(--font-display, serif)",
-              fontSize: "1.75rem",
+              fontSize: "1.65rem",
               fontWeight: 700,
               margin: "0 0 0.5rem",
-              color: "#10b981",
+              color: "var(--pos-success)",
             }}
           >
             Pembayaran Mayar Berhasil!
@@ -785,7 +885,7 @@ export default function KasirPosClient({
 
           <p
             style={{
-              color: "var(--c-ink-muted)",
+              color: "var(--pos-muted)",
               fontSize: "0.95rem",
               lineHeight: 1.5,
               margin: "0 0 1.5rem",
@@ -801,723 +901,543 @@ export default function KasirPosClient({
                 if (window.opener) {
                   window.close();
                 } else {
-                  window.location.href = "/";
+                  window.location.href = getTerminalHomeUrl();
                 }
               }
             }}
-            style={{
-              width: "100%",
-              padding: "0.85rem",
-              borderRadius: "12px",
-              background: "var(--c-gold)",
-              color: "#ffffff",
-              fontWeight: 700,
-              fontSize: "0.95rem",
-              border: "none",
-              cursor: "pointer",
-            }}
+            className="pos-btn-primary"
+            style={{ width: "100%" }}
           >
             Tutup Tab & Kembali ke Terminal
           </button>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (!data) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "var(--c-bg, #0a0c0b)",
-          color: "var(--c-ink, #f0ede8)",
-          gap: "1.25rem",
-          padding: "2rem",
-          textAlign: "center",
-        }}
-      >
+      <main className="pos-fallback-screen pos-root" style={{ height: "auto" }}>
+        <h1 className="sr-only">Ela Parfum Kasir</h1>
         {loadingInitial ? (
           <>
             <RefreshCw
               size={36}
-              style={{
-                color: "var(--c-gold, #c5a880)",
-                animation: "spin 1.2s linear infinite",
-              }}
+              aria-hidden="true"
+              className="animate-spin"
+              style={{ color: "var(--pos-accent-text)" }}
             />
             <h2
               style={{
-                fontFamily: "var(--font-serif, serif)",
+                fontFamily: "var(--font-display, serif)",
                 fontSize: "1.5rem",
-                color: "var(--c-gold, #c5a880)",
+                color: "var(--pos-accent-text)",
                 margin: 0,
               }}
             >
               Ela Parfum Kasir
             </h2>
-            <p style={{ color: "var(--c-ink-muted, #9ca3af)", fontSize: "0.9rem", margin: 0 }}>
+            <p style={{ color: "var(--pos-muted)", fontSize: "0.9rem", margin: 0 }}>
               Menghubungkan ke terminal POS cabang...
             </p>
           </>
         ) : (
           <>
-            <Building2 size={40} style={{ color: "#ef4444" }} />
-            <h3 style={{ fontSize: "1.1rem", margin: 0, color: "var(--c-ink, #f3f4f6)" }}>
+            <Building2 size={40} aria-hidden="true" style={{ color: "var(--pos-danger)" }} />
+            <h2 style={{ fontSize: "1.1rem", margin: 0, color: "var(--c-ink)" }}>
               {initError || "Gagal Membuka Terminal Kasir"}
-            </h3>
-            <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
+            </h2>
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
               <button
+                type="button"
                 onClick={() => window.location.reload()}
-                style={{
-                  padding: "0.6rem 1.2rem",
-                  borderRadius: "8px",
-                  backgroundColor: "var(--c-gold, #c5a880)",
-                  color: "#ffffff",
-                  fontWeight: 600,
-                  border: "none",
-                  cursor: "pointer",
-                }}
+                className="pos-btn-primary"
               >
                 Muat Ulang
               </button>
               <button
+                type="button"
                 onClick={() => {
-                  window.location.href = "/login?force=1";
+                  window.location.href = getLoginUrl();
                 }}
-                style={{
-                  padding: "0.6rem 1.2rem",
-                  borderRadius: "8px",
-                  backgroundColor: "rgba(255, 255, 255, 0.08)",
-                  color: "#f3f4f6",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  cursor: "pointer",
-                }}
+                className="pos-btn-secondary"
               >
                 Login Ulang
               </button>
             </div>
           </>
         )}
-      </div>
+      </main>
     );
   }
 
-  // Helper renderers for Catalog Grid
   const renderBibitCard = (b: PosBibitItem) => (
-    <div
+    <button
       key={`bibit-${b.id}`}
+      type="button"
       onClick={() => setMixingBibit(b)}
-      style={{
-        backgroundColor: "var(--c-surface-2, #181e1c)",
-        border: "1px solid var(--c-border)",
-        borderRadius: "14px",
-        padding: "1rem",
-        cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        transition: "transform 0.15s, border-color 0.15s, box-shadow 0.15s",
-        position: "relative",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--c-gold, #3b82f6)";
-        e.currentTarget.style.transform = "translateY(-2px)";
-        e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.5)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "var(--c-border)";
-        e.currentTarget.style.transform = "none";
-        e.currentTarget.style.boxShadow = "none";
-      }}
+      className="pos-card pos-card--bibit"
     >
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+      <span className="pos-card-body">
+        <span className="pos-card-top">
           <span
+            className="pos-card-badge"
             style={{
-              fontSize: "0.7rem",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              padding: "2px 6px",
-              borderRadius: "4px",
               background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
-              color: "var(--c-gold-light, #60a5fa)",
+              color: "var(--pos-accent-text)",
             }}
           >
             Bibit Racik
           </span>
-          <span style={{ fontSize: "0.75rem", color: b.stock_ml < 500 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+          <span
+            className="pos-card-stock"
+            style={{
+              color: b.stock_ml < 500 ? "var(--pos-danger)" : "var(--pos-success)",
+            }}
+          >
             {b.stock_ml.toLocaleString("id-ID")} ml
           </span>
-        </div>
+        </span>
 
-        <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
-          {b.name}
-        </h4>
-        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
+        <span className="pos-card-title">{b.name}</span>
+        <span className="pos-card-meta">
           {b.collection} • {b.main_accord || "Artisan"}
         </span>
-      </div>
+      </span>
 
-      <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
-        <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
+      <span className="pos-card-footer">
+        <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--pos-accent-text)" }}>
           {formatRupiah(b.price_per_ml)}
-          <small style={{ fontSize: "0.7rem", color: "var(--c-ink-dim)", fontWeight: 500 }}>/ml</small>
+          <small style={{ fontSize: "0.7rem", color: "var(--pos-muted)", fontWeight: 500 }}>/ml</small>
         </span>
-        <button
-          type="button"
+        <span
+          className="pos-card-cta"
           style={{
-            padding: "5px 10px",
-            background: "var(--c-gold, #3b82f6)",
+            background: "var(--pos-accent-bg)",
             color: "#ffffff",
-            border: "none",
-            borderRadius: "8px",
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
           }}
         >
-          <Plus size={12} />
+          <Plus size={12} aria-hidden="true" />
           <span>Racik</span>
-        </button>
-      </div>
-    </div>
+        </span>
+      </span>
+    </button>
   );
 
   const renderProductCard = (p: PosProductItem) => {
     const totalStock = p.sizes.reduce((sum, s) => sum + s.stock, 0);
     const minPrice = p.sizes[0]?.price || 0;
     return (
-      <div
+      <button
         key={`prod-${p.id}`}
+        type="button"
         onClick={() => setSelectedProductForSize(p)}
-        style={{
-          backgroundColor: "var(--c-surface-2, #181e1c)",
-          border: "1px solid var(--c-border)",
-          borderRadius: "14px",
-          padding: "1rem",
-          cursor: "pointer",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          transition: "transform 0.15s, border-color 0.15s",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = "var(--c-teal, #0ea5e9)";
-          e.currentTarget.style.transform = "translateY(-2px)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = "var(--c-border)";
-          e.currentTarget.style.transform = "none";
-        }}
+        className="pos-card pos-card--product"
       >
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <span className="pos-card-body">
+          <span className="pos-card-top">
             <span
+              className="pos-card-badge"
               style={{
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                background: "rgba(14, 165, 233, 0.15)",
-                color: "#38bdf8",
+                background: "var(--c-teal-dim, rgba(14, 165, 233, 0.15))",
+                color: "var(--pos-info-text)",
               }}
             >
               Produk Jadi
             </span>
-            <span style={{ fontSize: "0.75rem", color: totalStock <= 0 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+            <span
+              className="pos-card-stock"
+              style={{
+                color: totalStock <= 0 ? "var(--pos-danger)" : "var(--pos-success)",
+              }}
+            >
               Stok: {totalStock} pcs
             </span>
-          </div>
+          </span>
 
-          <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
-            {p.name}
-          </h4>
-          <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
+          <span className="pos-card-title">{p.name}</span>
+          <span className="pos-card-meta">
             {p.collection} ({p.sizes.length} varian ukuran)
           </span>
-        </div>
+        </span>
 
-        <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
-          <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#38bdf8" }}>
+        <span className="pos-card-footer">
+          <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--pos-info-text)" }}>
             Mulai {formatRupiah(minPrice)}
           </span>
-          <button
-            type="button"
+          <span
+            className="pos-card-cta"
             style={{
-              padding: "5px 10px",
-              background: "var(--c-teal, #0ea5e9)",
+              background: "var(--pos-info-bg)",
               color: "#ffffff",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
             }}
           >
-            <Plus size={12} />
+            <Plus size={12} aria-hidden="true" />
             <span>Pilih</span>
-          </button>
-        </div>
-      </div>
+          </span>
+        </span>
+      </button>
     );
   };
 
   const renderBottleCard = (bt: PosBottleItem) => (
-    <div
+    <button
       key={`bottle-${bt.id}`}
+      type="button"
       onClick={() => handleAddBottle(bt)}
-      style={{
-        backgroundColor: "var(--c-surface-2, #181e1c)",
-        border: "1px solid var(--c-border)",
-        borderRadius: "14px",
-        padding: "1rem",
-        cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        transition: "transform 0.15s, border-color 0.15s",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--c-border-mid)";
-        e.currentTarget.style.transform = "translateY(-2px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "var(--c-border)";
-        e.currentTarget.style.transform = "none";
-      }}
+      className="pos-card pos-card--bottle"
     >
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+      <span className="pos-card-body">
+        <span className="pos-card-top">
           <span
+            className="pos-card-badge"
             style={{
-              fontSize: "0.7rem",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              padding: "2px 6px",
-              borderRadius: "4px",
-              background: "rgba(255, 255, 255, 0.08)",
-              color: "var(--c-ink-muted)",
+              background: "var(--pos-surface-subtle)",
+              color: "var(--pos-muted)",
             }}
           >
             Botol Kemasan
           </span>
-          <span style={{ fontSize: "0.75rem", color: bt.stock < 10 ? "#f87171" : "#34d399", fontWeight: 600 }}>
+          <span
+            className="pos-card-stock"
+            style={{
+              color: bt.stock < 10 ? "var(--pos-danger)" : "var(--pos-success)",
+            }}
+          >
             Stok: {bt.stock} pcs
           </span>
-        </div>
-
-        <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 4px", color: "var(--c-ink, #ffffff)", lineHeight: 1.3 }}>
-          {bt.name}
-        </h4>
-        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block" }}>
-          Kapasitas {bt.capacity_ml}ml
         </span>
-      </div>
 
-      <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.6rem" }}>
+        <span className="pos-card-title">{bt.name}</span>
+        <span className="pos-card-meta">Kapasitas {bt.capacity_ml}ml</span>
+      </span>
+
+      <span className="pos-card-footer">
         <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-ink)" }}>
           {formatRupiah(bt.price)}
         </span>
-        <button
-          type="button"
+        <span
+          className="pos-card-cta"
           style={{
-            padding: "5px 10px",
-            background: "var(--c-surface-3, #1f2724)",
-            color: "var(--c-ink, #ffffff)",
-            border: "1px solid var(--c-border)",
-            borderRadius: "8px",
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
+            background: "var(--pos-surface-control)",
+            color: "var(--c-ink)",
+            border: "1px solid var(--pos-border-control)",
           }}
         >
-          <Plus size={12} />
+          <Plus size={12} aria-hidden="true" />
           <span>Beli</span>
-        </button>
-      </div>
-    </div>
+        </span>
+      </span>
+    </button>
   );
 
+  const handleCategoryTabKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    let nextIdx: number | null = null;
+    if (e.key === "ArrowRight") {
+      nextIdx = (idx + 1) % CATEGORY_ORDER.length;
+    } else if (e.key === "ArrowLeft") {
+      nextIdx = (idx - 1 + CATEGORY_ORDER.length) % CATEGORY_ORDER.length;
+    } else if (e.key === "Home") {
+      nextIdx = 0;
+    } else if (e.key === "End") {
+      nextIdx = CATEGORY_ORDER.length - 1;
+    }
+    if (nextIdx !== null) {
+      e.preventDefault();
+      setActiveCategory(CATEGORY_ORDER[nextIdx]);
+      categoryTabRefs.current[nextIdx]?.focus();
+    }
+  };
+
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        backgroundColor: "var(--c-bg, #0a0c0b)",
-        color: "var(--c-ink, #f0ede8)",
-        fontFamily: "inherit",
-        overflow: "hidden",
-      }}
-    >
-      {/* ─────────────────────────────────────────────────── */}
-      {/* TOP HEADER / STATUS BAR                            */}
-      {/* ─────────────────────────────────────────────────── */}
-      <header
-        style={{
-          height: "64px",
-          padding: "0 1.25rem",
-          backgroundColor: "var(--c-surface-1, #111614)",
-          borderBottom: "1px solid var(--c-border, rgba(255, 255, 255, 0.08))",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexShrink: 0,
-        }}
-      >
-        {/* Brand & Store Selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background: "var(--c-gold-dim, rgba(59, 130, 246, 0.12))",
-                border: "1px solid var(--c-gold, #3b82f6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--c-gold, #3b82f6)",
-              }}
-            >
+    <div className="pos-root">
+      <header className="pos-header">
+        <div className="pos-header-left">
+          <div className="pos-brand">
+            <div className="pos-brand-icon" aria-hidden="true">
               <Store size={18} />
             </div>
-            <div>
-              <span
-                style={{
-                  fontSize: "1.2rem",
-                  fontWeight: 700,
-                  color: "var(--c-ink, #ffffff)",
-                  fontFamily: "var(--font-display, serif)",
-                  letterSpacing: "0.02em",
-                }}
-              >
-                ELA PARFUM POS
-              </span>
-            </div>
+            <span className="pos-brand-title">ELA PARFUM POS</span>
           </div>
 
-          {/* Store Switcher Pill */}
-          <div style={{ position: "relative" }}>
-            <button
-              type="button"
-              onClick={() => setShowStorePicker(!showStorePicker)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.4rem 0.85rem",
-                borderRadius: "999px",
-                background: "var(--c-surface-2, #181e1c)",
-                border: "1px solid var(--c-border-mid, rgba(255, 255, 255, 0.13))",
-                color: "var(--c-gold-light, #60a5fa)",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <MapPin size={13} />
-              <span>Cabang {activeStore?.name}</span>
-              {data.stores.length > 1 && <ChevronDown size={14} />}
-            </button>
-
-            {/* Store Dropdown */}
-            {showStorePicker && data.stores.length > 1 && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: "calc(100% + 8px)",
-                  backgroundColor: "var(--c-surface-1, #111614)",
-                  border: "1px solid var(--c-border-mid, rgba(255, 255, 255, 0.13))",
-                  borderRadius: "14px",
-                  padding: "0.5rem",
-                  width: "220px",
-                  zIndex: 300,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.7)",
-                }}
+          <div className="pos-store-wrap" ref={storeWrapRef}>
+            {data.stores.length > 1 ? (
+              <button
+                ref={storeTriggerRef}
+                type="button"
+                disabled={loadingStore}
+                onClick={() => setShowStorePicker((v) => !v)}
+                aria-expanded={showStorePicker}
+                aria-haspopup="listbox"
+                aria-label={`Cabang aktif: ${activeStore?.name || "Pilih Cabang"}`}
+                className="pos-store-pill"
+                style={{ opacity: loadingStore ? 0.65 : 1 }}
               >
-                <div style={{ fontSize: "0.7rem", color: "var(--c-ink-dim, #5a6662)", padding: "4px 8px", textTransform: "uppercase", fontWeight: 700 }}>
+                <MapPin size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                <span className="pos-store-pill-text">
+                  {loadingStore
+                    ? "Memuat cabang..."
+                    : activeStore?.name
+                    ? `Cabang ${activeStore.name}`
+                    : "Pilih Cabang"}
+                </span>
+                <ChevronDown size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
+              </button>
+            ) : (
+              <div className="pos-store-pill">
+                <MapPin size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                <span className="pos-store-pill-text">
+                  {activeStore?.name ? `Cabang ${activeStore.name}` : "Cabang Utama"}
+                </span>
+              </div>
+            )}
+
+            {showStorePicker && data.stores.length > 1 && (
+              <div className="pos-store-dropdown">
+                <div
+                  id="pos-store-listbox-label"
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--pos-muted)",
+                    padding: "4px 8px",
+                    textTransform: "uppercase",
+                    fontWeight: 700,
+                  }}
+                >
                   Ganti Cabang Shift:
                 </div>
-                {data.stores.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => handleSwitchStore(s.id)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      background: s.id === activeStoreId ? "var(--c-gold-dim, rgba(59, 130, 246, 0.12))" : "transparent",
-                      color: s.id === activeStoreId ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink, #ffffff)",
-                      border: "none",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                  >
-                    <span>{s.name}</span>
-                    {s.id === activeStoreId && <Check size={14} color="var(--c-gold, #3b82f6)" />}
-                  </button>
-                ))}
+                <div role="listbox" aria-labelledby="pos-store-listbox-label">
+                  {data.stores.map((s, idx) => (
+                    <button
+                      key={s.id}
+                      ref={(el) => {
+                        storeOptionRefs.current[idx] = el;
+                      }}
+                      type="button"
+                      role="option"
+                      aria-selected={s.id === activeStoreId}
+                      onClick={() => handleSwitchStore(s.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          storeOptionRefs.current[(idx + 1) % data.stores.length]?.focus();
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          storeOptionRefs.current[(idx - 1 + data.stores.length) % data.stores.length]?.focus();
+                        }
+                      }}
+                      className={`pos-store-option ${s.id === activeStoreId ? "is-selected" : ""}`}
+                    >
+                      <span>{s.name}</span>
+                      {s.id === activeStoreId && <Check size={14} aria-hidden="true" color="var(--pos-accent-text)" />}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Center Clock & Shortcuts */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "var(--c-ink)", background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "4px 12px", borderRadius: "8px" }}>
-            <Clock size={14} color="var(--c-gold, #F59E0B)" />
+        <div className="pos-header-center">
+          <div className="pos-clock-pill">
+            <Clock size={14} aria-hidden="true" color="var(--pos-warn)" />
             <span style={{ fontWeight: 600 }}>{currentTime}</span>
           </div>
 
-          <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>
-            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F1: Cari</span>
-            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F2: Bibit</span>
-            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F3: Produk</span>
-            <span style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border)", padding: "2px 6px", borderRadius: 4 }}>F4: Bayar</span>
+          <div className="pos-shortcuts">
+            <span className="pos-shortcut-chip">F1: Cari</span>
+            <span className="pos-shortcut-chip">F2: Bibit</span>
+            <span className="pos-shortcut-chip">F3: Produk</span>
+            <span className="pos-shortcut-chip">F4: Bayar</span>
           </div>
         </div>
 
-        {/* Right User & Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {/* Sinkron Stok Button */}
+        <div className="pos-header-right">
           <button
             type="button"
             onClick={handleManualSync}
             disabled={isSyncing}
+            aria-label={isSyncing ? "Menyinkronkan stok cabang" : "Sinkronkan stok cabang"}
             title="Segarkan & Sinkronkan Stok Cabang Real-time"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: "var(--c-surface-2)",
-              border: "1px solid var(--c-border)",
-              color: "var(--c-ink)",
-              padding: "0.4rem 0.8rem",
-              borderRadius: "10px",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              cursor: isSyncing ? "not-allowed" : "pointer",
-              transition: "all 0.15s ease",
-            }}
+            className="pos-header-action-btn pos-header-action-btn--sync"
           >
-            <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} style={{ color: "var(--c-gold)" }} />
-            <span>{isSyncing ? "Sinkron..." : "Sinkron Stok"}</span>
+            <RefreshCw
+              size={14}
+              aria-hidden="true"
+              className={isSyncing ? "animate-spin" : ""}
+              style={{ color: "var(--pos-accent-text)" }}
+            />
+            <span className="pos-btn-label">{isSyncing ? "Sinkron..." : "Sinkron Stok"}</span>
           </button>
 
-          {/* Riwayat Shift Button */}
           <button
             type="button"
             onClick={() => setShowRecentModal(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: "var(--c-surface-2)",
-              border: "1px solid var(--c-border)",
-              color: "var(--c-ink)",
-              padding: "0.4rem 0.85rem",
-              borderRadius: "10px",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="pos-header-action-btn pos-header-desktop-only"
           >
-            <History size={14} />
+            <History size={14} aria-hidden="true" />
             <span>Shift Hari Ini</span>
           </button>
 
-          {/* Theme Toggle Button */}
           <button
             type="button"
             onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Ganti ke Mode Terang" : "Ganti ke Mode Gelap"}
             title={theme === "dark" ? "Ganti ke Mode Terang (Light)" : "Ganti ke Mode Gelap (Dark)"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "34px",
-              height: "34px",
-              borderRadius: "10px",
-              background: "var(--c-surface-2)",
-              border: "1px solid var(--c-border-mid)",
-              color: "var(--c-gold)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
+            className="pos-theme-btn"
           >
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
           </button>
 
-          {/* Cashier Chip */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 10px", borderRadius: "10px", background: "var(--c-surface-2)", border: "1px solid var(--c-border)" }}>
-            <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--c-gold)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.75rem" }}>
-              {data.user.full_name?.charAt(0) || "K"}
-            </div>
-            <div style={{ fontSize: "0.8rem" }}>
-              <span style={{ fontWeight: 700, color: "var(--c-ink)", display: "block", lineHeight: 1.1 }}>{data.user.full_name}</span>
-              <span style={{ fontSize: "0.7rem", color: "var(--c-ink-muted)" }}>{data.user.role}</span>
-            </div>
-          </div>
-
-          {/* Logout */}
-          <form action={kasirLogout}>
-            <button
-              type="submit"
-              title="Keluar dari Terminal Kasir"
+          <div className="pos-cashier-chip pos-header-desktop-only">
+            <div
+              aria-hidden="true"
               style={{
-                background: "rgba(239, 68, 68, 0.12)",
-                border: "1px solid rgba(239, 68, 68, 0.25)",
-                color: "#F87171",
-                padding: "0.45rem",
-                borderRadius: "10px",
-                cursor: "pointer",
+                width: 26,
+                height: 26,
+                borderRadius: "50%",
+                background: "var(--pos-accent-bg)",
+                color: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                fontWeight: 800,
+                fontSize: "0.75rem",
+                flexShrink: 0,
               }}
             >
-              <LogOut size={16} />
+              {data.user.full_name?.charAt(0) || "K"}
+            </div>
+            <div style={{ fontSize: "0.8rem", minWidth: 0 }}>
+              <span className="pos-cashier-name">{data.user.full_name}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--pos-muted)" }}>{data.user.role}</span>
+            </div>
+          </div>
+
+          <form action={kasirLogout} className="pos-header-desktop-only">
+            <button
+              type="submit"
+              aria-label="Keluar dari Terminal Kasir"
+              title="Keluar dari Terminal Kasir"
+              className="pos-logout-btn"
+            >
+              <LogOut size={16} aria-hidden="true" />
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={() => setShowMobileMenu(true)}
+            aria-label="Buka menu kasir"
+            aria-expanded={showMobileMenu}
+            className="pos-mobile-menu-btn"
+          >
+            <Menu size={16} aria-hidden="true" />
+            <span>Menu</span>
+          </button>
         </div>
       </header>
 
-      {/* ─────────────────────────────────────────────────── */}
-      {/* MAIN BENTO POS WORKSPACE                            */}
-      {/* ─────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* LEFT SECTION: CATALOG & QUICK ADD (65%) */}
-        <section
-          style={{
-            flex: "1 1 65%",
-            display: "flex",
-            flexDirection: "column",
-            borderRight: "1px solid var(--c-border)",
-            overflow: "hidden",
-            backgroundColor: "var(--c-bg, #0a0c0b)",
-          }}
-        >
-          {/* Search & Category Filter Bar */}
-          <div
-            style={{
-              padding: "1rem 1.25rem",
-              backgroundColor: "var(--c-surface-1, #111614)",
-              borderBottom: "1px solid var(--c-border)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-            }}
-          >
-            {/* Search Input */}
-            <div style={{ position: "relative" }}>
-              <Search
-                size={18}
-                style={{
-                  position: "absolute",
-                  left: "1rem",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--c-ink-dim, #5a6662)",
-                }}
-              />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari bibit racikan, nama parfum, atau botol (Tekan F1)..."
-                style={{
-                  width: "100%",
-                  padding: "0.75rem 2.5rem 0.75rem 2.85rem",
-                  backgroundColor: "var(--c-bg, #0a0c0b)",
-                  border: "1px solid var(--c-border-mid)",
-                  borderRadius: "12px",
-                  color: "var(--c-ink, #ffffff)",
-                  fontSize: "0.95rem",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
+      <main className="pos-workspace">
+        <h1 className="sr-only">Ela Parfum Terminal POS Kasir</h1>
+        <section className="pos-catalog" aria-labelledby="pos-catalog-heading">
+          <h2 id="pos-catalog-heading" className="sr-only">
+            Katalog Produk Kasir
+          </h2>
+
+          <div className="pos-filter-bar">
+            <div className="pos-search-row">
+              <div className="pos-search-wrap">
+                <Search
+                  size={18}
+                  aria-hidden="true"
                   style={{
                     position: "absolute",
-                    right: "1rem",
+                    left: "0.95rem",
                     top: "50%",
                     transform: "translateY(-50%)",
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--c-ink-dim)",
-                    cursor: "pointer",
+                    color: "var(--pos-muted)",
+                    pointerEvents: "none",
                   }}
+                />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  aria-label="Cari bibit racikan, nama parfum, atau botol"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari bibit racikan, parfum, atau botol..."
+                  className="pos-search-input"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    aria-label="Hapus kata kunci pencarian"
+                    onClick={() => setSearchQuery("")}
+                    className="pos-search-clear"
+                  >
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+
+              {(activeCategory === "BIBIT" || activeCategory === "ALL") && (
+                <button
+                  type="button"
+                  onClick={() => setShowMobileSubFilters((v) => !v)}
+                  aria-expanded={showMobileSubFilters}
+                  aria-label="Tampilkan filter koleksi dan pengurutan"
+                  className={`pos-subfilter-toggle ${showMobileSubFilters || hasActiveSubFilter ? "is-active" : ""}`}
                 >
-                  <X size={16} />
+                  <SlidersHorizontal size={16} aria-hidden="true" />
+                  <span>Filter</span>
                 </button>
               )}
             </div>
 
-            {/* Category Segmented Tabs */}
-            <div style={{ display: "flex", gap: "0.5rem" }}>
+            <div className="pos-tabs" role="tablist" aria-label="Kategori katalog">
               {[
-                { id: "BIBIT", label: "Bibit & Racikan (F2)", icon: Droplets, count: data.bibits.length },
-                { id: "PRODUCT", label: "Produk Jadi (F3)", icon: Layers, count: data.products.length },
-                { id: "BOTTLE", label: "Botol Kosong", icon: Wine, count: data.bottles.length },
-                { id: "ALL", label: "Semua", icon: Sparkles, count: data.bibits.length + data.products.length + data.bottles.length },
-              ].map((tab) => {
+                { id: "BIBIT", label: "Bibit & Racikan", kbd: "F2", icon: Droplets, count: data.bibits.length },
+                { id: "PRODUCT", label: "Produk Jadi", kbd: "F3", icon: Layers, count: data.products.length },
+                { id: "BOTTLE", label: "Botol Kosong", kbd: null, icon: Wine, count: data.bottles.length },
+                {
+                  id: "ALL",
+                  label: "Semua",
+                  kbd: null,
+                  icon: LayoutGrid,
+                  count: data.bibits.length + data.products.length + data.bottles.length,
+                },
+              ].map((tab, idx) => {
                 const isActive = activeCategory === tab.id;
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
-                    type="button"
-                    onClick={() => setActiveCategory(tab.id as any)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "0.5rem 1rem",
-                      borderRadius: "10px",
-                      border: isActive ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                      background: isActive ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
-                      color: isActive ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted, #8a9491)",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
+                    ref={(el) => {
+                      categoryTabRefs.current[idx] = el;
                     }}
+                    id={`pos-tab-${tab.id.toLowerCase()}`}
+                    type="button"
+                    role="tab"
+                    tabIndex={isActive ? 0 : -1}
+                    aria-selected={isActive}
+                    aria-controls="pos-catalog-panel"
+                    onClick={() => setActiveCategory(tab.id as any)}
+                    onKeyDown={(e) => handleCategoryTabKeyDown(e, idx)}
+                    className={`pos-tab ${isActive ? "is-active" : ""}`}
                   >
-                    <Icon size={15} />
-                    <span>{tab.label}</span>
+                    <Icon size={15} aria-hidden="true" />
+                    <span>
+                      {tab.label}
+                      {tab.kbd && <span className="pos-kbd-hint"> ({tab.kbd})</span>}
+                    </span>
                     <span
                       style={{
                         padding: "1px 6px",
                         borderRadius: "999px",
                         fontSize: "0.7rem",
-                        background: isActive ? "var(--c-gold, #3b82f6)" : "var(--c-surface-3, #1f2724)",
-                        color: isActive ? "#ffffff" : "var(--c-ink-dim)",
+                        background: isActive ? "var(--pos-accent-bg)" : "var(--c-surface-3, #1f2724)",
+                        color: isActive ? "#ffffff" : "var(--pos-muted)",
                         fontWeight: 700,
                       }}
                     >
@@ -1528,28 +1448,16 @@ export default function KasirPosClient({
               })}
             </div>
 
-            {/* Sub-Filter: Koleksi Bibit & Sorting */}
             {(activeCategory === "BIBIT" || activeCategory === "ALL") && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: "0.75rem",
-                  paddingTop: "0.6rem",
-                  borderTop: "1px dashed var(--c-border)",
-                }}
-              >
-                {/* Segmented Koleksi Bibit */}
-                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", marginRight: "0.25rem", fontWeight: 600 }}>
+              <div className={`pos-subfilter-row ${showMobileSubFilters ? "is-expanded" : ""}`}>
+                <div className="pos-collection-pills" role="group" aria-label="Filter koleksi bibit">
+                  <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", marginRight: "0.25rem", fontWeight: 600 }}>
                     Koleksi:
                   </span>
                   {[
                     { id: "ALL", label: "Semua Bibit", count: bibitCounts.all },
                     { id: "GLOBAL", label: "Global Parfume", icon: Globe, count: bibitCounts.global },
-                    { id: "ARABIAN", label: "Arabian Parfume", icon: Sparkles, count: bibitCounts.arabian },
+                    { id: "ARABIAN", label: "Arabian Parfume", icon: Droplets, count: bibitCounts.arabian },
                   ].map((col) => {
                     const isSel = bibitCollection === col.id;
                     const Icon = col.icon;
@@ -1557,31 +1465,19 @@ export default function KasirPosClient({
                       <button
                         key={col.id}
                         type="button"
+                        aria-pressed={isSel}
                         onClick={() => setBibitCollection(col.id as any)}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "4px 10px",
-                          borderRadius: "8px",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                          border: isSel ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                          background: isSel ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
-                          color: isSel ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted, #8a9491)",
-                        }}
+                        className={`pos-subfilter-pill ${isSel ? "is-active" : ""}`}
                       >
-                        {Icon && <Icon size={12} />}
+                        {Icon && <Icon size={12} aria-hidden="true" />}
                         <span>{col.label}</span>
                         <span
                           style={{
                             fontSize: "0.68rem",
                             padding: "1px 6px",
                             borderRadius: "999px",
-                            background: isSel ? "var(--c-gold, #3b82f6)" : "var(--c-surface-3, #1f2724)",
-                            color: isSel ? "#ffffff" : "var(--c-ink-dim)",
+                            background: isSel ? "var(--pos-accent-bg)" : "var(--c-surface-3, #1f2724)",
+                            color: isSel ? "#ffffff" : "var(--pos-muted)",
                             fontWeight: 700,
                           }}
                         >
@@ -1592,24 +1488,16 @@ export default function KasirPosClient({
                   })}
                 </div>
 
-                {/* Sort Dropdown */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <ArrowUpDown size={14} style={{ color: "var(--c-ink-dim)" }} />
-                  <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", fontWeight: 600 }}>Urutkan:</span>
+                <div className="pos-sort-wrap">
+                  <ArrowUpDown size={14} aria-hidden="true" style={{ color: "var(--pos-muted)" }} />
+                  <label htmlFor="pos-sort-select" style={{ fontSize: "0.75rem", color: "var(--pos-muted)", fontWeight: 600 }}>
+                    Urutkan:
+                  </label>
                   <select
+                    id="pos-sort-select"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    style={{
-                      padding: "4px 10px",
-                      borderRadius: "8px",
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      background: "var(--c-surface-2, #181e1c)",
-                      color: "var(--c-ink, #ffffff)",
-                      border: "1px solid var(--c-border)",
-                      outline: "none",
-                      cursor: "pointer",
-                    }}
+                    className="pos-sort-select"
                   >
                     <option value="name_asc">Nama (A - Z)</option>
                     <option value="name_desc">Nama (Z - A)</option>
@@ -1623,17 +1511,11 @@ export default function KasirPosClient({
             )}
           </div>
 
-          {/* Catalog Grid Scrollable */}
           <div
-            style={{
-              flex: 1,
-              padding: "1.25rem",
-              overflowY: "auto",
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-              gap: "1rem",
-              alignContent: "start",
-            }}
+            id="pos-catalog-panel"
+            role="tabpanel"
+            aria-labelledby={`pos-tab-${activeCategory.toLowerCase()}`}
+            className="pos-grid"
           >
             {totalItems === 0 ? (
               <div
@@ -1641,15 +1523,15 @@ export default function KasirPosClient({
                   gridColumn: "1 / -1",
                   padding: "4rem 1rem",
                   textAlign: "center",
-                  color: "var(--c-ink-dim)",
+                  color: "var(--pos-muted)",
                 }}
               >
-                <Search size={36} style={{ margin: "0 auto 0.75rem", opacity: 0.4 }} />
-                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, color: "var(--c-ink-muted)" }}>
+                <Search size={36} aria-hidden="true" style={{ margin: "0 auto 0.75rem", opacity: 0.45 }} />
+                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, color: "var(--c-ink)" }}>
                   Tidak ada item ditemukan
                 </p>
-                <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem" }}>
-                  Coba sesuaikan kata kunci pencarian atau ganti filter kategori/koleksi.
+                <p style={{ margin: "0.35rem 0 0", fontSize: "0.82rem", color: "var(--pos-muted)" }}>
+                  Coba sesuaikan kata kunci pencarian atau ganti filter kategori dan koleksi.
                 </p>
               </div>
             ) : (
@@ -1667,213 +1549,164 @@ export default function KasirPosClient({
             )}
           </div>
 
-          {/* Bottom Pagination Bar */}
           {totalPages > 1 && (
-            <div
-              style={{
-                padding: "0.75rem 1.25rem",
-                borderTop: "1px solid var(--c-border)",
-                backgroundColor: "var(--c-surface-1, #111614)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: "0.75rem",
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ fontSize: "0.78rem", color: "var(--c-ink-dim)" }}>
+            <div className="pos-pagination">
+              <div className="pos-pagination-info" style={{ fontSize: "0.78rem", color: "var(--pos-muted)" }}>
                 Menampilkan{" "}
                 <strong style={{ color: "var(--c-ink)" }}>
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}–
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}-
                   {Math.min(currentPage * itemsPerPage, totalItems)}
                 </strong>{" "}
                 dari <strong style={{ color: "var(--c-ink)" }}>{totalItems}</strong> item
                 {activeCategory === "BIBIT" && ` (${totalPages} Hal)`}
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              <div className="pos-pagination-controls">
                 <button
                   type="button"
                   disabled={currentPage <= 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "5px 10px",
-                    borderRadius: "8px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    border: "1px solid var(--c-border)",
-                    background: "var(--c-surface-2, #181e1c)",
-                    color: currentPage <= 1 ? "var(--c-ink-dim)" : "var(--c-ink)",
-                    cursor: currentPage <= 1 ? "not-allowed" : "pointer",
-                    opacity: currentPage <= 1 ? 0.4 : 1,
-                  }}
+                  className="pos-page-nav-btn"
+                  style={{ opacity: currentPage <= 1 ? 0.4 : 1 }}
                 >
-                  <ChevronLeft size={14} />
+                  <ChevronLeft size={14} aria-hidden="true" />
                   <span>Prev</span>
                 </button>
 
-                {getPaginationItems(currentPage, totalPages).map((pItem, idx) => {
-                  if (pItem === "...") {
+                <span className="pos-page-mobile-indicator">
+                  Hal {currentPage} / {totalPages}
+                </span>
+
+                <div className="pos-page-numbers">
+                  {getPaginationItems(currentPage, totalPages).map((pItem, idx) => {
+                    if (pItem === "...") {
+                      return (
+                        <span
+                          key={`dots-${idx}`}
+                          style={{ padding: "0 4px", color: "var(--pos-muted)", fontSize: "0.75rem" }}
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+                    const isCur = pItem === currentPage;
                     return (
-                      <span
-                        key={`dots-${idx}`}
-                        style={{ padding: "0 4px", color: "var(--c-ink-dim)", fontSize: "0.75rem" }}
+                      <button
+                        key={`page-${pItem}`}
+                        type="button"
+                        onClick={() => setCurrentPage(Number(pItem))}
+                        aria-current={isCur ? "page" : undefined}
+                        className={`pos-page-num-btn ${isCur ? "is-active" : ""}`}
                       >
-                        ...
-                      </span>
+                        {pItem}
+                      </button>
                     );
-                  }
-                  const isCur = pItem === currentPage;
-                  return (
-                    <button
-                      key={`page-${pItem}`}
-                      type="button"
-                      onClick={() => setCurrentPage(Number(pItem))}
-                      style={{
-                        minWidth: "30px",
-                        height: "30px",
-                        padding: "0 6px",
-                        borderRadius: "8px",
-                        fontSize: "0.75rem",
-                        fontWeight: isCur ? 700 : 500,
-                        border: isCur ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                        background: isCur ? "var(--c-gold, #3b82f6)" : "var(--c-surface-2, #181e1c)",
-                        color: isCur ? "#ffffff" : "var(--c-ink-muted)",
-                        cursor: "pointer",
-                        transition: "all 0.1s ease",
-                      }}
-                    >
-                      {pItem}
-                    </button>
-                  );
-                })}
+                  })}
+                </div>
 
                 <button
                   type="button"
                   disabled={currentPage >= totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "5px 10px",
-                    borderRadius: "8px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    border: "1px solid var(--c-border)",
-                    background: "var(--c-surface-2, #181e1c)",
-                    color: currentPage >= totalPages ? "var(--c-ink-dim)" : "var(--c-ink)",
-                    cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
-                    opacity: currentPage >= totalPages ? 0.4 : 1,
-                  }}
+                  className="pos-page-nav-btn"
+                  style={{ opacity: currentPage >= totalPages ? 0.4 : 1 }}
                 >
                   <span>Next</span>
-                  <ChevronRight size={14} />
+                  <ChevronRight size={14} aria-hidden="true" />
                 </button>
               </div>
             </div>
           )}
         </section>
 
-        {/* RIGHT SECTION: BILLING & ORDER SUMMARY (35%) */}
-        <section
-          style={{
-            flex: "1 1 35%",
-            minWidth: "380px",
-            maxWidth: "460px",
-            backgroundColor: "var(--c-surface-1, #111614)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            borderLeft: "1px solid var(--c-border)",
-          }}
-        >
-          {/* Customer Fast Bar */}
+        {showMobileBill && (
           <div
-            style={{
-              padding: "1rem 1.25rem",
-              borderBottom: "1px solid var(--c-border)",
-              backgroundColor: "var(--c-surface-2, #181e1c)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.6rem",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--c-ink, #ffffff)", display: "flex", alignItems: "center", gap: 6 }}>
-                <User size={14} color="var(--c-gold, #3b82f6)" />
-                Informasi Pelanggan Toko
+            className="pos-bill-backdrop"
+            onClick={() => setShowMobileBill(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        <section
+          ref={mobileBillRef}
+          tabIndex={showMobileBill ? -1 : undefined}
+          role={showMobileBill ? "dialog" : undefined}
+          aria-modal={showMobileBill ? true : undefined}
+          className={`pos-bill-panel ${showMobileBill ? "is-open" : ""}`}
+          aria-label="Ringkasan Bill Kasir"
+        >
+          <div className="pos-bill-sheet-header">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ShoppingBag size={18} aria-hidden="true" color="var(--pos-accent-text)" />
+              <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--c-ink)" }}>
+                Ringkasan Bill ({totalBillQty} item)
               </span>
-              {(billItems.length > 0 || customerName !== "Customer Toko" || customerPhone) && (
-                <button
-                  type="button"
-                  onClick={handleClearBill}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#f87171",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <Trash2 size={12} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMobileBill(false)}
+              aria-label="Tutup ringkasan bill"
+              className="pos-modal-close-btn"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="pos-customer-bar">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2
+                style={{
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  color: "var(--c-ink)",
+                  margin: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <User size={14} aria-hidden="true" color="var(--pos-accent-text)" />
+                <span>Informasi Pelanggan Toko</span>
+              </h2>
+              {(billItems.length > 0 || customerName !== "Customer Toko" || customerPhone || discountValue > 0) && (
+                <button type="button" onClick={handleClearBill} className="pos-clear-bill-btn">
+                  <Trash2 size={13} aria-hidden="true" />
                   <span>Reset Bill</span>
                 </button>
               )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-              <input
-                type="text"
-                placeholder="Nama Pembeli (Default)"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                style={{
-                  padding: "0.5rem 0.75rem",
-                  backgroundColor: "var(--c-bg, #0a0c0b)",
-                  border: "1px solid var(--c-border-mid)",
-                  borderRadius: "8px",
-                  color: "var(--c-ink, #ffffff)",
-                  fontSize: "0.85rem",
-                  outline: "none",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="No. WhatsApp (Struk WA)"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                style={{
-                  padding: "0.5rem 0.75rem",
-                  backgroundColor: "var(--c-bg, #0a0c0b)",
-                  border: "1px solid var(--c-border-mid)",
-                  borderRadius: "8px",
-                  color: "var(--c-ink, #ffffff)",
-                  fontSize: "0.85rem",
-                  outline: "none",
-                }}
-              />
+            <div className="pos-customer-grid">
+              <div>
+                <label htmlFor="pos-cust-name" className="pos-field-label">
+                  Nama Pembeli
+                </label>
+                <input
+                  id="pos-cust-name"
+                  type="text"
+                  placeholder="Customer Toko"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="pos-customer-input"
+                />
+              </div>
+              <div>
+                <label htmlFor="pos-cust-phone" className="pos-field-label">
+                  No. WhatsApp
+                </label>
+                <input
+                  id="pos-cust-phone"
+                  type="tel"
+                  placeholder="08xx (Struk WA)"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="pos-customer-input"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Bill Items List Scrollable */}
-          <div
-            style={{
-              flex: 1,
-              padding: "1rem 1.25rem",
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-            }}
-          >
+          <div className="pos-bill-items">
             {billItems.length === 0 ? (
               <div
                 style={{
@@ -1883,10 +1716,11 @@ export default function KasirPosClient({
                   alignItems: "center",
                   justifyContent: "center",
                   textAlign: "center",
-                  color: "var(--c-ink-dim, #5a6662)",
+                  color: "var(--pos-muted)",
                 }}
               >
                 <div
+                  aria-hidden="true"
                   style={{
                     width: "60px",
                     height: "60px",
@@ -1901,11 +1735,11 @@ export default function KasirPosClient({
                 >
                   <ShoppingBag size={28} />
                 </div>
-                <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink, #ffffff)", margin: 0 }}>
+                <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--c-ink)", margin: 0 }}>
                   Bill Kasir Kosong
-                </h4>
-                <p style={{ fontSize: "0.8rem", maxWidth: "220px", marginTop: 4 }}>
-                  Klik produk jadi atau racik bibit parfum di sisi kiri untuk memulai.
+                </h3>
+                <p style={{ fontSize: "0.82rem", maxWidth: "240px", marginTop: 4, color: "var(--pos-muted)" }}>
+                  Pilih produk jadi atau racik bibit parfum dari katalog untuk memulai transaksi.
                 </p>
               </div>
             ) : (
@@ -1923,7 +1757,7 @@ export default function KasirPosClient({
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1, paddingRight: "0.5rem" }}>
+                    <div style={{ flex: 1, minWidth: 0, paddingRight: "0.5rem" }}>
                       <span
                         style={{
                           fontSize: "0.65rem",
@@ -1935,25 +1769,25 @@ export default function KasirPosClient({
                             item.type === "refill"
                               ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))"
                               : item.type === "product"
-                              ? "rgba(14, 165, 233, 0.15)"
-                              : "rgba(255, 255, 255, 0.08)",
+                              ? "var(--c-teal-dim, rgba(14, 165, 233, 0.15))"
+                              : "var(--pos-surface-subtle)",
                           color:
                             item.type === "refill"
-                              ? "var(--c-gold-light, #60a5fa)"
+                              ? "var(--pos-accent-text)"
                               : item.type === "product"
-                              ? "#38bdf8"
-                              : "var(--c-ink-muted)",
+                              ? "var(--pos-info-text)"
+                              : "var(--pos-muted)",
                           display: "inline-block",
                           marginBottom: 2,
                         }}
                       >
                         {item.type === "refill" ? "Racikan" : item.type === "product" ? "Produk" : "Kemasan"}
                       </span>
-                      <h5 style={{ fontSize: "0.9rem", fontWeight: 700, margin: 0, color: "var(--c-ink, #ffffff)" }}>
+                      <h3 style={{ fontSize: "0.9rem", fontWeight: 700, margin: 0, color: "var(--c-ink)" }}>
                         {item.title}
-                      </h5>
+                      </h3>
                       {item.subtitle && (
-                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block", marginTop: 2 }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block", marginTop: 2 }}>
                           {item.subtitle}
                         </span>
                       )}
@@ -1962,42 +1796,67 @@ export default function KasirPosClient({
                     <button
                       type="button"
                       onClick={() => handleRemoveItem(index)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "var(--c-ink-dim)",
-                        cursor: "pointer",
-                        padding: "2px",
-                      }}
+                      aria-label={`Hapus ${item.title} dari bill`}
+                      className="pos-remove-btn"
+                      style={{ color: "var(--pos-muted)" }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={15} aria-hidden="true" />
                     </button>
                   </div>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--c-border)", paddingTop: "0.5rem" }}>
-                    {/* Stepper Qty */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--c-bg, #0a0c0b)", borderRadius: "8px", padding: "2px 4px", border: "1px solid var(--c-border)" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      borderTop: "1px solid var(--c-border)",
+                      paddingTop: "0.5rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        background: "var(--c-bg, #0a0c0b)",
+                        borderRadius: "8px",
+                        padding: "2px 4px",
+                        border: "1px solid var(--c-border)",
+                      }}
+                    >
                       <button
                         type="button"
                         onClick={() => handleUpdateQty(index, -1)}
-                        style={{ background: "transparent", border: "none", color: "var(--c-ink-muted)", cursor: "pointer", padding: "2px" }}
+                        aria-label={`Kurangi jumlah ${item.title}`}
+                        className="pos-qty-btn"
+                        style={{ color: "var(--pos-muted)" }}
                       >
-                        <Minus size={12} />
+                        <Minus size={14} aria-hidden="true" />
                       </button>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "20px", textAlign: "center", color: "var(--c-ink)" }}>
+                      <span
+                        style={{
+                          fontSize: "0.85rem",
+                          fontWeight: 700,
+                          minWidth: "24px",
+                          textAlign: "center",
+                          color: "var(--c-ink)",
+                        }}
+                      >
                         {item.quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleUpdateQty(index, 1)}
-                        style={{ background: "transparent", border: "none", color: "var(--c-ink-muted)", cursor: "pointer", padding: "2px" }}
+                        aria-label={`Tambah jumlah ${item.title}`}
+                        className="pos-qty-btn"
+                        style={{ color: "var(--pos-muted)" }}
                       >
-                        <Plus size={12} />
+                        <Plus size={14} aria-hidden="true" />
                       </button>
                     </div>
 
                     <div style={{ textAlign: "right" }}>
-                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
+                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--pos-accent-text)" }}>
                         {formatRupiah(item.subtotal)}
                       </span>
                     </div>
@@ -2007,72 +1866,43 @@ export default function KasirPosClient({
             )}
           </div>
 
-          {/* Pricing Summary & Checkout Buttons */}
-          <div
-            style={{
-              padding: "1.25rem",
-              backgroundColor: "var(--c-surface-2, #181e1c)",
-              borderTop: "1px solid var(--c-border)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-            }}
-          >
-            {/* Subtotal Row */}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--c-ink-muted)" }}>
-              <span>Subtotal ({billItems.reduce((acc, it) => acc + it.quantity, 0)} item):</span>
+          <div className="pos-bill-summary">
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--pos-muted)" }}>
+              <span>Subtotal ({totalBillQty} item):</span>
               <span style={{ fontWeight: 600, color: "var(--c-ink)" }}>{formatRupiah(subtotal)}</span>
             </div>
 
-            {/* Discount Row */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.85rem" }}>
+            <div className="pos-discount-row">
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "var(--c-ink-muted)" }}>Diskon:</span>
+                <label htmlFor="pos-discount-input" style={{ color: "var(--pos-muted)" }}>
+                  Diskon:
+                </label>
                 <button
                   type="button"
+                  aria-pressed={discountType === "percent"}
                   onClick={() => setDiscountType(discountType === "nominal" ? "percent" : "nominal")}
-                  style={{
-                    fontSize: "0.7rem",
-                    padding: "1px 6px",
-                    borderRadius: "4px",
-                    background: "var(--c-surface-3, #1f2724)",
-                    border: "1px solid var(--c-border)",
-                    color: "var(--c-gold-light, #60a5fa)",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                  }}
+                  aria-label={`Ubah mode diskon ke ${discountType === "nominal" ? "persen" : "rupiah"}`}
+                  className="pos-discount-toggle"
                 >
                   {discountType === "nominal" ? "Rp" : "%"}
                 </button>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <input
+                  id="pos-discount-input"
                   type="number"
                   min={0}
                   value={discountValue || ""}
                   onChange={(e) => setDiscountValue(parseInt(e.target.value, 10) || 0)}
                   placeholder="0"
-                  style={{
-                    width: "80px",
-                    padding: "2px 6px",
-                    backgroundColor: "var(--c-bg, #0a0c0b)",
-                    border: "1px solid var(--c-border-mid)",
-                    borderRadius: "6px",
-                    color: "var(--c-ink, #ffffff)",
-                    fontSize: "0.8rem",
-                    textAlign: "right",
-                    outline: "none",
-                  }}
+                  className="pos-discount-input"
                 />
                 {discountAmount > 0 && (
-                  <span style={{ color: "#f87171", fontWeight: 600 }}>
-                    -{formatRupiah(discountAmount)}
-                  </span>
+                  <span style={{ color: "var(--pos-danger)", fontWeight: 600 }}>-{formatRupiah(discountAmount)}</span>
                 )}
               </div>
             </div>
 
-            {/* Grand Total Row */}
             <div
               style={{
                 display: "flex",
@@ -2080,17 +1910,26 @@ export default function KasirPosClient({
                 alignItems: "center",
                 borderTop: "1px solid var(--c-border)",
                 paddingTop: "0.6rem",
+                gap: "0.75rem",
               }}
             >
               <div>
-                <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block" }}>
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--pos-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    display: "block",
+                  }}
+                >
                   Total Bayar
                 </span>
                 <span
                   style={{
                     fontSize: "1.5rem",
                     fontWeight: 800,
-                    color: "var(--c-gold-light, #60a5fa)",
+                    color: "var(--pos-accent-text)",
                     fontFamily: "var(--font-display, serif)",
                   }}
                 >
@@ -2098,116 +1937,249 @@ export default function KasirPosClient({
                 </span>
               </div>
 
-              {/* Fast Cash Button F4 */}
               <button
                 type="button"
                 disabled={billItems.length === 0}
-                onClick={() => setShowPaymentModal(true)}
+                onClick={() => {
+                  setShowMobileBill(false);
+                  setShowPaymentModal(true);
+                }}
+                className="pos-btn-primary"
                 style={{
-                  padding: "0.85rem 1.35rem",
-                  background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
-                  color: "#ffffff",
-                  border: "none",
+                  minHeight: "46px",
+                  padding: "0.8rem 1.35rem",
                   borderRadius: "12px",
                   fontSize: "0.95rem",
                   fontWeight: 700,
-                  cursor: billItems.length === 0 ? "not-allowed" : "pointer",
                   opacity: billItems.length === 0 ? 0.5 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  boxShadow: "0 8px 24px -4px var(--c-gold-glow, rgba(59, 130, 246, 0.3))",
-                  transition: "all 0.15s ease",
+                  boxShadow: "0 8px 24px -4px var(--c-gold-glow, rgba(37, 99, 235, 0.3))",
                 }}
               >
-                <Banknote size={18} />
-                <span>Bayar (F4)</span>
+                <Banknote size={18} aria-hidden="true" />
+                <span>
+                  Bayar<span className="pos-kbd-hint"> (F4)</span>
+                </span>
               </button>
             </div>
           </div>
         </section>
-      </div>
+      </main>
 
-      {/* ─────────────────────────────────────────────────── */}
-      {/* MODALS SECTION                                     */}
-      {/* ─────────────────────────────────────────────────── */}
-
-      {/* Modal 1: Size Selector for Regular Products */}
-      {selectedProductForSize && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.75)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 210,
-            padding: "1rem",
-          }}
-        >
+      <div className="pos-mobile-bottom-bar" role="region" aria-label="Ringkasan transaksi mobile">
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: "0.72rem", color: "var(--pos-muted)", fontWeight: 600 }}>
+            {totalBillQty} item di bill
+          </div>
           <div
             style={{
-              width: "100%",
-              maxWidth: "400px",
-              backgroundColor: "#161B18",
-              border: "1px solid rgba(16, 185, 129, 0.4)",
-              borderRadius: "18px",
-              padding: "1.5rem",
-              color: "#FFFFFF",
+              fontSize: "1.2rem",
+              fontWeight: 800,
+              color: "var(--pos-accent-text)",
+              fontFamily: "var(--font-display, serif)",
+              lineHeight: 1.1,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            {formatRupiah(grandTotal)}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setShowMobileBill(true)}
+            className="pos-btn-secondary"
+            style={{ padding: "0 0.85rem", fontSize: "0.82rem" }}
+          >
+            <ShoppingBag size={16} aria-hidden="true" />
+            <span>Lihat Bill</span>
+          </button>
+          <button
+            type="button"
+            disabled={billItems.length === 0}
+            onClick={() => {
+              setShowMobileBill(false);
+              setShowPaymentModal(true);
+            }}
+            className="pos-btn-primary"
+            style={{ padding: "0 1rem", fontSize: "0.85rem", opacity: billItems.length === 0 ? 0.5 : 1 }}
+          >
+            <Banknote size={16} aria-hidden="true" />
+            <span>Bayar</span>
+          </button>
+        </div>
+      </div>
+
+      {showMobileMenu && (
+        <>
+          <div className="pos-menu-backdrop" onClick={() => setShowMobileMenu(false)} aria-hidden="true" />
+          <aside
+            ref={mobileMenuRef}
+            tabIndex={-1}
+            className="pos-menu-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu Kasir"
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-display, serif)" }}>
+                Menu Kasir
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowMobileMenu(false)}
+                aria-label="Tutup menu kasir"
+                className="pos-modal-close-btn"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "0.85rem",
+                borderRadius: "12px",
+                background: "var(--c-surface-2)",
+                border: "1px solid var(--c-border)",
+              }}
+            >
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "var(--pos-accent-bg)",
+                  color: "#FFFFFF",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 800,
+                  fontSize: "0.9rem",
+                  flexShrink: 0,
+                }}
+              >
+                {data.user.full_name?.charAt(0) || "K"}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--c-ink)" }}>
+                  {data.user.full_name}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--pos-muted)" }}>
+                  {data.user.role} • {activeStore?.name ? `Cabang ${activeStore.name}` : "POS Kasir"}
+                </div>
+              </div>
+            </div>
+
+            <div className="pos-clock-pill" style={{ justifyContent: "center", minHeight: "44px" }}>
+              <Clock size={15} aria-hidden="true" color="var(--pos-warn)" />
+              <span style={{ fontWeight: 600 }}>{currentTime}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowMobileMenu(false);
+                setShowRecentModal(true);
+              }}
+              className="pos-btn-secondary"
+              style={{ width: "100%", justifyContent: "flex-start" }}
+            >
+              <History size={16} aria-hidden="true" color="var(--pos-accent-text)" />
+              <span>Shift Hari Ini ({data.recentOrders.length})</span>
+            </button>
+
+            <form action={kasirLogout} style={{ marginTop: "auto" }}>
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  minHeight: "44px",
+                  padding: "0.75rem 1rem",
+                  borderRadius: "10px",
+                  background: "var(--pos-soft-danger-bg)",
+                  border: "1px solid var(--pos-soft-danger-border)",
+                  color: "var(--pos-danger)",
+                  fontWeight: 700,
+                  fontSize: "0.88rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <LogOut size={16} aria-hidden="true" />
+                <span>Keluar dari Terminal Kasir</span>
+              </button>
+            </form>
+          </aside>
+        </>
+      )}
+
+      {selectedProductForSize && (
+        <div
+          className="pos-modal-overlay"
+          style={{ zIndex: 210 }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pos-size-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedProductForSize(null);
+          }}
+        >
+          <div ref={sizeModalRef} tabIndex={-1} className="pos-modal-card pos-size-modal-card">
+            <div className="pos-modal-header">
               <div>
-                <span style={{ fontSize: "0.75rem", color: "#10B981", fontWeight: 700, textTransform: "uppercase" }}>Pilih Ukuran</span>
-                <h3 style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0 }}>{selectedProductForSize.name}</h3>
+                <span style={{ fontSize: "0.75rem", color: "var(--pos-success)", fontWeight: 700, textTransform: "uppercase" }}>
+                  Pilih Ukuran
+                </span>
+                <h2 id="pos-size-modal-title" style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0, color: "var(--c-ink)" }}>
+                  {selectedProductForSize.name}
+                </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedProductForSize(null)}
-                style={{ background: "transparent", border: "none", color: "#9CA3AF", cursor: "pointer" }}
+                aria-label="Tutup pilihan ukuran"
+                className="pos-modal-close-btn"
               >
-                <X size={20} />
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-              {selectedProductForSize.sizes.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  disabled={s.stock <= 0}
-                  onClick={() => handleAddProductSize(selectedProductForSize, s)}
-                  style={{
-                    padding: "0.85rem 1rem",
-                    borderRadius: "10px",
-                    background: s.stock <= 0 ? "rgba(255,255,255,0.02)" : "rgba(16, 185, 129, 0.12)",
-                    border: s.stock <= 0 ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(16, 185, 129, 0.3)",
-                    color: s.stock <= 0 ? "#6B7280" : "#FFFFFF",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    cursor: s.stock <= 0 ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <div>
-                    <span style={{ fontSize: "0.95rem", fontWeight: 700, display: "block" }}>{s.size_label}</span>
-                    <span style={{ fontSize: "0.75rem", color: s.stock <= 0 ? "#EF4444" : "#A7F3D0" }}>
-                      {s.stock <= 0 ? "Stok Cabang Habis" : `Stok: ${s.stock} pcs`}
+            <div className="pos-modal-body" style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              {selectedProductForSize.sizes.length === 0 ? (
+                <div style={{ padding: "1.5rem", textAlign: "center", color: "var(--pos-muted)", fontSize: "0.85rem" }}>
+                  Tidak ada varian ukuran tersedia untuk produk ini.
+                </div>
+              ) : (
+                selectedProductForSize.sizes.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    disabled={s.stock <= 0}
+                    onClick={() => handleAddProductSize(selectedProductForSize, s)}
+                    className="pos-size-option-btn"
+                  >
+                    <span style={{ display: "block" }}>
+                      <span style={{ fontSize: "0.95rem", fontWeight: 700, display: "block" }}>{s.size_label}</span>
+                      <span style={{ fontSize: "0.75rem", color: s.stock <= 0 ? "var(--pos-danger)" : "var(--pos-success)", display: "block" }}>
+                        {s.stock <= 0 ? "Stok Cabang Habis" : `Stok: ${s.stock} pcs`}
+                      </span>
                     </span>
-                  </div>
-                  <span style={{ fontSize: "1rem", fontWeight: 800, color: s.stock <= 0 ? "#6B7280" : "#10B981" }}>
-                    {formatRupiah(s.price)}
-                  </span>
-                </button>
-              ))}
+                    <span style={{ fontSize: "1rem", fontWeight: 800, color: s.stock <= 0 ? "var(--pos-muted)" : "var(--pos-success)" }}>
+                      {formatRupiah(s.price)}
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal 2: Kasir Custom Mix Modal */}
       {mixingBibit && (
         <KasirMixModal
           initialBibit={mixingBibit}
@@ -2218,7 +2190,6 @@ export default function KasirPosClient({
         />
       )}
 
-      {/* Modal 3: Payment Modal (Cash, QRIS Inline, Transfer) */}
       {showPaymentModal && (
         <KasirPaymentModal
           payload={{
@@ -2233,22 +2204,23 @@ export default function KasirPosClient({
           }}
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={(result) => {
+            try {
+              localStorage.removeItem(POS_DRAFT_KEY);
+            } catch {}
             setShowPaymentModal(false);
             setCompletedOrder({
               ...result,
             });
-            // Segera perbarui stok cabang real-time via fast REST delta (<10KB)
             refreshStocks();
           }}
         />
       )}
 
-      {/* Modal 4: Struk / Receipt Modal */}
       {completedOrder && (
         <KasirReceiptModal
           orderId={completedOrder.orderId}
           orderCode={completedOrder.orderCode}
-          storeName={activeStore?.name || "Ela Parfum"}
+          storeName={activeStore?.name || `Cabang #${activeStoreId}`}
           storeAddress={activeStore?.address || "Jakarta"}
           cashierName={data.user.full_name}
           customerName={customerName}
@@ -2269,55 +2241,43 @@ export default function KasirPosClient({
             try {
               localStorage.removeItem(POS_DRAFT_KEY);
             } catch {}
-            // Refresh data stok via fast REST delta (<10KB)
             refreshStocks();
           }}
         />
       )}
 
-      {/* Modal 5: Riwayat Shift Hari Ini */}
       {showRecentModal && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.8)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 260,
-            padding: "1rem",
+          className="pos-modal-overlay"
+          style={{ zIndex: 260 }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pos-recent-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRecentModal(false);
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "520px",
-              backgroundColor: "#161B18",
-              border: "1px solid rgba(217, 119, 6, 0.35)",
-              borderRadius: "18px",
-              padding: "1.5rem",
-              color: "#FFFFFF",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <div ref={recentModalRef} tabIndex={-1} className="pos-modal-card pos-recent-modal-card">
+            <div className="pos-modal-header">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <History size={18} color="#F59E0B" />
-                <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>Transaksi Shift Hari Ini</h3>
+                <History size={18} aria-hidden="true" color="var(--pos-warn)" />
+                <h2 id="pos-recent-modal-title" style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0, color: "var(--c-ink)" }}>
+                  Transaksi Shift Hari Ini
+                </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setShowRecentModal(false)}
-                style={{ background: "transparent", border: "none", color: "#9CA3AF", cursor: "pointer" }}
+                aria-label="Tutup riwayat shift"
+                className="pos-modal-close-btn"
               >
-                <X size={20} />
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
-            <div style={{ maxHeight: "360px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div className="pos-modal-body" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {data.recentOrders.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "2rem", color: "#9CA3AF", fontSize: "0.85rem" }}>
+                <div style={{ textAlign: "center", padding: "2rem", color: "var(--pos-muted)", fontSize: "0.85rem" }}>
                   Belum ada transaksi di cabang ini hari ini.
                 </div>
               ) : (
@@ -2327,24 +2287,33 @@ export default function KasirPosClient({
                     style={{
                       padding: "0.75rem 1rem",
                       borderRadius: "10px",
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,255,255,0.06)",
+                      background: "var(--c-surface-2)",
+                      border: "1px solid var(--c-border)",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      gap: "0.75rem",
                     }}
                   >
-                    <div>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#FFFFFF" }}>{ord.order_code}</span>
-                      <span style={{ fontSize: "0.75rem", color: "#9CA3AF", display: "block" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--c-ink)" }}>{ord.order_code}</span>
+                      <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block" }}>
                         {ord.customer_name || "Customer Toko"} • Kasir: {ord.cashier_name || "-"}
                       </span>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#FBBF24" }}>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--pos-warn)" }}>
                         {formatRupiah(ord.total)}
                       </span>
-                      <span style={{ fontSize: "0.7rem", color: "#10B981", display: "block", textTransform: "uppercase", fontWeight: 700 }}>
+                      <span
+                        style={{
+                          fontSize: "0.7rem",
+                          color: "var(--pos-success)",
+                          display: "block",
+                          textTransform: "uppercase",
+                          fontWeight: 700,
+                        }}
+                      >
                         {ord.payment_method} • Lunas
                       </span>
                     </div>

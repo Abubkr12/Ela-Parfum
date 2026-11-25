@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { PosBibitItem, PosBottleItem, PosBillItem } from "../actions";
 import {
   X,
-  Sparkles,
+  Wand2,
   Droplets,
   Plus,
   Trash2,
-  Check,
   FlaskConical,
   Wine,
   Percent,
@@ -16,9 +15,9 @@ import {
   Bot,
   Loader2,
   ArrowRight,
-  ChevronRight,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/types";
+import { useModalFocusTrap } from "./useModalFocusTrap";
 
 interface KasirMixModalProps {
   initialBibit: PosBibitItem;
@@ -35,37 +34,56 @@ export default function KasirMixModal({
   onClose,
   onAddToCart,
 }: KasirMixModalProps) {
-  // 1. Kemasan Botol
-  const [containerType, setContainerType] = useState<"ela_bottle" | "own_bottle">("ela_bottle");
-  const [selectedBottleId, setSelectedBottleId] = useState<number>(bottles[0]?.id || 1);
+  const [containerType, setContainerType] = useState<"ela_bottle" | "own_bottle">(
+    bottles.length > 0 ? "ela_bottle" : "own_bottle"
+  );
+  const [selectedBottleId, setSelectedBottleId] = useState<number>(bottles[0]?.id ?? 0);
   const [ownBottleCapacity, setOwnBottleCapacity] = useState<number>(30);
 
-  // 2. Komposisi Bibit
   const [bibit1] = useState<PosBibitItem>(initialBibit);
   const [hasBibit2, setHasBibit2] = useState<boolean>(false);
   const [bibit2, setBibit2] = useState<PosBibitItem | null>(null);
   const [bibit2Search, setBibit2Search] = useState<string>("");
   const [bibit2Category, setBibit2Category] = useState<"all" | "Global Parfume" | "Arabian Parfume">("all");
   const [showBibit2Picker, setShowBibit2Picker] = useState<boolean>(false);
-  const [bibitSplitPercent, setBibitSplitPercent] = useState<number>(50); // 50:50
+  const [bibitSplitPercent, setBibitSplitPercent] = useState<number>(50);
 
-  // 3. Rasio Konsentrasi
   const [ratioPreset, setRatioPreset] = useState<"100/0" | "70/30" | "50/50" | "30/70" | "custom">("50/50");
   const [customBibitPercent, setCustomBibitPercent] = useState<number>(50);
 
-  // 4. AI Advisor State
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
 
-  // Botol terpilih
+  const modalCardRef = useRef<HTMLDivElement>(null);
+  const bibit2CardRef = useRef<HTMLDivElement>(null);
+  const bibit2SearchRef = useRef<HTMLInputElement>(null);
+
+  const closeBibit2Picker = useCallback(() => {
+    setShowBibit2Picker(false);
+    if (!bibit2) setHasBibit2(false);
+  }, [bibit2]);
+
+  useModalFocusTrap(true, modalCardRef, {
+    onEscape: onClose,
+  });
+
+  useModalFocusTrap(showBibit2Picker, bibit2CardRef, {
+    onEscape: closeBibit2Picker,
+  });
+
+  // Autofocus search only on desktop so mobile keyboards do not cover picker results.
+  useEffect(() => {
+    if (showBibit2Picker && typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      bibit2SearchRef.current?.focus();
+    }
+  }, [showBibit2Picker]);
+
   const selectedBottle = useMemo(() => {
-    return bottles.find((b) => b.id === selectedBottleId) || bottles[0];
+    return bottles.find((b) => b.id === selectedBottleId) || bottles[0] || null;
   }, [bottles, selectedBottleId]);
 
-  // Kapasitas Total Wadah (ml)
   const totalCapacityMl = containerType === "ela_bottle" ? selectedBottle?.capacity_ml || 30 : Math.max(1, ownBottleCapacity);
 
-  // Persentase Bibit Aktual (0 - 100)
   const bibitRatioPercent = useMemo(() => {
     if (ratioPreset === "100/0") return 100;
     if (ratioPreset === "70/30") return 70;
@@ -74,11 +92,9 @@ export default function KasirMixModal({
     return Math.min(100, Math.max(1, customBibitPercent));
   }, [ratioPreset, customBibitPercent]);
 
-  // Perhitungan Volume
   const totalBibitMl = parseFloat(((totalCapacityMl * bibitRatioPercent) / 100).toFixed(1));
-  const totalSolventMl = parseFloat((Math.max(0, totalCapacityMl - totalBibitMl)).toFixed(1));
+  const totalSolventMl = parseFloat(Math.max(0, totalCapacityMl - totalBibitMl).toFixed(1));
 
-  // Pembagian Volume Bibit 1 & Bibit 2
   const bibit1Ml = useMemo(() => {
     if (!hasBibit2 || !bibit2) return totalBibitMl;
     return parseFloat(((totalBibitMl * (100 - bibitSplitPercent)) / 100).toFixed(1));
@@ -89,18 +105,22 @@ export default function KasirMixModal({
     return parseFloat(((totalBibitMl * bibitSplitPercent) / 100).toFixed(1));
   }, [hasBibit2, bibit2, totalBibitMl, bibitSplitPercent]);
 
-  // Kalkulasi Harga
   const bottlePrice = containerType === "ela_bottle" ? selectedBottle?.price || 0 : 0;
   const bibit1Price = bibit1Ml * bibit1.price_per_ml;
   const bibit2Price = bibit2 ? bibit2Ml * bibit2.price_per_ml : 0;
   const totalPrice = Math.round(bottlePrice + bibit1Price + bibit2Price);
 
-  // Filter pencarian Bibit #2
   const filteredBibit2 = useMemo(() => {
     let list = allBibits.filter((b) => b.id !== bibit1.id);
 
-    if (bibit2Category !== "all") {
-      list = list.filter((b) => b.collection === bibit2Category);
+    if (bibit2Category === "Global Parfume") {
+      list = list.filter((b) => (b.collection || "").toLowerCase().includes("global"));
+    } else if (bibit2Category === "Arabian Parfume") {
+      list = list.filter(
+        (b) =>
+          (b.collection || "").toLowerCase().includes("arab") ||
+          (b.collection || "").toLowerCase().includes("timur")
+      );
     }
 
     if (bibit2Search.trim()) {
@@ -116,8 +136,8 @@ export default function KasirMixModal({
     return list.slice(0, 30);
   }, [allBibits, bibit2Search, bibit1.id, bibit2Category]);
 
-  // Konsultasi AI Scent Advisor
   const showAiAdvisor = ratioPreset === "custom" || (hasBibit2 && !!bibit2);
+  const cannotAddWithoutBottle = containerType === "ela_bottle" && !selectedBottle;
 
   const handleConsultAi = async () => {
     setAiLoading(true);
@@ -138,11 +158,13 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt, history: [] }),
+        body: JSON.stringify({
+          messages: [{ role: "user", text: prompt }],
+        }),
       });
       const data = await res.json();
-      if (data?.response) {
-        setAiAdvice(data.response);
+      if (data?.text) {
+        setAiAdvice(data.text);
       } else {
         setAiAdvice(
           hasBibit2 && bibit2
@@ -161,8 +183,9 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
     }
   };
 
-  // Submit ke Bill
   const handleAdd = () => {
+    if (containerType === "ela_bottle" && !selectedBottle) return;
+
     const ratioLabel =
       ratioPreset === "100/0"
         ? "100/0 Murni"
@@ -174,12 +197,12 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
         ? "30/70 EDT"
         : `${bibitRatioPercent}% Custom`;
 
-    const bottleLabel = containerType === "ela_bottle" ? selectedBottle.name : `Botol Sendiri (${totalCapacityMl}ml)`;
+    const bottleLabel =
+      containerType === "ela_bottle" && selectedBottle
+        ? selectedBottle.name
+        : `Botol Sendiri (${totalCapacityMl}ml)`;
 
-    const title = hasBibit2 && bibit2
-      ? `Racik: ${bibit1.name} + ${bibit2.name}`
-      : `Racik: ${bibit1.name}`;
-
+    const title = hasBibit2 && bibit2 ? `Racik: ${bibit1.name} + ${bibit2.name}` : `Racik: ${bibit1.name}`;
     const subtitle = `${bottleLabel} • Rasio ${ratioLabel} • Bibit ${totalBibitMl}ml, Pelarut ${totalSolventMl}ml`;
 
     const bibitsList = [
@@ -189,7 +212,9 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
       bibitsList.push({ id: bibit2.id, name: bibit2.name, volumeMl: bibit2Ml, pricePerMl: bibit2.price_per_ml });
     }
 
-    const adminRecipe = `RESEP: [${bottleLabel}] Rasio: ${ratioLabel} | Bibit: ${bibitsList.map((b) => `${b.name} (${b.volumeMl}ml)`).join(", ")} | Pelarut: ${totalSolventMl}ml`;
+    const adminRecipe = `RESEP: [${bottleLabel}] Rasio: ${ratioLabel} | Bibit: ${bibitsList
+      .map((b) => `${b.name} (${b.volumeMl}ml)`)
+      .join(", ")} | Pelarut: ${totalSolventMl}ml`;
 
     const billItem: PosBillItem = {
       type: "refill",
@@ -199,7 +224,7 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
       quantity: 1,
       subtotal: totalPrice,
       meta: {
-        bottleId: containerType === "ela_bottle" ? selectedBottle.id : null,
+        bottleId: containerType === "ela_bottle" && selectedBottle ? selectedBottle.id : null,
         bottleName: bottleLabel,
         capacityMl: totalCapacityMl,
         useOwnBottle: containerType === "own_bottle",
@@ -215,48 +240,25 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.78)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-        padding: "1rem",
+      className="pos-modal-overlay"
+      style={{ zIndex: 200 }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pos-mix-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "700px",
-          maxHeight: "92vh",
-          backgroundColor: "var(--c-surface-1, #111614)",
-          border: "1px solid var(--c-border-mid, rgba(255, 255, 255, 0.13))",
-          borderRadius: "20px",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.85), 0 0 35px var(--c-gold-glow, rgba(59,130,246,0.15))",
-          color: "var(--c-ink, #f0ede8)",
-          position: "relative",
-        }}
-      >
-        {/* Modal Header */}
+      <div ref={modalCardRef} tabIndex={-1} className="pos-modal-card pos-mix-modal-card">
         <div
+          className="pos-modal-header"
           style={{
-            padding: "1.25rem 1.5rem",
-            borderBottom: "1px solid var(--c-border, rgba(255, 255, 255, 0.08))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
             background: "linear-gradient(90deg, var(--c-gold-dim, rgba(59, 130, 246, 0.1)) 0%, transparent 100%)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", minWidth: 0 }}>
             <div
+              aria-hidden="true"
               style={{
                 width: "42px",
                 height: "42px",
@@ -266,67 +268,52 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--c-gold, #3b82f6)",
+                color: "var(--pos-accent-text)",
+                flexShrink: 0,
               }}
             >
               <FlaskConical size={20} />
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <h2
+                id="pos-mix-modal-title"
                 style={{
-                  fontSize: "1.25rem",
+                  fontSize: "1.2rem",
                   fontWeight: 600,
                   margin: 0,
-                  color: "var(--c-ink, #ffffff)",
+                  color: "var(--c-ink)",
                   fontFamily: "var(--font-display, serif)",
                   letterSpacing: "0.01em",
+                  wordBreak: "break-word",
                 }}
               >
                 Form Racik Kasir: {bibit1.name}
               </h2>
-              <span style={{ fontSize: "0.8rem", color: "var(--c-ink-muted, #8a9491)" }}>
+              <span style={{ fontSize: "0.8rem", color: "var(--pos-muted)", display: "block" }}>
                 Koleksi {bibit1.collection} • {formatRupiah(bibit1.price_per_ml)}/ml • Stok Cabang:{" "}
-                <strong style={{ color: "var(--c-ink, #ffffff)" }}>{bibit1.stock_ml.toLocaleString("id-ID")} ml</strong>
+                <strong style={{ color: "var(--c-ink)" }}>{bibit1.stock_ml.toLocaleString("id-ID")} ml</strong>
               </span>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid var(--c-border, rgba(255, 255, 255, 0.08))",
-              color: "var(--c-ink-muted, #8a9491)",
-              cursor: "pointer",
-              padding: "6px",
-              borderRadius: "8px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            aria-label="Tutup form racik"
+            className="pos-modal-close-btn"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Modal Body Scrollable */}
-        <div
-          style={{
-            padding: "1.5rem",
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.5rem",
-          }}
-        >
-          {/* Section 1: Pilihan Kemasan Botol */}
+        <div className="pos-modal-body" style={{ display: "flex", flexDirection: "column", gap: "1.35rem" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-              <label
+            <div className="pos-mix-section-head">
+              <span
                 style={{
                   fontSize: "0.82rem",
                   fontWeight: 700,
-                  color: "var(--c-ink, #f0ede8)",
+                  color: "var(--c-ink)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                   display: "flex",
@@ -334,41 +321,24 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                   gap: 6,
                 }}
               >
-                <Wine size={16} color="var(--c-gold, #3b82f6)" />
+                <Wine size={16} aria-hidden="true" color="var(--pos-accent-text)" />
                 1. Pilih Wadah / Kemasan Botol
-              </label>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              </span>
+              <div className="pos-mix-toggle-row" role="group" aria-label="Jenis wadah botol">
                 <button
                   type="button"
+                  disabled={bottles.length === 0}
                   onClick={() => setContainerType("ela_bottle")}
-                  style={{
-                    padding: "5px 12px",
-                    borderRadius: "8px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    border: containerType === "ela_bottle" ? "1px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                    background: containerType === "ela_bottle" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2)",
-                    color: containerType === "ela_bottle" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
-                    transition: "all 0.15s ease",
-                  }}
+                  aria-pressed={containerType === "ela_bottle"}
+                  className={`pos-mix-toggle-btn ${containerType === "ela_bottle" ? "is-active" : ""}`}
                 >
                   Botol Ela Parfum
                 </button>
                 <button
                   type="button"
                   onClick={() => setContainerType("own_bottle")}
-                  style={{
-                    padding: "5px 12px",
-                    borderRadius: "8px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    border: containerType === "own_bottle" ? "1px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                    background: containerType === "own_bottle" ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2)",
-                    color: containerType === "own_bottle" ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
-                    transition: "all 0.15s ease",
-                  }}
+                  aria-pressed={containerType === "own_bottle"}
+                  className={`pos-mix-toggle-btn ${containerType === "own_bottle" ? "is-active" : ""}`}
                 >
                   Bawa Botol Sendiri
                 </button>
@@ -376,62 +346,78 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
             </div>
 
             {containerType === "ela_bottle" ? (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
-                  gap: "0.5rem",
-                  maxHeight: "170px",
-                  overflowY: "auto",
-                  padding: "2px",
-                }}
-              >
-                {bottles.map((b) => {
-                  const isSelected = selectedBottleId === b.id;
-                  const bottleStock = b.stock ?? (b as any).stock_qty ?? 0;
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => setSelectedBottleId(b.id)}
-                      style={{
-                        padding: "0.6rem 0.75rem",
-                        borderRadius: "10px",
-                        textAlign: "left",
-                        cursor: "pointer",
-                        border: isSelected ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                        background: isSelected ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2, #181e1c)",
-                        color: "var(--c-ink, #ffffff)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "2px",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: isSelected ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink)" }}>
-                          {b.capacity_ml}ml
+              bottles.length === 0 ? (
+                <div
+                  style={{
+                    background: "var(--c-surface-2, #181e1c)",
+                    padding: "1rem 1.25rem",
+                    borderRadius: "12px",
+                    border: "1px solid var(--pos-border-control)",
+                    fontSize: "0.85rem",
+                    color: "var(--pos-muted)",
+                  }}
+                >
+                  Belum ada stok botol Ela Parfum tersedia di cabang ini. Gunakan opsi Bawa Botol Sendiri.
+                </div>
+              ) : (
+                <div className="pos-mix-bottles-grid">
+                  {bottles.map((b) => {
+                    const isSelected = selectedBottle?.id === b.id;
+                    const bottleStock = b.stock ?? (b as any).stock_qty ?? 0;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedBottleId(b.id)}
+                        aria-pressed={isSelected}
+                        className={`pos-mix-bottle-btn ${isSelected ? "is-selected" : ""}`}
+                      >
+                        <span className="pos-mix-bottle-row">
+                          <span
+                            style={{
+                              fontSize: "0.85rem",
+                              fontWeight: 700,
+                              color: isSelected ? "var(--pos-accent-text)" : "var(--c-ink)",
+                            }}
+                          >
+                            {b.capacity_ml}ml
+                          </span>
+                          <span style={{ fontSize: "0.72rem", color: "var(--pos-muted)" }}>
+                            {formatRupiah(b.price)}
+                          </span>
                         </span>
-                        <span style={{ fontSize: "0.7rem", color: "var(--c-ink-muted)" }}>
-                          {formatRupiah(b.price)}
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "var(--c-ink)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            width: "100%",
+                            display: "block",
+                          }}
+                        >
+                          {b.name}
                         </span>
-                      </div>
-                      <span style={{ fontSize: "0.75rem", color: "var(--c-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {b.name}
-                      </span>
-                      <span style={{ fontSize: "0.68rem", color: bottleStock < 10 ? "#f87171" : "#34d399", fontWeight: 600 }}>
-                        Stok: {bottleStock} pcs
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            color: bottleStock < 10 ? "var(--pos-danger)" : "var(--pos-success)",
+                            fontWeight: 600,
+                            display: "block",
+                          }}
+                        >
+                          Stok: {bottleStock} pcs
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
             ) : (
               <div
+                className="pos-mix-own-bottle"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
                   background: "var(--c-surface-2, #181e1c)",
                   padding: "1rem 1.25rem",
                   borderRadius: "12px",
@@ -439,38 +425,39 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 }}
               >
                 <div>
-                  <span style={{ fontSize: "0.85rem", color: "var(--c-ink-muted)", display: "block", marginBottom: 6 }}>
+                  <label
+                    htmlFor="pos-own-bottle-capacity"
+                    style={{ fontSize: "0.85rem", color: "var(--pos-muted)", display: "block", marginBottom: 6 }}
+                  >
                     Kapasitas Botol Pelanggan (ml):
-                  </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <input
+                      id="pos-own-bottle-capacity"
                       type="number"
                       min={1}
                       max={1000}
                       value={ownBottleCapacity}
                       onChange={(e) => setOwnBottleCapacity(parseInt(e.target.value, 10) || 1)}
+                      className="pos-text-input"
                       style={{
                         width: "120px",
                         padding: "0.5rem 0.75rem",
-                        backgroundColor: "var(--c-bg, #0a0c0b)",
                         border: "1px solid var(--c-gold, #3b82f6)",
-                        borderRadius: "8px",
-                        color: "var(--c-ink, #ffffff)",
                         fontSize: "1rem",
                         fontWeight: 700,
-                        outline: "none",
                       }}
                     />
-                    <span style={{ fontSize: "0.85rem", color: "var(--c-ink-muted)" }}>Mililiter (ml)</span>
+                    <span style={{ fontSize: "0.85rem", color: "var(--pos-muted)" }}>Mililiter (ml)</span>
                   </div>
                 </div>
                 <div
                   style={{
                     padding: "0.5rem 1rem",
                     borderRadius: "8px",
-                    background: "rgba(16, 185, 129, 0.12)",
-                    border: "1px solid rgba(16, 185, 129, 0.3)",
-                    color: "#10b981",
+                    background: "var(--pos-soft-success-bg)",
+                    border: "1px solid var(--pos-soft-success-border)",
+                    color: "var(--pos-success)",
                     fontSize: "0.78rem",
                     fontWeight: 600,
                   }}
@@ -481,14 +468,13 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
             )}
           </div>
 
-          {/* Section 2: Komposisi Bibit (1 atau 2 Bibit Layering) */}
           <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-              <label
+            <div className="pos-mix-section-head">
+              <span
                 style={{
                   fontSize: "0.82rem",
                   fontWeight: 700,
-                  color: "var(--c-ink, #f0ede8)",
+                  color: "var(--c-ink)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                   display: "flex",
@@ -496,9 +482,9 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                   gap: 6,
                 }}
               >
-                <Droplets size={16} color="var(--c-gold, #3b82f6)" />
+                <Droplets size={16} aria-hidden="true" color="var(--pos-accent-text)" />
                 2. Komposisi Bibit Parfum
-              </label>
+              </span>
 
               {!hasBibit2 ? (
                 <button
@@ -507,23 +493,15 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                     setHasBibit2(true);
                     setShowBibit2Picker(true);
                   }}
+                  className="pos-mix-toggle-btn is-active"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
-                    padding: "5px 12px",
-                    borderRadius: "8px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    border: "1px solid var(--c-gold, #3b82f6)",
-                    background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
-                    color: "var(--c-gold-light, #60a5fa)",
-                    transition: "all 0.15s ease",
                   }}
                 >
-                  <Plus size={14} />
-                  <span>+ Mix Bibit ke-2 (Layering)</span>
+                  <Plus size={14} aria-hidden="true" />
+                  <span>Mix Bibit ke-2 (Layering)</span>
                 </button>
               ) : (
                 <button
@@ -532,27 +510,22 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                     setHasBibit2(false);
                     setBibit2(null);
                   }}
+                  className="pos-mix-toggle-btn"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
-                    padding: "5px 10px",
-                    borderRadius: "8px",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                    background: "rgba(239, 68, 68, 0.1)",
-                    color: "#f87171",
-                    fontWeight: 600,
+                    border: "1px solid var(--pos-soft-danger-border)",
+                    background: "var(--pos-soft-danger-bg)",
+                    color: "var(--pos-danger)",
                   }}
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={14} aria-hidden="true" />
                   <span>Batal Campur Bibit #2</span>
                 </button>
               )}
             </div>
 
-            {/* Bibit #1 Card */}
             <div
               style={{
                 background: "var(--c-surface-2, #181e1c)",
@@ -562,13 +535,15 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                gap: "0.75rem",
+                flexWrap: "wrap",
               }}
             >
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <span
                   style={{
                     fontSize: "0.7rem",
-                    color: "var(--c-gold, #3b82f6)",
+                    color: "var(--pos-accent-text)",
                     fontWeight: 700,
                     textTransform: "uppercase",
                     display: "block",
@@ -577,44 +552,41 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 >
                   Bibit Utama #1
                 </span>
-                <span style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink, #ffffff)" }}>{bibit1.name}</span>
-                <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block", marginTop: 2 }}>
+                <span style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink)" }}>{bibit1.name}</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block", marginTop: 2 }}>
                   {bibit1.collection} • {formatRupiah(bibit1.price_per_ml)}/ml • Stok Cabang:{" "}
-                  <strong style={{ color: "#34d399" }}>{bibit1.stock_ml.toLocaleString("id-ID")} ml</strong>
+                  <strong style={{ color: "var(--pos-success)" }}>{bibit1.stock_ml.toLocaleString("id-ID")} ml</strong>
                 </span>
               </div>
               <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--c-gold-light, #60a5fa)" }}>
+                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--pos-accent-text)" }}>
                   {bibit1Ml} ml
                 </span>
                 {hasBibit2 && (
-                  <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", display: "block" }}>
+                  <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block" }}>
                     ({100 - bibitSplitPercent}%)
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Bibit #2 Section */}
             {hasBibit2 && (
               <div style={{ marginTop: "0.75rem" }}>
                 {bibit2 ? (
                   <div
+                    className="pos-mix-bibit2-card"
                     style={{
                       background: "var(--c-surface-2, #181e1c)",
                       border: "1px solid var(--c-border-mid)",
                       borderRadius: "12px",
                       padding: "0.85rem 1.15rem",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
                     }}
                   >
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <span
                         style={{
                           fontSize: "0.7rem",
-                          color: "#10b981",
+                          color: "var(--pos-success)",
                           fontWeight: 700,
                           textTransform: "uppercase",
                           display: "block",
@@ -623,37 +595,29 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                       >
                         Bibit Campuran #2 (Layering)
                       </span>
-                      <span style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink, #ffffff)" }}>
-                        {bibit2.name}
-                      </span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)", display: "block", marginTop: 2 }}>
+                      <span style={{ fontSize: "1rem", fontWeight: 700, color: "var(--c-ink)" }}>{bibit2.name}</span>
+                      <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block", marginTop: 2 }}>
                         {bibit2.collection} • {formatRupiah(bibit2.price_per_ml)}/ml • Stok Cabang:{" "}
-                        <strong style={{ color: "#34d399" }}>{bibit2.stock_ml.toLocaleString("id-ID")} ml</strong>
+                        <strong style={{ color: "var(--pos-success)" }}>
+                          {bibit2.stock_ml.toLocaleString("id-ID")} ml
+                        </strong>
                       </span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                       <div style={{ textAlign: "right" }}>
-                        <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#10b981" }}>
+                        <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--pos-success)" }}>
                           {bibit2Ml} ml
                         </span>
-                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-dim)", display: "block" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block" }}>
                           ({bibitSplitPercent}%)
                         </span>
                       </div>
-                      <div style={{ display: "flex", gap: "4px" }}>
+                      <div style={{ display: "flex", gap: "8px" }}>
                         <button
                           type="button"
                           onClick={() => setShowBibit2Picker(true)}
-                          style={{
-                            padding: "5px 10px",
-                            background: "var(--c-surface-3, #1f2724)",
-                            border: "1px solid var(--c-border)",
-                            borderRadius: "8px",
-                            color: "var(--c-ink)",
-                            cursor: "pointer",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                          }}
+                          className="pos-mix-toggle-btn"
+                          style={{ color: "var(--c-ink)" }}
                         >
                           Ganti
                         </button>
@@ -663,80 +627,58 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                             setBibit2(null);
                             setHasBibit2(false);
                           }}
-                          title="Hapus Bibit #2"
-                          style={{
-                            padding: "5px 8px",
-                            background: "rgba(239, 68, 68, 0.1)",
-                            border: "1px solid rgba(239, 68, 68, 0.25)",
-                            borderRadius: "8px",
-                            color: "#f87171",
-                            cursor: "pointer",
-                          }}
+                          aria-label="Hapus Bibit ke-2"
+                          title="Hapus Bibit ke-2"
+                          className="pos-mix-remove-btn"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div
+                    className="pos-mix-bibit2-empty"
                     style={{
-                      padding: "1.25rem",
+                      padding: "1rem 1.15rem",
                       borderRadius: "12px",
                       border: "1px dashed var(--c-gold, #3b82f6)",
-                      textAlign: "center",
                       background: "var(--c-gold-dim, rgba(59, 130, 246, 0.06))",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
                     }}
                   >
-                    <span style={{ fontSize: "0.85rem", color: "var(--c-ink-muted)" }}>
+                    <span style={{ fontSize: "0.85rem", color: "var(--pos-muted)" }}>
                       Bibit #2 belum dipilih. Pilih dari katalog:
                     </span>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button
                         type="button"
                         onClick={() => {
                           setHasBibit2(false);
                         }}
-                        style={{
-                          padding: "6px 12px",
-                          background: "transparent",
-                          border: "1px solid var(--c-border)",
-                          color: "var(--c-ink-dim)",
-                          borderRadius: "8px",
-                          fontSize: "0.8rem",
-                          cursor: "pointer",
-                        }}
+                        className="pos-mix-toggle-btn"
                       >
                         Batal
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowBibit2Picker(true)}
+                        className="pos-mix-toggle-btn"
                         style={{
-                          padding: "6px 14px",
-                          background: "var(--c-gold, #3b82f6)",
+                          background: "var(--pos-accent-bg)",
                           border: "none",
                           color: "#ffffff",
-                          borderRadius: "8px",
-                          fontWeight: 600,
-                          fontSize: "0.8rem",
-                          cursor: "pointer",
-                          display: "flex",
+                          display: "inline-flex",
                           alignItems: "center",
                           gap: 6,
                         }}
                       >
-                        <Search size={14} />
+                        <Search size={14} aria-hidden="true" />
                         <span>Pilih Bibit #2</span>
                       </button>
                     </div>
                   </div>
                 )}
 
-                {/* Slider Proporsi Bibit 1 vs Bibit 2 */}
                 {bibit2 && (
                   <div
                     style={{
@@ -747,22 +689,32 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                       border: "1px solid var(--c-border)",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: 8 }}>
-                      <span style={{ color: "var(--c-gold-light, #60a5fa)", fontWeight: 600 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: "0.8rem",
+                        marginBottom: 8,
+                        gap: 8,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span style={{ color: "var(--pos-accent-text)", fontWeight: 600 }}>
                         {bibit1.name}: {100 - bibitSplitPercent}%
                       </span>
-                      <span style={{ color: "#10b981", fontWeight: 600 }}>
+                      <span style={{ color: "var(--pos-success)", fontWeight: 600 }}>
                         {bibit2.name}: {bibitSplitPercent}%
                       </span>
                     </div>
                     <input
                       type="range"
+                      aria-label="Proporsi perbandingan bibit pertama dan kedua"
                       min={10}
                       max={90}
                       step={1}
                       value={bibitSplitPercent}
                       onChange={(e) => setBibitSplitPercent(parseInt(e.target.value, 10))}
-                      style={{ width: "100%", accentColor: "var(--c-gold, #3b82f6)" }}
+                      className="pos-range-input"
                     />
                   </div>
                 )}
@@ -770,13 +722,12 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
             )}
           </div>
 
-          {/* Section 3: Rasio Konsentrasi & Pelarut */}
           <div>
-            <label
+            <span
               style={{
                 fontSize: "0.82rem",
                 fontWeight: 700,
-                color: "var(--c-ink, #f0ede8)",
+                color: "var(--c-ink)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
                 display: "flex",
@@ -785,12 +736,11 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 marginBottom: "0.75rem",
               }}
             >
-              <Percent size={16} color="var(--c-gold, #3b82f6)" />
+              <Percent size={16} aria-hidden="true" color="var(--pos-accent-text)" />
               3. Rasio Konsentrasi (Bibit vs Pelarut)
-            </label>
+            </span>
 
-            {/* 5 Preset buttons: EDT, EDP, Extrait, Murni, Custom */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem" }}>
+            <div className="pos-mix-ratios" role="group" aria-label="Preset rasio konsentrasi">
               {[
                 { id: "30/70", label: "30/70 EDT", desc: "30% Bibit" },
                 { id: "50/50", label: "50/50 EDP", desc: "50% Bibit" },
@@ -804,19 +754,20 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                     key={r.id}
                     type="button"
                     onClick={() => setRatioPreset(r.id as any)}
-                    style={{
-                      padding: "0.65rem 0.4rem",
-                      borderRadius: "10px",
-                      border: isSelected ? "1.5px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                      background: isSelected ? "var(--c-gold-dim, rgba(59, 130, 246, 0.18))" : "var(--c-surface-2, #181e1c)",
-                      color: isSelected ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
-                      cursor: "pointer",
-                      textAlign: "center",
-                      transition: "all 0.15s ease",
-                    }}
+                    aria-pressed={isSelected}
+                    className={`pos-mix-preset-btn ${isSelected ? "is-selected" : ""} ${
+                      r.id === "custom" ? "pos-mix-ratio-custom" : ""
+                    }`}
                   >
                     <span style={{ fontSize: "0.82rem", fontWeight: 700, display: "block" }}>{r.label}</span>
-                    <span style={{ fontSize: "0.68rem", color: "var(--c-ink-dim)" }}>{r.desc}</span>
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        color: isSelected ? "var(--pos-accent-text)" : "var(--pos-muted)",
+                      }}
+                    >
+                      {r.desc}
+                    </span>
                   </button>
                 );
               })}
@@ -834,26 +785,26 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
               >
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", marginBottom: 8 }}>
                   <span>
-                    Persentase Bibit: <strong style={{ color: "var(--c-gold-light, #60a5fa)" }}>{customBibitPercent}%</strong>
+                    Persentase Bibit: <strong style={{ color: "var(--pos-accent-text)" }}>{customBibitPercent}%</strong>
                   </span>
                   <span>
-                    Pelarut: <strong style={{ color: "var(--c-ink-muted)" }}>{100 - customBibitPercent}%</strong>
+                    Pelarut: <strong style={{ color: "var(--pos-muted)" }}>{100 - customBibitPercent}%</strong>
                   </span>
                 </div>
                 <input
                   type="range"
+                  aria-label="Persentase bibit custom"
                   min={1}
                   max={100}
                   step={1}
                   value={customBibitPercent}
                   onChange={(e) => setCustomBibitPercent(parseInt(e.target.value, 10))}
-                  style={{ width: "100%", accentColor: "var(--c-gold, #3b82f6)" }}
+                  className="pos-range-input"
                 />
               </div>
             )}
           </div>
 
-          {/* Section 4: AI Advisor Button & Box (Kontekstual: Hanya saat custom rasio ATAU bibit kedua aktif) */}
           {showAiAdvisor && (
             <div
               style={{
@@ -863,32 +814,29 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 padding: "0.85rem 1rem",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div className="pos-mix-ai-head">
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Bot size={18} color="var(--c-gold, #3b82f6)" />
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink, #ffffff)" }}>
-                    {hasBibit2 && bibit2 ? "AI Layering Advisor (Nove AI)" : "AI Ratio Advisor (Nove AI)"}
+                  <Bot size={18} aria-hidden="true" color="var(--pos-accent-text)" />
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--c-ink)" }}>
+                    {hasBibit2 && bibit2 ? "AI Layering Advisor (Scent AI)" : "AI Ratio Advisor (Scent AI)"}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={handleConsultAi}
                   disabled={aiLoading}
+                  className="pos-mix-toggle-btn is-active"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
-                    padding: "5px 12px",
-                    borderRadius: "8px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    background: "var(--c-gold-dim, rgba(59, 130, 246, 0.15))",
-                    border: "1px solid var(--c-gold, #3b82f6)",
-                    color: "var(--c-gold-light, #60a5fa)",
                   }}
                 >
-                  {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {aiLoading ? (
+                    <Loader2 size={13} aria-hidden="true" className="animate-spin" />
+                  ) : (
+                    <Wand2 size={13} aria-hidden="true" />
+                  )}
                   <span>{aiLoading ? "Menganalisis..." : "Saran Racikan AI"}</span>
                 </button>
               </div>
@@ -896,25 +844,24 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
               {aiAdvice && (
                 <p
                   style={{
-                    marginTop: "0.6rem",
-                    fontSize: "0.8rem",
-                    color: "var(--c-ink, #f0ede8)",
+                    marginTop: "0.75rem",
+                    fontSize: "0.82rem",
+                    color: "var(--c-ink)",
                     lineHeight: 1.5,
                     marginBottom: 0,
                     fontStyle: "italic",
-                    background: "rgba(0,0,0,0.3)",
+                    background: "var(--c-surface-3, rgba(0,0,0,0.3))",
                     padding: "8px 12px",
                     borderRadius: "8px",
                     borderLeft: "2px solid var(--c-gold, #3b82f6)",
                   }}
                 >
-                  "{aiAdvice}"
+                  &ldquo;{aiAdvice}&rdquo;
                 </p>
               )}
             </div>
           )}
 
-          {/* Section 5: Rincian Kalkulasi Volume & Harga */}
           <div
             style={{
               background: "var(--c-surface-2, #181e1c)",
@@ -923,24 +870,24 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
               padding: "1rem 1.25rem",
             }}
           >
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.82rem", marginBottom: "0.75rem" }}>
-              <div>
-                <span style={{ color: "var(--c-ink-dim)" }}>Total Wadah:</span>
-                <strong style={{ color: "var(--c-ink)", marginLeft: 6 }}>{totalCapacityMl} ml</strong>
+            <div className="pos-mix-summary-grid">
+              <div className="pos-mix-summary-cell">
+                <span style={{ color: "var(--pos-muted)" }}>Total Wadah</span>
+                <strong style={{ color: "var(--c-ink)" }}>{totalCapacityMl} ml</strong>
               </div>
-              <div>
-                <span style={{ color: "var(--c-ink-dim)" }}>Total Bibit:</span>
-                <strong style={{ color: "var(--c-gold-light, #60a5fa)", marginLeft: 6 }}>
+              <div className="pos-mix-summary-cell">
+                <span style={{ color: "var(--pos-muted)" }}>Total Bibit</span>
+                <strong style={{ color: "var(--pos-accent-text)" }}>
                   {totalBibitMl} ml ({bibitRatioPercent}%)
                 </strong>
               </div>
-              <div>
-                <span style={{ color: "var(--c-ink-dim)" }}>Pelarut (Absolute):</span>
-                <strong style={{ color: "#34d399", marginLeft: 6 }}>{totalSolventMl} ml (Gratis)</strong>
+              <div className="pos-mix-summary-cell">
+                <span style={{ color: "var(--pos-muted)" }}>Pelarut (Absolute)</span>
+                <strong style={{ color: "var(--pos-success)" }}>{totalSolventMl} ml (Gratis)</strong>
               </div>
-              <div>
-                <span style={{ color: "var(--c-ink-dim)" }}>Biaya Botol:</span>
-                <strong style={{ color: "var(--c-ink)", marginLeft: 6 }}>{formatRupiah(bottlePrice)}</strong>
+              <div className="pos-mix-summary-cell">
+                <span style={{ color: "var(--pos-muted)" }}>Biaya Botol</span>
+                <strong style={{ color: "var(--c-ink)" }}>{formatRupiah(bottlePrice)}</strong>
               </div>
             </div>
 
@@ -951,14 +898,15 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 alignItems: "center",
                 borderTop: "1px solid var(--c-border)",
                 paddingTop: "0.75rem",
+                gap: "0.5rem",
               }}
             >
-              <span style={{ fontSize: "0.9rem", color: "var(--c-ink-muted)" }}>Total Harga Racikan:</span>
+              <span style={{ fontSize: "0.9rem", color: "var(--pos-muted)" }}>Total Harga Racikan:</span>
               <span
                 style={{
                   fontSize: "1.4rem",
                   fontWeight: 800,
-                  color: "var(--c-gold-light, #60a5fa)",
+                  color: "var(--pos-accent-text)",
                   fontFamily: "var(--font-display, serif)",
                 }}
               >
@@ -968,103 +916,54 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
           </div>
         </div>
 
-        {/* Modal Footer */}
-        <div
-          style={{
-            padding: "1rem 1.5rem",
-            borderTop: "1px solid var(--c-border)",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "0.75rem",
-            background: "var(--c-surface-1, #111614)",
-          }}
-        >
+        <div className="pos-modal-footer">
           <button
             type="button"
             onClick={onClose}
-            style={{
-              padding: "0.65rem 1.25rem",
-              background: "transparent",
-              border: "1px solid var(--c-border)",
-              color: "var(--c-ink-muted)",
-              borderRadius: "10px",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-            }}
+            className="pos-btn-secondary"
+            style={{ fontSize: "0.875rem" }}
           >
             Batal
           </button>
           <button
             type="button"
+            disabled={cannotAddWithoutBottle}
             onClick={handleAdd}
+            className="pos-btn-primary"
             style={{
-              padding: "0.65rem 1.5rem",
-              background: "linear-gradient(135deg, var(--c-gold, #3b82f6) 0%, #1e40af 100%)",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: "10px",
-              cursor: "pointer",
+              padding: "0.65rem 1.35rem",
               fontSize: "0.875rem",
               fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              boxShadow: "0 6px 20px -4px rgba(59, 130, 246, 0.4)",
+              opacity: cannotAddWithoutBottle ? 0.5 : 1,
+              boxShadow: "0 6px 20px -4px rgba(37, 99, 235, 0.4)",
             }}
           >
             <span>Tambah ke Bill Kasir</span>
-            <ArrowRight size={16} />
+            <ArrowRight size={16} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Sub-Modal: Centered Dialog Picker Bibit #2 */}
         {showBibit2Picker && (
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0, 0, 0, 0.8)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 300,
-              padding: "1rem",
+            className="pos-modal-overlay"
+            style={{ zIndex: 300 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pos-bibit2-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeBibit2Picker();
             }}
           >
-            <div
-              style={{
-                width: "100%",
-                maxWidth: "540px",
-                maxHeight: "82vh",
-                background: "var(--c-surface-1, #111614)",
-                border: "1px solid var(--c-border-mid)",
-                borderRadius: "18px",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                boxShadow: "0 25px 60px rgba(0,0,0,0.9)",
-              }}
-            >
-              {/* Header Picker */}
-              <div
-                style={{
-                  padding: "1.25rem 1.5rem",
-                  borderBottom: "1px solid var(--c-border)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
+            <div ref={bibit2CardRef} tabIndex={-1} className="pos-modal-card pos-bibit2-modal-card">
+              <div className="pos-modal-header">
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Search size={18} color="var(--c-gold, #3b82f6)" />
+                  <Search size={18} aria-hidden="true" color="var(--pos-accent-text)" />
                   <h3
+                    id="pos-bibit2-title"
                     style={{
                       fontSize: "1.15rem",
                       fontWeight: 600,
-                      color: "var(--c-ink, #ffffff)",
+                      color: "var(--c-ink)",
                       margin: 0,
                       fontFamily: "var(--font-display, serif)",
                     }}
@@ -1074,29 +973,24 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowBibit2Picker(false);
-                    if (!bibit2) setHasBibit2(false);
-                  }}
-                  style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "none",
-                    color: "var(--c-ink-muted)",
-                    cursor: "pointer",
-                    padding: "6px",
-                    borderRadius: "6px",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
+                  onClick={closeBibit2Picker}
+                  aria-label="Tutup pilihan bibit kedua"
+                  className="pos-modal-close-btn"
                 >
-                  <X size={18} />
+                  <X size={18} aria-hidden="true" />
                 </button>
               </div>
 
-              {/* Filter Tabs & Search */}
-              <div style={{ padding: "1rem 1.5rem 0.5rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {/* Collection Filter Tabs */}
-                <div style={{ display: "flex", gap: "6px" }}>
+              <div
+                style={{
+                  padding: "0.9rem 1.25rem 0.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                  flexShrink: 0,
+                }}
+              >
+                <div className="pos-bibit2-tabs" role="group" aria-label="Filter koleksi bibit kedua">
                   {[
                     { id: "all", label: "Semua" },
                     { id: "Global Parfume", label: "Global Parfume" },
@@ -1108,17 +1002,8 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                         key={tab.id}
                         type="button"
                         onClick={() => setBibit2Category(tab.id as any)}
-                        style={{
-                          padding: "5px 12px",
-                          borderRadius: "999px",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          border: isActive ? "1px solid var(--c-gold, #3b82f6)" : "1px solid var(--c-border)",
-                          background: isActive ? "var(--c-gold-dim, rgba(59, 130, 246, 0.15))" : "var(--c-surface-2)",
-                          color: isActive ? "var(--c-gold-light, #60a5fa)" : "var(--c-ink-muted)",
-                          transition: "all 0.15s ease",
-                        }}
+                        aria-pressed={isActive}
+                        className={`pos-bibit2-tab ${isActive ? "is-active" : ""}`}
                       >
                         {tab.label}
                       </button>
@@ -1126,40 +1011,31 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                   })}
                 </div>
 
-                {/* Search Input */}
                 <input
+                  ref={bibit2SearchRef}
                   type="text"
+                  aria-label="Ketik nama aroma bibit kedua"
                   placeholder="Ketik nama aroma bibit..."
                   value={bibit2Search}
                   onChange={(e) => setBibit2Search(e.target.value)}
-                  autoFocus
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    backgroundColor: "var(--c-bg, #0a0c0b)",
-                    border: "1px solid var(--c-border)",
-                    borderRadius: "10px",
-                    color: "var(--c-ink, #ffffff)",
-                    fontSize: "0.9rem",
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
+                  className="pos-text-input"
                 />
               </div>
 
-              {/* Bibits List */}
               <div
                 style={{
                   flex: 1,
+                  minHeight: 0,
                   overflowY: "auto",
-                  padding: "0.5rem 1.5rem 1.5rem",
+                  padding: "0.5rem 1.25rem 1.25rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.5rem",
+                  WebkitOverflowScrolling: "touch",
                 }}
               >
                 {filteredBibit2.length === 0 ? (
-                  <div style={{ padding: "2rem", textAlign: "center", color: "var(--c-ink-dim)", fontSize: "0.85rem" }}>
+                  <div style={{ padding: "2rem", textAlign: "center", color: "var(--pos-muted)", fontSize: "0.85rem" }}>
                     Tidak ada bibit yang cocok dengan pencarian.
                   </div>
                 ) : (
@@ -1171,39 +1047,24 @@ Berikan rekomendasi persentase bibit vs pelarut terbaik untuk racikan custom aga
                         setBibit2(b);
                         setShowBibit2Picker(false);
                       }}
-                      style={{
-                        padding: "0.8rem 1rem",
-                        borderRadius: "10px",
-                        background: "var(--c-surface-2, #181e1c)",
-                        border: "1px solid var(--c-border)",
-                        color: "var(--c-ink, #ffffff)",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "var(--c-gold, #3b82f6)";
-                        e.currentTarget.style.transform = "translateX(2px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "var(--c-border)";
-                        e.currentTarget.style.transform = "none";
-                      }}
+                      className="pos-card pos-card--bibit pos-bibit2-row"
                     >
-                      <div>
-                        <span style={{ fontSize: "0.9rem", fontWeight: 600, display: "block" }}>{b.name}</span>
-                        <span style={{ fontSize: "0.75rem", color: "var(--c-ink-muted)" }}>
-                          {b.collection} • Stok: <strong style={{ color: "#34d399" }}>{b.stock_ml.toLocaleString("id-ID")} ml</strong>
+                      <span style={{ minWidth: 0, display: "block", textAlign: "left" }}>
+                        <span style={{ fontSize: "0.9rem", fontWeight: 600, display: "block", color: "var(--c-ink)" }}>
+                          {b.name}
                         </span>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--c-gold-light, #60a5fa)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--pos-muted)", display: "block" }}>
+                          {b.collection} • Stok:{" "}
+                          <strong style={{ color: "var(--pos-success)" }}>
+                            {b.stock_ml.toLocaleString("id-ID")} ml
+                          </strong>
+                        </span>
+                      </span>
+                      <span style={{ textAlign: "right", flexShrink: 0, display: "block" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--pos-accent-text)" }}>
                           {formatRupiah(b.price_per_ml)}/ml
                         </span>
-                      </div>
+                      </span>
                     </button>
                   ))
                 )}
